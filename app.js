@@ -210,8 +210,8 @@ const Cloud = {
   async resetPin(member, pin) { return this.ok(await this.sb.rpc("reset_pin", { p_member: member, p_pin: pin })); },
   // Notifiche: invio "spara e dimentica", un errore qui non deve mai bloccare l'app.
   notify(event, id) { this.sb.functions.invoke("notifiche", { body: { type: "event", event, id } }).catch(() => {}); },
-  async notifyTest() { const { data, error } = await this.sb.functions.invoke("notifiche", { body: { type: "test" } }); if (error) throw error; return data; },
-  async vapidKey() { const { data, error } = await this.sb.functions.invoke("notifiche", { body: { type: "vapid" } }); if (error) throw error; return data.publicKey; },
+  async notifyTest() { const { data, error } = await this.sb.functions.invoke("notifiche", { body: { type: "test" } }); if (error) throw new Error(await functionError(error, "notifiche")); return data; },
+  async vapidKey() { const { data, error } = await this.sb.functions.invoke("notifiche", { body: { type: "vapid" } }); if (error) throw new Error(await functionError(error, "notifiche")); return data.publicKey; },
   async savePush(sub) { const j = sub.toJSON(); this.ok(await this.sb.rpc("save_push", { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth })); },
   async dropPush(endpoint) { await this.sb.rpc("drop_push", { p_endpoint: endpoint }); },
   pushEnabled: true,
@@ -233,11 +233,7 @@ const Cloud = {
   removeChannel(ch) { this.sb.removeChannel(ch); },
   async ask(message, mode) {
     const { data, error } = await this.sb.functions.invoke("assistente", { body: { message, mode } });
-    if (error) {
-      let msg = error.message;
-      try { msg = (await error.context.json()).error || msg; } catch { /* risposta non JSON */ }
-      throw new Error(msg);
-    }
+    if (error) throw new Error(await functionError(error, "assistente"));
     return data;
   },
   filesEnabled: true,
@@ -368,6 +364,19 @@ const Local = {
 };
 
 const api = CLOUD ? Cloud : Local;
+
+// Traduce l'errore di una Edge Function in qualcosa che dice cosa sistemare su Supabase.
+async function functionError(error, fn) {
+  const status = error.context?.status;
+  let body = null;
+  try { body = await error.context.json(); } catch { /* risposta non JSON */ }
+  if (body?.error && body.error !== "Invalid JWT" && !body.msg) return body.error;
+  if (status === 404) return `la funzione «${fn}» non esiste su Supabase: va creata in Edge Functions con questo nome esatto.`;
+  if (status === 401) return `Supabase blocca la funzione «${fn}»: apri la funzione, scheda Details, spegni «Verify JWT» e salva.`;
+  if (status === 546 || status === 504) return "la risposta ha richiesto troppo tempo. Riprova con una domanda più semplice.";
+  if (error.name === "FunctionsFetchError") return "non riesco a raggiungere Supabase. Controlla la connessione e riprova.";
+  return `${body?.error || body?.msg || body?.message || error.message}${status ? ` (codice ${status})` : ""}`;
+}
 
 // ───────────────────────── Stato ─────────────────────────
 

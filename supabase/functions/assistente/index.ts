@@ -74,14 +74,28 @@ Deno.serve(async (req) => {
     return json({ reply });
   } catch (err) {
     console.error(err);
-    const msg = err instanceof Anthropic.APIError
-      ? `Errore dal servizio AI (${err.status}). Riprova tra poco.`
-      : "Qualcosa è andato storto. Riprova tra poco.";
+    const msg = explainError(err);
     // L'errore finisce nella chat dell'assistente solo se non era una conversazione privata.
     if (!privateMode) await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: msg });
     return json({ error: msg }, 500);
   }
 });
+
+// Messaggio d'errore che dice cosa sistemare, invece di un generico «errore».
+function explainError(err: unknown): string {
+  if (err instanceof Anthropic.APIError) {
+    const detail = String((err as { error?: { error?: { message?: string } } }).error?.error?.message ?? err.message ?? "");
+    if (!Deno.env.get("ANTHROPIC_API_KEY")) return "Manca la chiave di Claude: aggiungi ANTHROPIC_API_KEY in Supabase → Edge Functions → Secrets.";
+    if (err.status === 401) return "La chiave di Claude (ANTHROPIC_API_KEY) non è valida: ricopiala da console.anthropic.com → API Keys.";
+    if (err.status === 403) return "La chiave di Claude non ha i permessi per questa richiesta. Controlla l'account su console.anthropic.com.";
+    if (/credit balance|billing|purchase credits/i.test(detail)) return "Il credito Claude è finito o non è mai stato caricato: ricaricalo su console.anthropic.com → Billing.";
+    if (err.status === 429) return "Troppe richieste a Claude in poco tempo. Riprova tra un minuto.";
+    if (err.status === 529 || (err.status ?? 0) >= 500) return "Claude è sovraccarico in questo momento. Riprova tra poco.";
+    return `Errore dal servizio AI (${err.status}): ${detail.slice(0, 200)}`;
+  }
+  if (!Deno.env.get("ANTHROPIC_API_KEY")) return "Manca la chiave di Claude: aggiungi ANTHROPIC_API_KEY in Supabase → Edge Functions → Secrets.";
+  return `Qualcosa è andato storto: ${String((err as Error)?.message ?? err).slice(0, 200)}`;
+}
 
 // ───────────────────────── Contesto del gruppo ─────────────────────────
 
