@@ -42,19 +42,19 @@ Deno.serve(async (req) => {
     const text = String(message ?? "").trim().slice(0, 4000);
     if (!text) return json({ error: "Messaggio vuoto" }, 400);
 
-    await db.from("messages").insert({ member_id: device.member_id, role: "user", content: text });
+    await db.from("messages").insert({ member_id: device.member_id, role: "user", channel: "assistente", content: text });
 
     const ctx = await loadContext(device.member_id);
     const reply = await runAssistant(ctx, text);
 
-    await db.from("messages").insert({ member_id: null, role: "assistant", content: reply });
+    await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: reply });
     return json({ reply });
   } catch (err) {
     console.error(err);
     const msg = err instanceof Anthropic.APIError
       ? `Errore dal servizio AI (${err.status}). Riprova tra poco.`
       : "Qualcosa è andato storto. Riprova tra poco.";
-    await db.from("messages").insert({ member_id: null, role: "assistant", content: `⚠️ ${msg}` });
+    await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: msg });
     return json({ error: msg }, 500);
   }
 });
@@ -70,18 +70,20 @@ interface Ctx {
 }
 
 async function loadContext(memberId: string): Promise<Ctx> {
-  const [trip, members, priv, polls, options, votes, bookings, expenses, itinerary, checklist, msgs] = await Promise.all([
+  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores] = await Promise.all([
     db.from("trip").select("name,destination,start_date,end_date,invite_code,notes").eq("id", 1).single(),
-    db.from("members").select("id,name,emoji,rsvp,phone,diet,allergies,preferences,car_seats,departure_city,is_admin").order("created_at"),
+    db.from("members").select("id,name,rsvp,phone,diet,allergies,preferences,car_seats,departure_city,ride_with,paypal,iban,satispay,is_admin").order("created_at"),
     db.from("member_private").select("*"),
     db.from("polls").select("*").order("created_at"),
     db.from("poll_options").select("*").order("created_at"),
     db.from("votes").select("option_id,member_id"),
     db.from("bookings").select("*").order("start_at", { nullsFirst: false }),
     db.from("expenses").select("*").order("spent_on"),
+    db.from("payment_requests").select("*").order("created_at"),
     db.from("itinerary").select("*").order("day").order("time"),
     db.from("checklist").select("*").order("created_at"),
-    db.from("messages").select("member_id,role,content,created_at").order("created_at", { ascending: false }).limit(30),
+    db.from("messages").select("member_id,role,content,created_at").eq("channel", "assistente").order("created_at", { ascending: false }).limit(30),
+    db.from("scores").select("member_id,game,score,day").order("created_at", { ascending: false }).limit(200),
   ]);
 
   const m: Row[] = members.data ?? [];
@@ -101,25 +103,29 @@ async function loadContext(memberId: string): Promise<Ctx> {
 
   const balances = new Map<string, number>(m.map((x) => [x.id, 0]));
   for (const e of expenses.data ?? []) {
-    balances.set(e.paid_by, (balances.get(e.paid_by) ?? 0) + Number(e.amount));
-    const share = Number(e.amount) / Math.max(1, e.split_among.length);
-    for (const id of e.split_among) balances.set(id, (balances.get(id) ?? 0) - share);
+    for (const [id, v] of Object.entries(e.payers ?? {})) balances.set(id, (balances.get(id) ?? 0) + Number(v));
+    for (const [id, v] of Object.entries(e.owed ?? {})) balances.set(id, (balances.get(id) ?? 0) - Number(v));
   }
+  const fmtMap = (o: Row) => Object.entries(o ?? {}).map(([id, v]) => `${name(id)} ${Number(v).toFixed(2)}€`).join(", ");
+  const paidIds = (r: Row) => new Set((expenses.data ?? []).filter((e) => e.request_id === r.id).flatMap((e) => Object.keys(e.payers ?? {})));
 
   const snapshot = [
     `VIAGGIO: ${JSON.stringify(trip.data)}`,
-    `MEMBRI (${m.length}):\n${m.map((x) => `- ${x.emoji} ${x.name}${x.is_admin ? " [organizzatore]" : ""} · partecipa: ${x.rsvp}` +
+    `MEMBRI (${m.length}):\n${m.map((x) => `- ${x.name}${x.is_admin ? " [organizzatore]" : ""} · partecipa: ${x.rsvp}` +
       `${x.departure_city ? ` · parte da ${x.departure_city}` : ""}${x.car_seats ? ` · auto con ${x.car_seats} posti liberi` : ""}` +
       `${x.diet ? ` · dieta: ${x.diet}` : ""}${x.allergies ? ` · allergie: ${x.allergies}` : ""}${x.preferences ? ` · preferenze: ${x.preferences}` : ""}` +
-      `${x.phone ? ` · tel ${x.phone}` : ""}`).join("\n")}`,
+      `${x.ride_with ? ` · in auto con ${name(x.ride_with)}` : ""}${x.phone ? ` · tel ${x.phone}` : ""}` +
+      `${x.paypal ? ` · paypal.me/${x.paypal}` : ""}${x.iban ? ` · IBAN ${x.iban}` : ""}${x.satispay ? ` · Satispay ${x.satispay}` : ""}`).join("\n")}`,
     privRows.length
       ? `DATI PERSONALI RISERVATI (usali solo per compilare prenotazioni/registrazioni per chi te lo chiede e ne ha diritto):\n${privRows.map((p) => `- ${name(p.member_id)}: ${JSON.stringify({ ...p, member_id: undefined, updated_at: undefined })}`).join("\n")}`
       : "DATI PERSONALI RISERVATI: non disponibili per chi sta chiedendo.",
     `SONDAGGI:\n${pollText || "(nessuno)"}`,
     `PRENOTAZIONI:\n${(bookings.data ?? []).map((b) => `- [booking_id ${b.id}] ${JSON.stringify({ ...b, id: undefined, created_at: undefined, created_by: undefined, paid_by: b.paid_by ? name(b.paid_by) : null })}`).join("\n") || "(nessuna)"}`,
     `PROGRAMMA:\n${(itinerary.data ?? []).map((i) => `- ${i.day ?? "?"} ${i.time ?? ""} ${i.title}${i.place ? ` @ ${i.place}` : ""}${i.notes ? ` (${i.notes})` : ""}`).join("\n") || "(vuoto)"}`,
-    `SPESE:\n${(expenses.data ?? []).map((e) => `- ${e.spent_on} ${e.title}: ${e.amount}€ pagato da ${name(e.paid_by)}, diviso tra ${e.split_among.map(name).join(", ")}`).join("\n") || "(nessuna)"}`,
+    `SPESE E PAGAMENTI:\n${(expenses.data ?? []).map((e) => `- ${e.spent_on} ${e.kind === "payment" ? "[pagamento] " : ""}${e.title}: ${e.amount}€ · pagato da: ${fmtMap(e.payers)} · a carico di: ${fmtMap(e.owed)}`).join("\n") || "(nessuna)"}`,
+    `QUOTE RICHIESTE:\n${(requests.data ?? []).map((r) => `- ${r.title}: ${r.amount}€ a testa da versare a ${name(r.pay_to)}${r.due_date ? ` entro ${r.due_date}` : ""} · mancano: ${(r.debtors ?? []).filter((id: string) => id !== r.pay_to && !paidIds(r).has(id)).map(name).join(", ") || "nessuno"}`).join("\n") || "(nessuna)"}`,
     `SALDI (positivo = deve ricevere):\n${[...balances].map(([id, v]) => `- ${name(id)}: ${v.toFixed(2)}€`).join("\n")}`,
+    `GIOCHI (ultimi punteggi; sudoku = secondi, meno è meglio; fuochi = punti):\n${(scores.data ?? []).slice(0, 40).map((x) => `- ${x.day} ${name(x.member_id)} ${x.game}: ${x.score}`).join("\n") || "(nessuno)"}`,
     `CHECKLIST:\n${(checklist.data ?? []).map((c) => `- [${c.done ? "x" : " "}] ${c.text}${c.assignee ? ` → ${name(c.assignee)}` : ""}`).join("\n") || "(vuota)"}`,
   ].join("\n\n");
 
@@ -203,18 +209,37 @@ const tools = [
   },
   {
     name: "registra_spesa",
-    description: "Registra una spesa condivisa. Se non specificato, si divide tra tutti i membri che partecipano.",
+    description: "Registra una spesa condivisa, come in Splitwise. Uno o più pagatori; divisione uguale (default, tra chi partecipa), per importi, per percentuali o per quote. Per un rimborso o un pagamento tra due persone usa tipo = pagamento con un solo pagatore e un solo beneficiario in partecipanti.",
     input_schema: {
       type: "object",
       properties: {
         titolo: { type: "string" },
         importo_eur: { type: "number" },
-        pagato_da: { type: "string", description: "Nome del membro" },
-        diviso_tra: { type: "array", items: { type: "string" }, description: "Nomi dei membri" },
-        categoria: { type: "string" },
+        tipo: { type: "string", enum: ["spesa", "pagamento"] },
+        pagatori: { type: "array", description: "Chi ha pagato e quanto. Se paga una sola persona basta il nome.", items: { type: "object", properties: { nome: { type: "string" }, importo_eur: { type: "number" } }, required: ["nome"] } },
+        divisione: { type: "string", enum: ["uguale", "importi", "percentuali", "quote"] },
+        partecipanti: { type: "array", description: "Tra chi si divide. valore = euro, percentuale o quota a seconda della divisione (ignorato se uguale).", items: { type: "object", properties: { nome: { type: "string" }, valore: { type: "number" } }, required: ["nome"] } },
+        categoria: { type: "string", enum: ["alloggio", "viaggio", "cibo", "drink", "spesa", "serata", "attivita", "auto", "altro"] },
         data: { type: "string", description: "YYYY-MM-DD" },
+        nota: { type: "string" },
       },
-      required: ["titolo", "importo_eur", "pagato_da"],
+      required: ["titolo", "importo_eur", "pagatori"],
+    },
+  },
+  {
+    name: "richiedi_quota",
+    description: "Chiede a più persone di versare la stessa quota a qualcuno (es. acconto dell'alloggio). Ognuno potrà pagare dall'app.",
+    input_schema: {
+      type: "object",
+      properties: {
+        titolo: { type: "string" },
+        importo_a_testa_eur: { type: "number" },
+        da_versare_a: { type: "string", description: "Nome del membro che riceve" },
+        chi_paga: { type: "array", items: { type: "string" }, description: "Nomi; se vuoto, tutti quelli che partecipano" },
+        entro: { type: "string", description: "YYYY-MM-DD" },
+        nota: { type: "string" },
+      },
+      required: ["titolo", "importo_a_testa_eur", "da_versare_a"],
     },
   },
   {
@@ -256,6 +281,18 @@ const tools = [
     },
   },
 ];
+
+// Ripartisce centesimi secondo dei pesi (resti maggiori): la somma torna sempre esatta.
+function allocate(totalCents: number, weights: Record<string, number>): Record<string, number> {
+  const ids = Object.keys(weights).filter((id) => weights[id] > 0);
+  const W = ids.reduce((s, id) => s + weights[id], 0);
+  if (!ids.length || W <= 0) return {};
+  const raw = ids.map((id) => ({ id, v: totalCents * weights[id] / W, f: 0 }));
+  raw.forEach((r) => { r.f = Math.floor(r.v); });
+  let rest = totalCents - raw.reduce((s, r) => s + r.f, 0);
+  raw.sort((a, b) => (b.v - b.f) - (a.v - a.f)).forEach((r) => { if (rest > 0) { r.f++; rest--; } });
+  return Object.fromEntries(raw.map((r) => [r.id, r.f / 100]));
+}
 
 const clean = (o: Row) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ""));
 
@@ -300,15 +337,49 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
       return `Prenotazione salvata (booking_id ${b.id}).`;
     }
     case "registra_spesa": {
-      const payer = who(input.pagato_da);
-      if (!payer) return `Non trovo il membro «${input.pagato_da}». Membri: ${ctx.members.map((m) => m.name).join(", ")}.`;
-      let split = (input.diviso_tra ?? []).map(who).filter(Boolean) as string[];
-      if (!split.length) split = ctx.members.filter((m) => m.rsvp !== "no").map((m) => m.id);
+      const total = Math.round(Number(input.importo_eur) * 100);
+      if (!(total > 0)) return "Importo non valido.";
+      const missing = (list: Row[]) => list.map((x) => x.nome).filter((n) => !who(n));
+      const payersIn: Row[] = input.pagatori ?? [];
+      if (missing(payersIn).length) return `Non trovo: ${missing(payersIn).join(", ")}. Membri: ${ctx.members.map((m) => m.name).join(", ")}.`;
+      let payers: Record<string, number>;
+      if (payersIn.length === 1 && payersIn[0].importo_eur == null) payers = { [who(payersIn[0].nome)!]: total / 100 };
+      else {
+        payers = Object.fromEntries(payersIn.map((p) => [who(p.nome)!, Math.round(Number(p.importo_eur) * 100) / 100]));
+        const sum = Object.values(payers).reduce((s, v) => s + Math.round(v * 100), 0);
+        if (sum !== total) return `I pagatori sommano ${(sum / 100).toFixed(2)}€ invece di ${(total / 100).toFixed(2)}€.`;
+      }
+      const partsIn: Row[] = input.partecipanti ?? [];
+      if (missing(partsIn).length) return `Non trovo: ${missing(partsIn).join(", ")}.`;
+      const mode = ({ uguale: "equal", importi: "exact", percentuali: "percent", quote: "shares" } as Row)[input.divisione ?? "uguale"] ?? "equal";
+      const ids = partsIn.length ? partsIn.map((p) => who(p.nome)!) : ctx.members.filter((m) => m.rsvp !== "no").map((m) => m.id);
+      const weights: Record<string, number> = Object.fromEntries(ids.map((id, i) => [id, mode === "equal" ? 1 : Number(partsIn[i]?.valore) || 0]));
+      let owed: Record<string, number>;
+      if (mode === "exact") {
+        owed = Object.fromEntries(Object.entries(weights).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.round(v * 100) / 100]));
+        const sum = Object.values(owed).reduce((s, v) => s + Math.round(v * 100), 0);
+        if (sum !== total) return `Gli importi sommano ${(sum / 100).toFixed(2)}€ invece di ${(total / 100).toFixed(2)}€.`;
+      } else {
+        if (mode === "percent" && Math.abs(Object.values(weights).reduce((s, v) => s + v, 0) - 100) > 0.01) return "Le percentuali devono fare 100.";
+        owed = allocate(total, weights);
+      }
+      if (!Object.keys(owed).length) return "Nessun partecipante valido.";
+      const isPay = input.tipo === "pagamento";
       must(await db.from("expenses").insert(clean({
-        title: input.titolo, amount: input.importo_eur, paid_by: payer, split_among: split,
-        category: input.categoria, spent_on: input.data, created_by: ctx.me.id,
+        title: input.titolo, amount: total / 100, kind: isPay ? "payment" : "expense", category: input.categoria ?? "altro",
+        payers, owed, split_mode: mode, split_input: weights, spent_on: input.data, note: input.nota, created_by: ctx.me.id,
       })));
-      return `Spesa registrata, divisa tra ${split.length} persone.`;
+      return `${isPay ? "Pagamento" : "Spesa"} registrat${isPay ? "o" : "a"}: ${Object.keys(owed).length} persone coinvolte.`;
+    }
+    case "richiedi_quota": {
+      const to = who(input.da_versare_a);
+      if (!to) return `Non trovo il membro «${input.da_versare_a}».`;
+      let debtors = (input.chi_paga ?? []).map(who).filter(Boolean) as string[];
+      if (!debtors.length) debtors = ctx.members.filter((m) => m.rsvp !== "no").map((m) => m.id);
+      must(await db.from("payment_requests").insert(clean({
+        title: input.titolo, amount: input.importo_a_testa_eur, pay_to: to, debtors, due_date: input.entro, note: input.nota, created_by: ctx.me.id,
+      })));
+      return `Quota richiesta a ${debtors.filter((d) => d !== to).length} persone.`;
     }
     case "aggiungi_al_programma": {
       must(await db.from("itinerary").insert(clean({
@@ -335,18 +406,19 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
 
 function systemPrompt(ctx: Ctx): string {
   const now = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", dateStyle: "full", timeStyle: "short" });
-  return `Sei l'assistente di un gruppo di amici che organizza insieme una vacanza di 3 giorni a Capodanno. Rispondi in italiano, in modo caldo, pratico e conciso: i messaggi si leggono su iPhone, quindi usa paragrafi brevi ed elenchi puntati, niente tabelle.
+  return `Sei l'assistente di un gruppo di amici che organizza insieme una vacanza di 3 giorni a Capodanno. Rispondi in italiano, in modo caldo, pratico e conciso: i messaggi si leggono su iPhone, quindi usa paragrafi brevi ed elenchi puntati, niente tabelle e niente emoji.
 
-Oggi è ${now} (ora italiana). A scriverti ora è ${ctx.me.name}${ctx.me.is_admin ? " (l'organizzatore)" : ""}. La chat è condivisa: tutti i membri vedono domande e risposte.
+Oggi è ${now} (ora italiana). A scriverti ora è ${ctx.me.name}${ctx.me.is_admin ? " (l'organizzatore)" : ""}. La chat con te è condivisa: tutti i membri vedono domande e risposte. L'app ha anche una chat di gruppo tra persone e due giochi con classifica (Sudoku del giorno e Fuochi).
 
 Cosa sai fare:
 - Cercare sul web (prezzi, disponibilità indicative, eventi di Capodanno, ristoranti, meteo, orari dei treni, voli) e citare i link delle fonti.
 - Proporre idee e trasformarle in sondaggi (crea_sondaggio / aggiungi_opzione) così il gruppo vota. Quando il gruppo non ha ancora deciso qualcosa, il tuo lavoro è aiutare a decidere con opzioni concrete, con prezzo indicativo a persona e link.
-- Tenere in ordine prenotazioni, programma, spese e checklist con gli strumenti. Quando qualcuno dice di aver pagato o prenotato qualcosa, registralo.
+- Tenere in ordine prenotazioni, programma, spese (anche con più pagatori e divisioni per importi, percentuali o quote), quote da versare e checklist. Quando qualcuno dice di aver pagato o prenotato qualcosa, registralo.
+- Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
 
 Regole importanti:
-- Non puoi pagare né creare account sui siti: prepari tutto e dai il link diretto; il pagamento lo fa una persona, con la propria carta o Apple Pay. Se qualcuno ti chiede di pagare, spiegalo in una frase e prepara quello che serve.
+- Non puoi pagare né creare account sui siti. Per pagare una prenotazione l'organizzatore usa Claude in Chrome con la carta salvata nel proprio browser: dall'app, nella prenotazione, c'è il pulsante «Prenota e paga con Claude in Chrome» che prepara le istruzioni. Tra amici si paga con i pulsanti PayPal, IBAN o Satispay della sezione Spese. Se qualcuno ti chiede di pagare, spiegalo in una frase e prepara quello che serve (prenotazione con stato da_prenotare, link, dati).
 - Non chiedere mai e non scrivere mai numeri di carta, CVV o password.
 - I dati personali riservati (documenti, codice fiscale, data di nascita, indirizzo) puoi scriverli in chat solo se chi chiede è l'organizzatore o se sono i suoi. La chat è vista da tutti: ricordalo quando li mostri.
 - Prima di salvare, modificare o creare qualcosa nel database, assicurati che sia ciò che è stato chiesto. Dopo, di' in breve cosa hai salvato.

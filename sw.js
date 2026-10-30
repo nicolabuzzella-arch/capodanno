@@ -1,8 +1,8 @@
 /* Capodanno - cache offline.
    Prima la rete (così un aggiornamento si vede subito); la cache serve solo senza connessione.
    I dati del gruppo restano anche offline perché l'app ne tiene una copia sul telefono. */
-const V = "capodanno-v1";
-const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./icon.svg"];
+const V = "capodanno-v2";
+const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./games.js", "./icon.svg"];
 
 self.addEventListener("install", e => {
   self.skipWaiting();

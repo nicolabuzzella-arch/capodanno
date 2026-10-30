@@ -22,7 +22,7 @@ insert into trip (invite_code) values ('CAMBIAMI') on conflict (id) do nothing;
 create table if not exists members (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  emoji text not null default '🙂',
+  color text not null default '#e8e8ec',
   rsvp text not null default 'forse' check (rsvp in ('si', 'forse', 'no')),
   phone text,
   email text,
@@ -33,6 +33,10 @@ create table if not exists members (
   departure_city text,
   emergency_name text,
   emergency_phone text,
+  paypal text,
+  iban text,
+  satispay text,
+  ride_with uuid references members on delete set null,
   is_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -118,15 +122,56 @@ create table if not exists bookings (
   created_at timestamptz not null default now()
 );
 
+create table if not exists payment_requests (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  amount numeric not null check (amount > 0),
+  due_date date,
+  pay_to uuid not null references members on delete cascade,
+  debtors uuid[] not null,
+  note text,
+  created_by uuid references members on delete set null,
+  created_at timestamptz not null default now()
+);
+
+-- Spese in stile Splitwise: payers = chi ha messo i soldi, owed = di chi è la spesa (mappe id membro → euro).
+-- I pagamenti tra persone (saldi, quote) sono righe con kind = 'payment'.
 create table if not exists expenses (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   amount numeric not null check (amount > 0),
-  paid_by uuid not null references members on delete cascade,
-  split_among uuid[] not null,
-  spent_on date not null default current_date,
+  kind text not null default 'expense' check (kind in ('expense', 'payment')),
   category text not null default 'altro',
+  payers jsonb not null,
+  owed jsonb not null,
+  split_mode text not null default 'equal' check (split_mode in ('equal', 'exact', 'percent', 'shares')),
+  split_input jsonb,
+  note text,
+  spent_on date not null default current_date,
+  booking_id uuid references bookings on delete set null,
+  request_id uuid references payment_requests on delete set null,
   created_by uuid references members on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists files (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid references bookings on delete cascade,
+  expense_id uuid references expenses on delete cascade,
+  name text not null,
+  path text not null,
+  size int,
+  created_by uuid references members on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists scores (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references members on delete cascade,
+  game text not null,
+  score int not null,
+  day date not null default current_date,
+  meta jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -154,6 +199,7 @@ create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
   member_id uuid references members on delete set null,
   role text not null check (role in ('user', 'assistant')),
+  channel text not null default 'assistente' check (channel in ('assistente', 'gruppo')),
   content text not null,
   created_at timestamptz not null default now()
 );
@@ -184,11 +230,11 @@ begin
   if not found then return null; end if;
   return json_build_object(
     'name', t.name,
-    'members', coalesce((select json_agg(json_build_object('id', id, 'name', name, 'emoji', emoji) order by created_at) from members), '[]'::json)
+    'members', coalesce((select json_agg(json_build_object('id', id, 'name', name, 'color', color) order by created_at) from members), '[]'::json)
   );
 end $$;
 
-create or replace function join_trip(p_code text, p_name text, p_emoji text, p_pin text) returns uuid
+create or replace function join_trip(p_code text, p_name text, p_color text, p_pin text) returns uuid
 language plpgsql security definer set search_path = public, extensions as $$
 declare new_id uuid;
 begin
@@ -198,8 +244,8 @@ begin
   if length(trim(coalesce(p_name, ''))) < 2 then raise exception 'Scrivi il tuo nome'; end if;
   if exists (select 1 from members where lower(name) = lower(trim(p_name))) then raise exception 'Questo nome è già nel gruppo: torna indietro e tocca il tuo nome'; end if;
 
-  insert into members (name, emoji, is_admin)
-  values (trim(p_name), coalesce(nullif(p_emoji, ''), '🙂'), not exists (select 1 from members))
+  insert into members (name, color, is_admin)
+  values (trim(p_name), coalesce(nullif(p_color, ''), '#e8e8ec'), not exists (select 1 from members))
   returning id into new_id;
 
   insert into member_secrets (member_id, pin_hash) values (new_id, crypt(p_pin, gen_salt('bf')));
@@ -269,6 +315,9 @@ alter table expenses enable row level security;
 alter table itinerary enable row level security;
 alter table checklist enable row level security;
 alter table messages enable row level security;
+alter table payment_requests enable row level security;
+alter table files enable row level security;
+alter table scores enable row level security;
 
 drop policy if exists trip_read on trip;
 create policy trip_read on trip for select using (is_member());
@@ -302,13 +351,20 @@ create policy messages_read on messages for select using (is_member());
 drop policy if exists messages_insert on messages;
 create policy messages_insert on messages for insert with check (role = 'user' and member_id = my_member_id());
 drop policy if exists messages_delete on messages;
-create policy messages_delete on messages for delete using (is_admin());
+create policy messages_delete on messages for delete using (is_admin() or member_id = my_member_id());
+
+drop policy if exists scores_read on scores;
+create policy scores_read on scores for select using (is_member());
+drop policy if exists scores_insert on scores;
+create policy scores_insert on scores for insert with check (member_id = my_member_id());
+drop policy if exists scores_delete on scores;
+create policy scores_delete on scores for delete using (is_admin());
 
 -- Tabelle condivise: chi è nel gruppo può leggere e modificare tutto.
 do $$
 declare t text;
 begin
-  foreach t in array array['polls', 'poll_options', 'bookings', 'expenses', 'itinerary', 'checklist'] loop
+  foreach t in array array['polls', 'poll_options', 'bookings', 'expenses', 'payment_requests', 'files', 'itinerary', 'checklist'] loop
     execute format('drop policy if exists %I on %I', t || '_all', t);
     execute format('create policy %I on %I for all using (is_member()) with check (is_member())', t || '_all', t);
   end loop;
@@ -319,9 +375,23 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['trip', 'members', 'member_private', 'polls', 'poll_options', 'votes', 'bookings', 'expenses', 'itinerary', 'checklist', 'messages'] loop
+  foreach t in array array['trip', 'members', 'member_private', 'polls', 'poll_options', 'votes', 'bookings', 'expenses', 'payment_requests', 'files', 'scores', 'itinerary', 'checklist', 'messages'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = t) then
       execute format('alter publication supabase_realtime add table %I', t);
     end if;
   end loop;
 end $$;
+
+-- ───────────────────────── Documenti (biglietti, scontrini) ─────────────────────────
+-- Cartella privata: si leggono solo da dentro l'app, con link temporanei.
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('documenti', 'documenti', false, 20971520)
+on conflict (id) do nothing;
+
+drop policy if exists documenti_read on storage.objects;
+create policy documenti_read on storage.objects for select using (bucket_id = 'documenti' and public.is_member());
+drop policy if exists documenti_insert on storage.objects;
+create policy documenti_insert on storage.objects for insert with check (bucket_id = 'documenti' and public.is_member());
+drop policy if exists documenti_delete on storage.objects;
+create policy documenti_delete on storage.objects for delete using (bucket_id = 'documenti' and public.is_member());
