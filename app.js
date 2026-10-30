@@ -2095,8 +2095,8 @@ function renderOnboarding() {
       <div class="eyebrow">${esc(P.name)}</div>
       <div class="serif" style="font-size:30px;margin:6px 0 4px">Chi sei?</div>
       ${P.members.length ? `<div class="who-list">${P.members.map(x => `<button data-act="onb-pick" data-id="${x.id}">${avatar(x, "sm")}<span class="grow ellipsis">${esc(x.name)}</span>${x.claimed === false ? `<span class="tiny faint">nuovo</span>` : ""}</button>`).join("")}</div>
-        <div class="tiny faint" style="margin-bottom:14px">Tocca il tuo nome. La prima volta sceglierai il tuo PIN.</div>
-        <button class="link" data-act="onb-new">${ico("plus", 15)}Non sei nella lista? Unisciti</button>`
+        <div class="tiny faint" style="margin-bottom:14px">Già entrato? Tocca il tuo nome. Prima volta? Tocca Unisciti.</div>
+        <button class="btn primary block" data-act="onb-new">${ico("plus", 16)}Prima volta? Unisciti</button>`
       : `<div class="small muted" style="margin:4px 0 16px">Sei il primo: diventerai l'organizzatore e potrai creare i profili degli altri.</div>
         <button class="btn primary block" data-act="onb-new">Inizia</button>`}`;
   } else if (ONB.step === "pin" || ONB.step === "me") {
