@@ -7,7 +7,9 @@ import Anthropic from "npm:@anthropic-ai/sdk@1.3.0";
 import { createClient } from "npm:@supabase/supabase-js@2.117.0";
 
 const MODEL = "claude-opus-5-5";
-const MAX_STEPS = 8;
+const MAX_STEPS = 14;
+// Le Edge Functions gratuite durano al massimo 150 secondi: teniamo un margine per salvare la risposta.
+const TIME_BUDGET_MS = 135_000;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -27,10 +29,18 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 type Row = Record<string, any>;
 
 Deno.serve(async (req) => {
+  let privateMode = false;
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Metodo non supportato" }, 405);
 
   try {
+    // Il punto della situazione del mattino, lanciato dal cron del database.
+    if (req.headers.get("x-cron")) {
+      const { data: secret } = await db.from("app_secrets").select("value").eq("key", "cron").maybeSingle();
+      if (!secret || req.headers.get("x-cron") !== secret.value) return json({ error: "Non autorizzato" }, 401);
+      return json({ ok: await morningBrief() });
+    }
+
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     const { data: auth } = await db.auth.getUser(jwt);
     if (!auth?.user) return json({ error: "Non autenticato" }, 401);
@@ -38,23 +48,37 @@ Deno.serve(async (req) => {
     const { data: device } = await db.from("devices").select("member_id").eq("user_id", auth.user.id).maybeSingle();
     if (!device) return json({ error: "Non fai parte del gruppo" }, 403);
 
-    const { message } = await req.json();
+    const { message, mode } = await req.json();
     const text = String(message ?? "").trim().slice(0, 4000);
     if (!text) return json({ error: "Messaggio vuoto" }, 400);
+
+    // Spazio «Ascolto»: conversazione privata, senza strumenti e senza i dati del gruppo.
+    if (mode === "ascolto") {
+      privateMode = true;
+      const owner = device.member_id;
+      await db.from("messages").insert({ member_id: owner, owner, role: "user", channel: "privato", content: text });
+      const reply = await listen(owner, text);
+      await db.from("messages").insert({ member_id: null, owner, role: "assistant", channel: "privato", content: reply });
+      return json({ reply });
+    }
 
     await db.from("messages").insert({ member_id: device.member_id, role: "user", channel: "assistente", content: text });
 
     const ctx = await loadContext(device.member_id);
     const reply = await runAssistant(ctx, text);
 
-    await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: reply });
+    await db.from("messages").insert({
+      member_id: null, role: "assistant", channel: "assistente", content: reply,
+      meta: ctx.proposals.length ? { actions: ctx.proposals } : null,
+    });
     return json({ reply });
   } catch (err) {
     console.error(err);
     const msg = err instanceof Anthropic.APIError
       ? `Errore dal servizio AI (${err.status}). Riprova tra poco.`
       : "Qualcosa è andato storto. Riprova tra poco.";
-    await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: msg });
+    // L'errore finisce nella chat dell'assistente solo se non era una conversazione privata.
+    if (!privateMode) await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: msg });
     return json({ error: msg }, 500);
   }
 });
@@ -62,6 +86,8 @@ Deno.serve(async (req) => {
 // ───────────────────────── Contesto del gruppo ─────────────────────────
 
 interface Ctx {
+  aiName: string;
+  proposals: Row[];
   me: Row;
   members: Row[];
   byName: Map<string, Row>;
@@ -70,9 +96,9 @@ interface Ctx {
 }
 
 async function loadContext(memberId: string): Promise<Ctx> {
-  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores] = await Promise.all([
-    db.from("trip").select("name,destination,start_date,end_date,invite_code,notes").eq("id", 1).single(),
-    db.from("members").select("id,name,rsvp,phone,diet,allergies,preferences,car_seats,departure_city,ride_with,paypal,iban,satispay,is_admin").order("created_at"),
+  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat] = await Promise.all([
+    db.from("trip").select("name,destination,start_date,end_date,notes,group_notes,ai_name").eq("id", 1).single(),
+    db.from("members").select("id,name,rsvp,phone,diet,allergies,preferences,notes,car_seats,departure_city,ride_with,paypal,iban,satispay,is_admin").order("created_at"),
     db.from("member_private").select("*"),
     db.from("polls").select("*").order("created_at"),
     db.from("poll_options").select("*").order("created_at"),
@@ -84,6 +110,7 @@ async function loadContext(memberId: string): Promise<Ctx> {
     db.from("checklist").select("*").order("created_at"),
     db.from("messages").select("member_id,role,content,created_at").eq("channel", "assistente").order("created_at", { ascending: false }).limit(30),
     db.from("scores").select("member_id,game,score,day").order("created_at", { ascending: false }).limit(200),
+    db.from("messages").select("member_id,content,created_at").eq("channel", "gruppo").order("created_at", { ascending: false }).limit(40),
   ]);
 
   const m: Row[] = members.data ?? [];
@@ -111,9 +138,9 @@ async function loadContext(memberId: string): Promise<Ctx> {
 
   const snapshot = [
     `VIAGGIO: ${JSON.stringify(trip.data)}`,
-    `MEMBRI (${m.length}):\n${m.map((x) => `- ${x.name}${x.is_admin ? " [organizzatore]" : ""} · partecipa: ${x.rsvp}` +
+    `MEMBRI (${m.length}):\n${m.map((x) => `- ${x.name}${x.is_admin ? " [organizzatore]" : ""}` +
       `${x.departure_city ? ` · parte da ${x.departure_city}` : ""}${x.car_seats ? ` · auto con ${x.car_seats} posti liberi` : ""}` +
-      `${x.diet ? ` · dieta: ${x.diet}` : ""}${x.allergies ? ` · allergie: ${x.allergies}` : ""}${x.preferences ? ` · preferenze: ${x.preferences}` : ""}` +
+      `${x.diet ? ` · dieta: ${x.diet}` : ""}${x.allergies ? ` · allergie: ${x.allergies}` : ""}${x.preferences ? ` · preferenze: ${x.preferences}` : ""}${x.notes ? ` · note: ${x.notes}` : ""}` +
       `${x.ride_with ? ` · in auto con ${name(x.ride_with)}` : ""}${x.phone ? ` · tel ${x.phone}` : ""}` +
       `${x.paypal ? ` · paypal.me/${x.paypal}` : ""}${x.iban ? ` · IBAN ${x.iban}` : ""}${x.satispay ? ` · Satispay ${x.satispay}` : ""}`).join("\n")}`,
     privRows.length
@@ -126,6 +153,7 @@ async function loadContext(memberId: string): Promise<Ctx> {
     `QUOTE RICHIESTE:\n${(requests.data ?? []).map((r) => `- ${r.title}: ${r.amount}€ a testa da versare a ${name(r.pay_to)}${r.due_date ? ` entro ${r.due_date}` : ""} · mancano: ${(r.debtors ?? []).filter((id: string) => id !== r.pay_to && !paidIds(r).has(id)).map(name).join(", ") || "nessuno"}`).join("\n") || "(nessuna)"}`,
     `SALDI (positivo = deve ricevere):\n${[...balances].map(([id, v]) => `- ${name(id)}: ${v.toFixed(2)}€`).join("\n")}`,
     `GIOCHI (ultimi punteggi; sudoku = secondi, meno è meglio; fuochi = punti):\n${(scores.data ?? []).slice(0, 40).map((x) => `- ${x.day} ${name(x.member_id)} ${x.game}: ${x.score}`).join("\n") || "(nessuno)"}`,
+    `CHAT DI GRUPPO (ultimi messaggi, per capire il clima e prendere spunto per le battute):\n${(groupChat.data ?? []).slice().reverse().map((x) => `- ${name(x.member_id)}: ${String(x.content).slice(0, 200)}`).join("\n") || "(vuota)"}`,
     `CHECKLIST:\n${(checklist.data ?? []).map((c) => `- [${c.done ? "x" : " "}] ${c.text}${c.assignee ? ` → ${name(c.assignee)}` : ""}`).join("\n") || "(vuota)"}`,
   ].join("\n\n");
 
@@ -133,17 +161,17 @@ async function loadContext(memberId: string): Promise<Ctx> {
   const history = (msgs.data ?? []).slice(1).reverse()
     .map((x) => `${x.role === "assistant" ? "Assistente" : name(x.member_id)}: ${x.content.slice(0, 1500)}`).join("\n");
 
-  return { me, members: m, byName: new Map(m.map((x) => [x.name.toLowerCase(), x])), snapshot, history };
+  return { aiName: trip.data?.ai_name || "Zampone", proposals: [], me, members: m, byName: new Map(m.map((x) => [x.name.toLowerCase(), x])), snapshot, history };
 }
 
 // ───────────────────────── Strumenti ─────────────────────────
 
 const tools = [
-  { type: "web_search_20260209", name: "web_search", max_uses: 6, user_location: { type: "approximate", country: "IT", timezone: "Europe/Rome" } },
-  { type: "web_fetch_20260209", name: "web_fetch", max_uses: 4 },
+  { type: "web_search_20260209", name: "web_search", max_uses: 12, user_location: { type: "approximate", country: "IT", timezone: "Europe/Rome" } },
+  { type: "web_fetch_20260209", name: "web_fetch", max_uses: 8 },
   {
-    name: "crea_sondaggio",
-    description: "Crea un sondaggio per il gruppo, con le opzioni iniziali. Usalo quando il gruppo deve decidere qualcosa (destinazione, date, alloggio, locale…).",
+    name: "proponi_sondaggio",
+    description: "Propone un sondaggio con le opzioni iniziali. NON lo crea: sotto la tua risposta comparirà un pulsante «Crea il sondaggio» che la persona tocca se è d'accordo. Usalo quando il gruppo deve decidere qualcosa.",
     input_schema: {
       type: "object",
       properties: {
@@ -168,8 +196,8 @@ const tools = [
     },
   },
   {
-    name: "aggiungi_opzione",
-    description: "Aggiunge un'opzione a un sondaggio esistente (usa il poll_id dal contesto).",
+    name: "proponi_opzione",
+    description: "Propone di aggiungere un'opzione a un sondaggio esistente (usa il poll_id dal contesto). NON la aggiunge: comparirà un pulsante «Aggiungi» da toccare.",
     input_schema: {
       type: "object",
       properties: {
@@ -294,6 +322,15 @@ function allocate(totalCents: number, weights: Record<string, number>): Record<s
   return Object.fromEntries(raw.map((r) => [r.id, r.f / 100]));
 }
 
+// Chiede alla funzione «notifiche» di avvisare il gruppo. Non blocca mai la risposta.
+function notify(event: string, id: string, actor: string) {
+  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notifiche`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-internal": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+    body: JSON.stringify({ type: "event", event, id, actor }),
+  }).catch((e) => console.error("notify", e));
+}
+
 const clean = (o: Row) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ""));
 
 async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
@@ -304,24 +341,17 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
   };
 
   switch (name) {
-    case "crea_sondaggio": {
-      const poll = must(await db.from("polls").insert({
-        question: input.domanda,
-        description: input.descrizione ?? null,
-        kind: input.scelta_multipla ? "multi" : "single",
-        created_by: ctx.me.id,
-      }).select("id").single()) as Row;
-      const opts = (input.opzioni ?? []).map((o: Row) => ({
-        poll_id: poll.id, label: o.etichetta, details: o.dettagli ?? null, url: o.url ?? null, price: o.prezzo_eur ?? null, added_by: ctx.me.id,
-      }));
-      if (opts.length) must(await db.from("poll_options").insert(opts));
-      return `Sondaggio creato (poll_id ${poll.id}) con ${opts.length} opzioni.`;
+    // Sondaggi e opzioni li propone soltanto: li crea la persona con un tocco nell'app.
+    case "proponi_sondaggio": {
+      ctx.proposals.push({
+        type: "poll", question: String(input.domanda ?? "").slice(0, 140), description: input.descrizione ?? null, multi: !!input.scelta_multipla,
+        options: (input.opzioni ?? []).slice(0, 12).map((o: Row) => clean({ label: o.etichetta, details: o.dettagli, url: o.url, price: o.prezzo_eur })),
+      });
+      return "Proposta pronta: sotto la risposta comparirà il pulsante «Crea il sondaggio». Dillo in una frase, senza dire che l'hai già creato.";
     }
-    case "aggiungi_opzione": {
-      must(await db.from("poll_options").insert({
-        poll_id: input.poll_id, label: input.etichetta, details: input.dettagli ?? null, url: input.url ?? null, price: input.prezzo_eur ?? null, added_by: ctx.me.id,
-      }));
-      return "Opzione aggiunta.";
+    case "proponi_opzione": {
+      ctx.proposals.push(clean({ type: "option", poll_id: input.poll_id, label: input.etichetta, details: input.dettagli, url: input.url, price: input.prezzo_eur }));
+      return "Proposta pronta: comparirà il pulsante «Aggiungi».";
     }
     case "salva_prenotazione": {
       const row = clean({
@@ -329,11 +359,15 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
         start_at: input.inizio, end_at: input.fine, address: input.indirizzo, url: input.url, phone: input.telefono,
         price: input.prezzo_eur, paid_by: who(input.pagato_da), cancel_by: input.cancellazione_gratuita_entro, notes: input.note,
       });
+      const confirmed = ["prenotato", "pagato"].includes(input.stato);
       if (input.booking_id) {
+        const { data: prev } = await db.from("bookings").select("status").eq("id", input.booking_id).maybeSingle();
         must(await db.from("bookings").update(row).eq("id", input.booking_id));
+        if (confirmed && !["prenotato", "pagato"].includes(prev?.status)) notify("booking", input.booking_id, ctx.me.id);
         return "Prenotazione aggiornata.";
       }
       const b = must(await db.from("bookings").insert({ ...row, created_by: ctx.me.id }).select("id").single()) as Row;
+      if (confirmed) notify("booking", b.id, ctx.me.id);
       return `Prenotazione salvata (booking_id ${b.id}).`;
     }
     case "registra_spesa": {
@@ -376,9 +410,10 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
       if (!to) return `Non trovo il membro «${input.da_versare_a}».`;
       let debtors = (input.chi_paga ?? []).map(who).filter(Boolean) as string[];
       if (!debtors.length) debtors = ctx.members.filter((m) => m.rsvp !== "no").map((m) => m.id);
-      must(await db.from("payment_requests").insert(clean({
+      const r = must(await db.from("payment_requests").insert(clean({
         title: input.titolo, amount: input.importo_a_testa_eur, pay_to: to, debtors, due_date: input.entro, note: input.nota, created_by: ctx.me.id,
-      })));
+      })).select("id").single()) as Row;
+      notify("request", r.id, ctx.me.id);
       return `Quota richiesta a ${debtors.filter((d) => d !== to).length} persone.`;
     }
     case "aggiungi_al_programma": {
@@ -406,16 +441,34 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
 
 function systemPrompt(ctx: Ctx): string {
   const now = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", dateStyle: "full", timeStyle: "short" });
-  return `Sei l'assistente di un gruppo di amici che organizza insieme una vacanza di 3 giorni a Capodanno. Rispondi in italiano, in modo caldo, pratico e conciso: i messaggi si leggono su iPhone, quindi usa paragrafi brevi ed elenchi puntati, niente tabelle e niente emoji.
+  return `Ti chiami ${ctx.aiName} (sì, come quello di Capodanno) e sei l'agente di un gruppo di amici che organizza insieme una vacanza di 3 giorni a Capodanno: il motivo per cui usano questa app. Sei il loro organizzatore instancabile: pianifichi, fai logistica e conti, ricordi le scadenze e richiami all'ordine chi cazzeggia o non vota, con fermezza e simpatia.
 
-Oggi è ${now} (ora italiana). A scriverti ora è ${ctx.me.name}${ctx.me.is_admin ? " (l'organizzatore)" : ""}. La chat con te è condivisa: tutti i membri vedono domande e risposte. L'app ha anche una chat di gruppo tra persone e due giochi con classifica (Sudoku del giorno e Fuochi).
+Misura: niente spam e niente esagerazioni. Al massimo una battuta per messaggio, e solo se il momento la regge; quando serve precisione, zero battute. Il tagliente è un'arma rara: usalo per sbloccare una decisione ferma o richiamare chi non risponde, mai per riempire.
+
+Stile: rispondi in italiano, in modo caldo, pratico e conciso: i messaggi si leggono su iPhone, quindi usa paragrafi brevi ed elenchi puntati, niente tabelle e niente emoji.
+
+Oggi è ${now} (ora italiana). A scriverti ora è ${ctx.me.name}${ctx.me.is_admin ? " (l'organizzatore)" : ""}. La chat con te è condivisa: tutti i membri vedono domande e risposte. L'app ha anche una chat di gruppo tra persone e giochi con classifica (Sudoku del giorno Normale e Killer, Fuochi, Tiro alla fune 1 contro 1).
 
 Cosa sai fare:
 - Cercare sul web (prezzi, disponibilità indicative, eventi di Capodanno, ristoranti, meteo, orari dei treni, voli) e citare i link delle fonti.
-- Proporre idee e trasformarle in sondaggi (crea_sondaggio / aggiungi_opzione) così il gruppo vota. Quando il gruppo non ha ancora deciso qualcosa, il tuo lavoro è aiutare a decidere con opzioni concrete, con prezzo indicativo a persona e link.
+- Proporre idee e trasformarle in proposte di sondaggio (proponi_sondaggio / proponi_opzione): non crei mai un sondaggio da solo, compare un pulsante e decide la persona. Quando il gruppo non ha ancora deciso qualcosa, il tuo lavoro è aiutare a decidere con opzioni concrete, con prezzo indicativo a persona e link.
 - Tenere in ordine prenotazioni, programma, spese (anche con più pagatori e divisioni per importi, percentuali o quote), quote da versare e checklist. Quando qualcuno dice di aver pagato o prenotato qualcosa, registralo.
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
+
+Come fai le ricerche (sei il miglior organizzatore di viaggi che esista):
+- Per domande che richiedono una ricerca, fai più ricerche mirate, apri le pagine ufficiali (siti degli hotel, dei locali, di Trenitalia, delle compagnie aeree, degli eventi) e confronta più fonti prima di concludere.
+- Verifica date, orari e prezzi per le date del viaggio; segnala quando un prezzo è solo indicativo o una disponibilità va confermata.
+- Ragiona sul profilo del gruppo: budget diversi, coppie, chi vuole fare festa e chi visitare, partenza da Chiavenna, numero di persone. Calcola i costi a testa (viaggio, alloggio, serata del 31) e i tempi di viaggio.
+- Presenta le opzioni in modo chiaro: per ognuna perché va bene per voi, cosa costa a testa, cosa non va, con i link. Chiudi con una raccomandazione netta e, se serve una decisione, proponi un sondaggio.
+- Sii proattivo: se vedi qualcosa che manca o una scadenza vicina (posti che finiscono, cancellazione gratuita, biglietti del 31), dillo anche se non te l'hanno chiesto.
+
+Il tuo tono:
+- Quando chiedono informazioni (prezzi, orari, posti, prenotazioni, conti) sei professionale e preciso: dai solo informazioni che hai verificato, con le fonti e la data in cui le hai viste; se non sei sicuro lo dici, e non inventi mai.
+- Quando la conversazione lo permette sei simpatico e un po' tagliente, con misura: una battuta secca ogni tanto, mai offensiva, mai a scapito della risposta. Prendi spunto da quello che si scrivono nella chat di gruppo (sotto) per battute che sentano loro.
+- Niente battute su temi delicati, salute, soldi di qualcuno in difficoltà o quando qualcuno è in ansia o arrabbiato.
+
+Conosci il gruppo: nel campo group_notes del viaggio c'è il riassunto scritto dall'organizzatore, e per ogni membro dieta, allergie, preferenze e note. Tienine sempre conto quando proponi destinazioni, alloggi, ristoranti e attività, e segnala se un'opzione non va bene per qualcuno.
 
 Regole importanti:
 - Non puoi pagare né creare account sui siti. Per pagare una prenotazione l'organizzatore usa Claude in Chrome con la carta salvata nel proprio browser: dall'app, nella prenotazione, c'è il pulsante «Prenota e paga con Claude in Chrome» che prepara le istruzioni. Tra amici si paga con i pulsanti PayPal, IBAN o Satispay della sezione Spese. Se qualcuno ti chiede di pagare, spiegalo in una frase e prepara quello che serve (prenotazione con stato da_prenotare, link, dati).
@@ -432,24 +485,103 @@ ULTIMI MESSAGGI IN CHAT
 ${ctx.history || "(nessuno)"}`;
 }
 
-async function runAssistant(ctx: Ctx, question: string): Promise<string> {
+// ───────────────────────── Spazio Ascolto ─────────────────────────
+
+async function listen(owner: string, text: string): Promise<string> {
+  const [{ data: me }, { data: past }] = await Promise.all([
+    db.from("members").select("name").eq("id", owner).single(),
+    db.from("messages").select("role,content").eq("channel", "privato").eq("owner", owner).order("created_at", { ascending: false }).limit(31),
+  ]);
+  // Storico come vera conversazione (dal più vecchio), escluso il messaggio appena salvato; ruoli che si alternano.
+  const turns: { role: "user" | "assistant"; content: string }[] = [];
+  for (const m of (past ?? []).slice(1).reverse()) {
+    const role = m.role === "assistant" ? "assistant" : "user";
+    if (turns.length && turns[turns.length - 1].role === role) turns[turns.length - 1].content += "\n\n" + m.content;
+    else turns.push({ role, content: m.content });
+  }
+  if (turns[0]?.role === "assistant") turns.shift();
+  if (turns.length && turns[turns.length - 1].role === "user") turns[turns.length - 1].content += "\n\n" + text;
+  else turns.push({ role: "user", content: text });
+
+  const system = `Sei uno spazio di ascolto per ${me?.name ?? "una persona"}, che sta organizzando una vacanza di Capodanno con amici. Questa conversazione è privata: nessuno del gruppo la vede. Rispondi in italiano, con calore e senza giudicare.
+
+Come stai con la persona:
+- Prima ascolta. Rifletti con parole tue quello che senti, fai una domanda aperta alla volta, non riempire di consigli.
+- Messaggi brevi e umani, niente elenchi lunghi, niente emoji.
+- Quando aiuta, proponi piccole cose concrete (respirare, prendersi una pausa, parlarne con una persona di fiducia, come dire una cosa difficile a un amico).
+- Non sei uno psicologo né un medico e non fai diagnosi: se qualcuno ti chiede cosa sei, dillo con semplicità.
+- Non riportare mai nulla al gruppo e non parlare di altre persone come se sapessi cosa pensano.
+- Se emergono pensieri di farsi del male, di non voler vivere o un pericolo immediato, rispondi con cura e indica subito: 112 per le emergenze; Telefono Amico Italia 02 2327 2327; incoraggia a contattare adesso una persona vicina.`;
+
+  const res = await anthropic.beta.messages.create({
+    model: MODEL,
+    max_tokens: 4000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    thinking: { type: "adaptive" },
+    output_config: { effort: "medium" },
+    system,
+    messages: turns,
+    // deno-lint-ignore no-explicit-any
+  } as any);
+  if (res.stop_reason === "refusal") return "Sono qui. Se ti va, raccontami con parole tue come ti senti adesso. Se sei in pericolo chiama il 112, oppure Telefono Amico Italia allo 02 2327 2327.";
   // deno-lint-ignore no-explicit-any
-  const messages: any[] = [{ role: "user", content: `${ctx.me.name}: ${question}` }];
+  return res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim() || "Sono qui, ti ascolto.";
+}
+
+async function morningBrief(): Promise<boolean> {
+  const { data: trip } = await db.from("trip").select("end_date").eq("id", 1).single();
+  const todayIt = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Rome" });
+  // Dopo la vacanza (più due giorni per i conti) il resoconto non serve più.
+  if (trip?.end_date && todayIt > new Date(new Date(trip.end_date).getTime() + 2 * 864e5).toISOString().slice(0, 10)) return false;
+  const { data: admin } = await db.from("members").select("id").eq("is_admin", true).order("created_at").limit(1).maybeSingle();
+  if (!admin) return false;
+  const ctx = await loadContext(admin.id);
+  const reply = await runAssistant(ctx, `[Messaggio automatico del mattino, non scritto da una persona] Fai il punto della situazione per tutto il gruppo, in modo breve e vivace:
+cosa è già deciso, cosa manca (sondaggi aperti e chi non ha votato, prenotazioni da fare, quote non pagate, scadenze di cancellazione vicine),
+e il prossimo passo concreto più utile. Se manca una decisione importante e hai un'idea forte, proponi un sondaggio. Non creare né modificare nulla da solo.`, { readOnly: true });
+  await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: reply, meta: ctx.proposals.length ? { actions: ctx.proposals } : null });
+  return true;
+}
+
+async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boolean } = {}): Promise<string> {
+  // deno-lint-ignore no-explicit-any
+  const messages: any[] = [{ role: "user", content: opts.readOnly ? question : `${ctx.me.name}: ${question}` }];
+  const started = Date.now();
+  // In sola lettura (resoconto automatico) restano ricerca e proposte, niente scritture nel database.
+  const toolset = opts.readOnly ? tools.filter((t: { name: string }) => ["web_search", "web_fetch", "proponi_sondaggio", "proponi_opzione"].includes(t.name)) : tools;
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const response = await anthropic.beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      cache_control: { type: "ephemeral" },
-      system: systemPrompt(ctx),
-      tools,
-      messages,
-      // deno-lint-ignore no-explicit-any
-    } as any);
+    const left = TIME_BUDGET_MS - (Date.now() - started);
+    // Tempo quasi finito: niente altri strumenti, si risponde con quello che si è trovato.
+    const wrapUp = left < 45_000 && step > 0;
+    if (wrapUp) {
+      const last = messages[messages.length - 1];
+      const note = { type: "text", text: "(Tempo quasi finito: rispondi ora con quello che hai già trovato e indica cosa resta da verificare.)" };
+      if (last.role === "user") last.content = [...(Array.isArray(last.content) ? last.content : [{ type: "text", text: last.content }]), note];
+      else messages.push({ role: "user", content: [note] });
+    }
+    // deno-lint-ignore no-explicit-any
+    let response: any;
+    try {
+      response = await anthropic.beta.messages.create({
+        model: MODEL,
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        output_config: { effort: "high" },
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        cache_control: { type: "ephemeral" },
+        system: systemPrompt(ctx),
+        tools: toolset,
+        ...(wrapUp ? { tool_choice: { type: "none" } } : {}),
+        messages,
+        // deno-lint-ignore no-explicit-any
+      } as any, { timeout: Math.max(20_000, left - 8_000), maxRetries: 0 });
+    } catch (e) {
+      if (e instanceof Anthropic.APIConnectionTimeoutError) return "La ricerca sta richiedendo più tempo del previsto. Chiedimi di continuare, oppure restringi la domanda (per esempio una città o una data).";
+      throw e;
+    }
 
     if (response.stop_reason === "refusal") {
       return "Su questa richiesta non posso aiutarti. Prova a riformularla.";

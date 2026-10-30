@@ -20,22 +20,25 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<div class="aura" aria-hidden="true"><b></b><b></b><b></b></div>
+<div class="aura" aria-hidden="true"><b></b><b></b><b></b><b></b></div>
 <div class="grain" aria-hidden="true"></div>
 <div id="root"><div class="splash">Capodanno</div></div>
 <div class="composer" id="composer">
+  <div class="reply-bar glass" id="reply-bar" hidden></div>
   <form class="inner glass" id="composer-form">
     <textarea id="composer-input" rows="1" placeholder="Chiedi all'assistente…" enterkeyhint="send"></textarea>
     <button class="send" id="composer-send" type="submit" aria-label="Invia">↑</button>
   </form>
 </div>
 <nav class="dock glass" id="dock" hidden></nav>
+<button class="fab" id="fab" hidden data-act="chat-go" data-v="ai" aria-label="Chiedi a Zampone"></button>
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
 <div id="game" hidden></div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
+<script src="killer-lib.js"></script>
 <script src="games.js"></script>
 </body>
 </html>
