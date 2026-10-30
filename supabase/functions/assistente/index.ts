@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     console.error(err);
     const msg = explainError(err);
     // L'errore finisce nella chat dell'assistente solo se non era una conversazione privata.
-    if (!privateMode) await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: msg });
+    if (!privateMode) await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: msg, meta: { error: true } });
     return json({ error: msg }, 500);
   }
 });
@@ -106,7 +106,7 @@ interface Ctx {
   members: Row[];
   byName: Map<string, Row>;
   snapshot: string;
-  history: string;
+  history: { role: "user" | "assistant"; content: string }[];
 }
 
 async function loadContext(memberId: string): Promise<Ctx> {
@@ -122,7 +122,7 @@ async function loadContext(memberId: string): Promise<Ctx> {
     db.from("payment_requests").select("*").order("created_at"),
     db.from("itinerary").select("*").order("day").order("time"),
     db.from("checklist").select("*").order("created_at"),
-    db.from("messages").select("member_id,role,content,created_at").eq("channel", "assistente").order("created_at", { ascending: false }).limit(30),
+    db.from("messages").select("member_id,role,content,created_at,meta").eq("channel", "assistente").order("created_at", { ascending: false }).limit(21),
     db.from("scores").select("member_id,game,score,day").order("created_at", { ascending: false }).limit(200),
     db.from("messages").select("member_id,content,created_at").eq("channel", "gruppo").order("created_at", { ascending: false }).limit(40),
   ]);
@@ -171,9 +171,18 @@ async function loadContext(memberId: string): Promise<Ctx> {
     `CHECKLIST:\n${(checklist.data ?? []).map((c) => `- [${c.done ? "x" : " "}] ${c.text}${c.assignee ? ` → ${name(c.assignee)}` : ""}`).join("\n") || "(vuota)"}`,
   ].join("\n\n");
 
-  // Gli ultimi messaggi (escluso quello appena inserito) come trascrizione, dal più vecchio.
-  const history = (msgs.data ?? []).slice(1).reverse()
-    .map((x) => `${x.role === "assistant" ? "Assistente" : name(x.member_id)}: ${x.content.slice(0, 1500)}`).join("\n");
+  // Gli ultimi messaggi (escluso quello appena inserito) come vera conversazione, dal più vecchio,
+  // senza i messaggi d'errore; i ruoli devono alternarsi, quindi i consecutivi si uniscono.
+  const history: Ctx["history"] = [];
+  for (const x of (msgs.data ?? []).slice(1).reverse()) {
+    if (x.meta?.error) continue;
+    const role = x.role === "assistant" ? "assistant" : "user";
+    const content = role === "user" ? `${name(x.member_id)}: ${x.content.slice(0, 1500)}` : x.content.slice(0, 2500);
+    const last = history[history.length - 1];
+    if (last && last.role === role) last.content += "\n\n" + content;
+    else history.push({ role, content });
+  }
+  while (history.length && history[0].role === "assistant") history.shift();
 
   return { aiName: trip.data?.ai_name || "Zampone", proposals: [], me, members: m, byName: new Map(m.map((x) => [x.name.toLowerCase(), x])), snapshot, history };
 }
@@ -454,14 +463,20 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
 // ───────────────────────── Ciclo dell'assistente ─────────────────────────
 
 function systemPrompt(ctx: Ctx): string {
-  const now = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", dateStyle: "full", timeStyle: "short" });
   return `Ti chiami ${ctx.aiName} (sì, come quello di Capodanno) e sei l'agente di un gruppo di amici che organizza insieme una vacanza di 3 giorni a Capodanno: il motivo per cui usano questa app. Sei il loro organizzatore instancabile: pianifichi, fai logistica e conti, ricordi le scadenze e richiami all'ordine chi cazzeggia o non vota, con fermezza e simpatia.
 
 Misura: niente spam e niente esagerazioni. Al massimo una battuta per messaggio, e solo se il momento la regge; quando serve precisione, zero battute. Il tagliente è un'arma rara: usalo per sbloccare una decisione ferma o richiamare chi non risponde, mai per riempire.
 
-Stile: rispondi in italiano, in modo caldo, pratico e conciso: i messaggi si leggono su iPhone, quindi usa paragrafi brevi ed elenchi puntati, niente tabelle e niente emoji.
+Lunghezza: rispondi quanto serve, non di più. La lunghezza la decide la domanda, non un formato fisso:
+- Domanda da sì o no, o con una risposta secca: rispondi in una riga («No: il treno del 30 è già pieno.»). Niente introduzioni, niente elenchi, niente riepiloghi.
+- Saluti, battute, conferme: una frase.
+- Richieste pratiche semplici (un orario, un saldo, «segna che ho pagato»): due o tre righe.
+- Richieste complesse (scegliere la destinazione, confrontare alloggi, pianificare il viaggio): risposta articolata, con le opzioni, i costi a testa, i link e una raccomandazione.
+Non ripetere cose già dette nella conversazione, non chiudere ogni messaggio con una domanda o una proposta, non usare sempre la stessa struttura. Elenchi puntati solo quando ci sono davvero più voci da confrontare.
 
-Oggi è ${now} (ora italiana). A scriverti ora è ${ctx.me.name}${ctx.me.is_admin ? " (l'organizzatore)" : ""}. La chat con te è condivisa: tutti i membri vedono domande e risposte. L'app ha anche una chat di gruppo tra persone e giochi con classifica (Sudoku del giorno Normale e Killer, Fuochi, Tiro alla fune 1 contro 1).
+Stile: rispondi in italiano, in modo naturale e pratico: i messaggi si leggono su iPhone, quindi paragrafi brevi, niente tabelle e niente emoji.
+
+La chat con te è condivisa: tutti i membri vedono domande e risposte. L'app ha anche una chat di gruppo tra persone e giochi con classifica (Sudoku del giorno Normale e Killer, Fuochi, Tiro alla fune 1 contro 1).
 
 Cosa sai fare:
 - Cercare sul web (prezzi, disponibilità indicative, eventi di Capodanno, ristoranti, meteo, orari dei treni, voli) e citare i link delle fonti.
@@ -475,7 +490,7 @@ Come fai le ricerche (sei il miglior organizzatore di viaggi che esista):
 - Verifica date, orari e prezzi per le date del viaggio; segnala quando un prezzo è solo indicativo o una disponibilità va confermata.
 - Ragiona sul profilo del gruppo: budget diversi, coppie, chi vuole fare festa e chi visitare, partenza da Chiavenna, numero di persone. Calcola i costi a testa (viaggio, alloggio, serata del 31) e i tempi di viaggio.
 - Presenta le opzioni in modo chiaro: per ognuna perché va bene per voi, cosa costa a testa, cosa non va, con i link. Chiudi con una raccomandazione netta e, se serve una decisione, proponi un sondaggio.
-- Sii proattivo: se vedi qualcosa che manca o una scadenza vicina (posti che finiscono, cancellazione gratuita, biglietti del 31), dillo anche se non te l'hanno chiesto.
+- Sii proattivo con misura: se vedi una scadenza vicina o un problema serio che non è già stato detto (posti che finiscono, cancellazione gratuita, biglietti del 31), segnalalo in una riga. Nelle risposte brevi non aggiungere altro.
 
 Il tuo tono:
 - Quando chiedono informazioni (prezzi, orari, posti, prenotazioni, conti) sei professionale e preciso: dai solo informazioni che hai verificato, con le fonti e la data in cui le hai viste; se non sei sicuro lo dici, e non inventi mai.
@@ -492,11 +507,18 @@ Regole importanti:
 - Prezzi e disponibilità trovati sul web sono indicativi: dillo, e indica la data in cui li hai visti.
 - Se manca un dato che ti serve davvero, chiedilo; altrimenti procedi con ipotesi ragionevoli e dichiarale.
 
+Prima della domanda trovi un blocco <contesto> con la data di oggi, chi ti sta scrivendo e lo stato attuale del gruppo: è aggiornato a questo momento e vale più di quello che è stato detto prima nella conversazione.`;
+}
+
+// Il contesto che cambia a ogni messaggio va nel turno dell'utente, così il prompt di sistema resta in cache.
+function contextBlock(ctx: Ctx): string {
+  const now = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", dateStyle: "full", timeStyle: "short" });
+  return `<contesto>
+Oggi è ${now} (ora italiana). A scriverti ora è ${ctx.me.name}${ctx.me.is_admin ? " (l'organizzatore)" : ""}.
+
 STATO ATTUALE DEL GRUPPO
 ${ctx.snapshot}
-
-ULTIMI MESSAGGI IN CHAT
-${ctx.history || "(nessuno)"}`;
+</contesto>`;
 }
 
 // ───────────────────────── Spazio Ascolto ─────────────────────────
@@ -560,7 +582,12 @@ e il prossimo passo concreto più utile. Se manca una decisione importante e hai
 
 async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boolean } = {}): Promise<string> {
   // deno-lint-ignore no-explicit-any
-  const messages: any[] = [{ role: "user", content: opts.readOnly ? question : `${ctx.me.name}: ${question}` }];
+  const messages: any[] = (opts.readOnly ? [] : ctx.history).map((h) => ({ ...h }));
+  const turn = `${contextBlock(ctx)}\n\n${opts.readOnly ? question : `${ctx.me.name}: ${question}`}`;
+  // Se l'ultima domanda era rimasta senza risposta, i due turni dell'utente si uniscono.
+  if (messages.at(-1)?.role === "user") messages[messages.length - 1].content += `\n\n${turn}`;
+  else messages.push({ role: "user", content: turn });
+  const system = [{ type: "text", text: systemPrompt(ctx), cache_control: { type: "ephemeral" } }];
   const started = Date.now();
   // In sola lettura (resoconto automatico) restano ricerca e proposte, niente scritture nel database.
   const toolset = opts.readOnly ? tools.filter((t: { name: string }) => ["web_search", "web_fetch", "proponi_sondaggio", "proponi_opzione"].includes(t.name)) : tools;
@@ -586,12 +613,12 @@ async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boole
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
         cache_control: { type: "ephemeral" },
-        system: systemPrompt(ctx),
+        system,
         tools: toolset,
         ...(wrapUp ? { tool_choice: { type: "none" } } : {}),
         messages,
         // deno-lint-ignore no-explicit-any
-      } as any, { timeout: Math.max(20_000, left - 8_000), maxRetries: 0 });
+      } as any, { timeout: Math.max(20_000, left - 8_000), maxRetries: left > 60_000 ? 2 : 0 });
     } catch (e) {
       if (e instanceof Anthropic.APIConnectionTimeoutError) return "La ricerca sta richiedendo più tempo del previsto. Chiedimi di continuare, oppure restringi la domanda (per esempio una città o una data).";
       throw e;
