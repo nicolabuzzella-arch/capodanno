@@ -34,7 +34,7 @@ fonti = json.load(open(fonti_path)) if os.path.exists(fonti_path) else {}
 for pid, title in PEOPLE.items():
     dest = os.path.join(OUT, f"{pid}.jpg")
     have = os.path.exists(dest)
-    if have and pid in fonti and (fonti[pid].get("licenza") or fonti[pid].get("tentato")):
+    if have and pid in fonti and fonti[pid].get("licenza"):
         continue
     if time.time() - START > BUDGET:
         print("Tempo finito: continuo al prossimo giro", flush=True); break
@@ -46,6 +46,7 @@ for pid, title in PEOPLE.items():
         time.sleep(1)
     if not src:
         print("NESSUNA FOTO:", title); continue
+    src = src.split("?")[0]  # via i parametri di tracciamento: rompono miniature e nome del file
     # Versione ridotta a 640 px dal server delle miniature, se l'originale è enorme.
     m = re.match(r"https://upload\.wikimedia\.org/wikipedia/(commons|\w+)/(\w)/(\w\w)/([^/]+)$", src)
     fname = urllib.parse.unquote(m.group(4)) if m else src.rsplit("/", 1)[-1]

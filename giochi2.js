@@ -451,14 +451,14 @@ const POLS = [
   { id: "corona", n: "Fabrizio Corona", t: "S", hp: 102, atk: 62, def: 44, spd: 58, m: [["Lo scandalo", 54, 90], ["Il paparazzo", 46, 100], ["Diretta Instagram", 28, 95, "stun"], ["Il tatuaggio", 0, 100, "def+"]] },
   { id: "marini", n: "Valeria Marini", t: "S", hp: 100, atk: 54, def: 48, spd: 56, m: [["Stellare!", 48, 95], ["Lo sguardo da diva", 28, 95, "stun"], ["La linea di costumi", 0, 100, "atk+"], ["Il bacio", 0, 100, "heal"]] },
   { id: "lamborghini", n: "Elettra Lamborghini", t: "S", hp: 98, atk: 58, def: 44, spd: 62, m: [["Il twerking", 20, 95, "multi"], ["Pem pem", 46, 100], ["La parrucca rosa", 0, 100, "def+"], ["Il patrimonio di famiglia", 0, 100, "heal"]] },
-  { id: "vacchi", n: "Gianluca Vacchi", t: "S", hp: 102, atk: 56, def: 50, spd: 56, m: [["Enjoy", 46, 100], ["Balletto sullo yacht", 20, 95, "multi"], ["I tatuaggi", 0, 100, "def+"], ["La barba bianca", 0, 100, "atk+"]] },
+  { id: "elia", n: "Antonella Elia", t: "S", hp: 102, atk: 58, def: 48, spd: 54, m: [["Il litigio in diretta", 52, 90], ["Lo sguardo gelido", 28, 95, "stun"], ["L'Isola dei famosi", 0, 100, "heal"], ["Nomination!", 44, 100]] },
   { id: "casella", n: "Giucas Casella", t: "S", hp: 100, atk: 54, def: 50, spd: 50, m: [["L'ipnosi", 30, 95, "stun"], ["Quando lo dico io!", 50, 95], ["Le mani incollate", 0, 100, "atk-"], ["Il trucco", 44, 100]] },
   { id: "tina", n: "Tina Cipollari", t: "S", hp: 104, atk: 60, def: 48, spd: 50, m: [["Il commento al vetriolo", 52, 90], ["Lo sguardo di Tina", 28, 95, "stun"], ["Il cartello", 46, 100], ["La poltrona in studio", 0, 100, "def+"]] },
   { id: "gemma", n: "Gemma Galgani", t: "S", hp: 108, atk: 50, def: 54, spd: 46, m: [["La sfilata", 0, 100, "atk+"], ["Il ballo col cavaliere", 44, 100], ["L'ennesimo cuore spezzato", 50, 90], ["Il trono over", 0, 100, "heal"]] },
   { id: "signorini", n: "Alfonso Signorini", t: "S", hp: 102, atk: 56, def: 52, spd: 50, m: [["La busta", 28, 95, "stun"], ["Il gossip", 44, 100], ["Il Grande Fratello", 50, 95], ["La copertina", 0, 100, "atk+"]] },
 ];
 // Gruppi per il filtro nella scelta della squadra.
-const POL_TV = ["malgioglio", "durso", "corona", "marini", "lamborghini", "vacchi", "casella", "tina", "gemma", "signorini"];
+const POL_TV = ["malgioglio", "durso", "corona", "marini", "lamborghini", "elia", "casella", "tina", "gemma", "signorini"];
 const POL_GROUP = id => (POL_TV.includes(id) ? "tv" : ["moro", "berlinguer", "pertini", "garibaldi", "cavour", "andreotti", "craxi"].includes(id) ? "storia-it"
   : ["stalin", "che", "castro", "napoleone", "cesare", "churchill", "lenin", "kennedy", "obama", "trump", "thatcher", "merkel", "degaulle", "gandhi", "lincoln"].includes(id) ? "mondo" : "oggi");
 const polInitials = n => n.split(" ").map(w => w[0]).join("").slice(0, 2);

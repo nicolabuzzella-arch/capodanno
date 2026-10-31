@@ -20,7 +20,7 @@ const SPECIAL = {
   napoleone: ["Il ritorno dall'Elba", 88], cesare: ["Il trionfo", 88], churchill: ["Combatteremo sulle spiagge", 88], lenin: ["Tutto il potere ai soviet", 88],
   kennedy: ["Sulla Luna entro il decennio", 86], obama: ["Change", 86], trump: ["Make America Great Again", 88], thatcher: ["There is no alternative", 88],
   malgioglio: ["La giacca di paillettes", 86], durso: ["Ciao Carmelita!", 86], corona: ["Il ritorno di Corona", 88], marini: ["Seduzioneee", 84],
-  lamborghini: ["Mala", 86], vacchi: ["Enjoy! Il ballo finale", 86], casella: ["Ora apri gli occhi", 88], tina: ["Ma vattene!", 88], gemma: ["Gemma forever", 84], signorini: ["Il televoto", 86],
+  lamborghini: ["Mala", 86], elia: ["Fuori dalla casa!", 86], casella: ["Ora apri gli occhi", 88], tina: ["Ma vattene!", 88], gemma: ["Gemma forever", 84], signorini: ["Il televoto", 86],
   merkel: ["Sedici anni di cancelleria", 86], degaulle: ["La Quinta Repubblica", 86], gandhi: ["L'indipendenza", 86], lincoln: ["Il Proclama di emancipazione", 88],
 };
 const EFF_TXT = { heal: "Recupera consenso", "atk+": "Aumenta la forza", "def+": "Aumenta la difesa", "def-": "Abbassa la difesa avversaria", "atk-": "Abbassa la forza avversaria" };
