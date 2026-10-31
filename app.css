@@ -529,3 +529,72 @@ body.gaming #root,body.gaming .dock,body.gaming .fab,body.gaming .composer,body.
 @keyframes cbfloat{50%{transform:translateY(-6px) rotate(-2deg)}}
 .fx-nick{font-weight:500;color:var(--t3);font-size:11px}
 .fx-title{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--pearl);color:#0a0a0c;margin-left:4px;vertical-align:1px}
+
+/* Scorciatoie in Home */
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.quick button{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 4px;border-radius:20px;font-size:12.5px;font-weight:600;color:var(--t2);
+  background:linear-gradient(150deg,rgba(255,255,255,.08),rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 0 0 1px var(--line);transition:transform .12s}
+.quick button:active{transform:scale(.95)}
+.qi{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;color:#0a0a0c;background:var(--pearl);box-shadow:0 8px 20px -10px rgba(230,212,255,.6)}
+.av.xl{width:96px;height:96px;font-size:32px}
+/* Profilo una domanda alla volta */
+.pf-card{padding:22px 20px}
+.pf-top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.pf-q{font-size:32px;line-height:1.05}
+.pf-q em{font-style:italic;background:var(--pearl);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pf-card input,.pf-card select,.pf-card textarea{width:100%}
+.pf-chips{display:flex;flex-wrap:wrap;gap:8px}
+.pf-chip input{position:absolute;opacity:0;pointer-events:none}
+.pf-chip span{display:inline-block;padding:10px 14px;border-radius:99px;background:var(--fill);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;font-weight:500;transition:.15s}
+.pf-chip input:checked+span{background:var(--pearl);color:#0a0a0c;box-shadow:none}
+.pf-photo{display:flex;flex-direction:column;align-items:center;gap:16px}
+.pf-ring{--p:0;width:110px;height:110px;border-radius:50%;display:grid;place-items:center;margin:0 auto;
+  background:conic-gradient(#c9f3ee calc(var(--p)*1%),rgba(255,255,255,.08) 0);position:relative}
+.pf-ring::before{content:"";position:absolute;inset:8px;border-radius:50%;background:#0d0c22}
+.pf-ring b{position:relative;font-family:var(--mono);font-size:24px}
+.pf-ring.sm{width:52px;height:52px;margin:0;flex:none}.pf-ring.sm::before{inset:5px}.pf-ring.sm b{font-size:12px}
+.pf-done{text-align:center;padding:28px 20px}
+.pf-nudge{box-shadow:inset 0 0 0 1px rgba(201,243,238,.35)}
+/* Passaggi */
+.ride-seats{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.seat{display:flex;align-items:center;gap:7px;padding:6px 10px 6px 6px;border-radius:99px;background:var(--fill);box-shadow:inset 0 0 0 1px var(--line);font-size:13px}
+.seat.driver{background:rgba(201,243,238,.12)}
+.seat.empty{color:var(--t3);border:1.5px dashed var(--line-2);box-shadow:none;background:none;padding:6px 12px}
+.seat.empty:not([disabled]):active{background:rgba(230,212,255,.15)}
+.ride-cost{margin-top:12px;line-height:1.5}
+.ride-walkers{display:flex;flex-wrap:wrap;gap:8px}
+.chip-av{display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:99px;background:var(--fill);font-size:13px}
+/* Meteo */
+.wx-load{display:flex;align-items:center;gap:10px;color:var(--t3)}
+.wx-day{padding:14px 0;border-bottom:1px solid var(--line)}
+.wx-ico{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(150deg,rgba(201,243,238,.22),rgba(230,212,255,.1));flex:none}
+.wx-temp{display:flex;align-items:baseline;gap:8px;margin:2px 0}
+.wx-temp b{font-family:var(--serif);font-size:44px;font-weight:400;line-height:1}
+.wx-temp span{font-size:18px;color:var(--t3)}
+.wx-wit{font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.35;margin:12px 0 8px;color:#efeaff}
+.wx-hours,.wx-week{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-top:14px;overflow-x:auto}
+.wx-hours>div,.wx-week>div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px}
+.wx-hours i{display:block;width:6px;border-radius:3px;background:linear-gradient(#e6d4ff,#9cc3ff)}
+.neg{color:var(--red)}
+/* Mappa */
+.map-wrap{position:relative;border-radius:24px;overflow:hidden;height:min(62vh,520px);margin-bottom:12px;box-shadow:inset 0 0 0 1px var(--line),0 30px 60px -30px rgba(120,100,255,.5)}
+#map{position:absolute;inset:0;background:#0b0b1c}
+.map-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:500;padding:8px 14px;border-radius:99px;background:rgba(10,10,25,.75);font-size:12.5px;white-space:nowrap;transition:opacity .6s;pointer-events:none}
+.map-hint.off{opacity:0}
+.mk{display:flex;align-items:center;gap:6px;width:max-content;transform:translate(calc(-50% + 17px),0)}
+.mk span{padding:4px 9px;border-radius:99px;background:rgba(10,10,25,.85);color:#fff;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.mk.dest{flex-direction:column;gap:4px}
+.mk.dest>svg{width:44px;height:44px;padding:11px;border-radius:50%;background:var(--pearl);color:#0a0a0c;box-shadow:0 0 0 0 rgba(230,212,255,.7);animation:mkpulse 2s infinite}
+@keyframes mkpulse{70%{box-shadow:0 0 0 22px rgba(230,212,255,0)}100%{box-shadow:0 0 0 0 rgba(230,212,255,0)}}
+.mk-avs{display:flex}.mk-avs .av+.av{margin-left:-9px}
+.mk.poi>svg{width:30px;height:30px;padding:7px;border-radius:10px;background:#c9f3ee;color:#0a0a0c}
+.mk.poi.it>svg{width:26px;height:26px;padding:6px;background:#e6d4ff}
+.mk.car>svg{width:26px;height:26px;padding:6px;border-radius:50%;background:#fff;color:#0a0a0c;box-shadow:0 0 14px rgba(201,243,238,.8)}
+.mk.cand{flex-direction:column}
+.mk.cand b{display:grid;place-items:center;min-width:30px;height:30px;padding:0 8px;border-radius:99px;background:var(--pearl);color:#0a0a0c;font-size:14px}
+.route-dash{stroke-dasharray:10 12;animation:routedash 1.2s linear infinite}
+@keyframes routedash{to{stroke-dashoffset:-22}}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#14132c;color:#f5f5f7;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.leaflet-container a.leaflet-popup-close-button{color:#aaa}
+.leaflet-control-attribution{background:rgba(10,10,25,.6)!important;color:#888!important;font-size:9px!important}
+.leaflet-control-attribution a{color:#aaa!important}

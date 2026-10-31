@@ -653,6 +653,8 @@ function viewHome() {
 
   ${aiCard()}
 
+  ${window.homeExtras ? homeExtras() : ""}
+
   ${t.notes ? `<section class="card"><div class="row top">${ico("bell", 20)}<div class="grow"><div class="label" style="margin-bottom:6px">Avviso dell'organizzatore</div><div>${esc(t.notes).replace(/\n/g, "<br>")}</div></div></div></section>` : ""}
 
   ${pushCard()}
@@ -1831,6 +1833,8 @@ function viewGruppo() {
     <div class="row">${avatar(m, "lg")}<div class="grow"><div class="serif" style="font-size:30px;line-height:1">${esc(m.name)}</div>
       <div class="small muted" style="margin-top:6px">${m.is_admin ? "Organizzatore" : "Nel gruppo"}</div></div></div>
     <div class="actions"><button class="btn" data-act="edit-profile">${ico("user", 17)}Profilo</button><button class="btn" data-act="edit-private">${ico("lock", 17)}Documenti</button></div>
+    <button class="btn pearl block" style="margin-top:10px" data-act="tab" data-tab="profilo">${ico("check", 17)}Completa il profilo, una domanda alla volta</button>
+    ${m.is_admin ? `<button class="btn block" style="margin-top:8px" data-act="tab" data-tab="vibe">${ico("users", 17)}Raccontami il gruppo (solo tu)</button>` : ""}
     ${!priv?.doc_number ? `<div class="tiny faint" style="margin-top:12px">Inserisci i dati del documento: servono per registrarsi in hotel e per i biglietti nominativi.</div>` : ""}
   </section>
 
