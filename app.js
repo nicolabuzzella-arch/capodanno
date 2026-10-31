@@ -7,7 +7,9 @@
 
 const CFG = window.CAPODANNO_CONFIG || {};
 const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase);
-const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback"];
+const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects"];
+// Tabelle degli aggiornamenti più recenti: se il database non le ha ancora, l'app funziona lo stesso.
+const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects"]);
 const CACHE_KEY = "capodanno-cache-v3";
 const CODE_KEY = "capodanno-code";
 const SEEN_KEY = "capodanno-chat-seen";
@@ -222,7 +224,7 @@ const Cloud = {
       ? this.sb.from(t).select("*").order("created_at", { ascending: false }).limit(500)
       : this.sb.from(t).select("*")));
     const out = {};
-    TABLES.forEach((t, i) => { out[t] = this.ok(res[i]) || []; });
+    TABLES.forEach((t, i) => { out[t] = res[i].error && OPTIONAL_TABLES.has(t) ? [] : this.ok(res[i]) || []; });
     return out;
   },
   async insert(t, row) { return this.ok(await this.sb.from(t).insert(row).select().single()); },
@@ -401,6 +403,12 @@ const trip = () => S.trip[0] || { name: "Capodanno" };
 const me = () => S.members.find(m => m.id === ME);
 const isAdmin = () => !!me()?.is_admin;
 const member = id => S.members.find(m => m.id === id);
+// Effetti della ruota ancora attivi su una persona: silenzio, soprannome, titolo, scudo.
+function effectsOf(id) {
+  const now = new Date().toISOString(), out = {};
+  for (const e of S.effects || []) if (e.target === id && e.until > now) out[e.kind] = e.kind === "mute" || e.kind === "shield" ? e.until : e.value;
+  return out;
+}
 const mname = id => member(id)?.name || "—";
 const going = () => S.members.filter(m => m.rsvp !== "no");
 const msgs = ch => S.messages.filter(m => (m.channel || "assistente") === ch);
@@ -534,7 +542,9 @@ function render() {
   if (!ME || !me()) return;
   const root = $("#root");
   const y = window.scrollY;
-  const views = { home: viewHome, vota: viewVota, piano: viewPiano, spese: viewSpese, chat: viewChat, gruppo: viewGruppo, giochi: () => window.viewGiochi() };
+  const EX = window.EXTRA_VIEWS || {};
+  if (!["home", "vota", "piano", "spese", "chat", "gruppo", "giochi"].includes(UI.tab) && !EX[UI.tab]) UI.tab = "home";
+  const views = { home: viewHome, vota: viewVota, piano: viewPiano, spese: viewSpese, chat: viewChat, gruppo: viewGruppo, giochi: () => window.viewGiochi(), ...Object.fromEntries(Object.entries(EX).map(([k, v]) => [k, v.view])) };
   const titles = { home: trip().name || "Capodanno", vota: "Sondaggi", piano: "Piano", spese: "Splitwise", chat: "Chat", gruppo: "Il gruppo", giochi: "Giochi" };
   const subs = {
     home: `Ciao ${esc(me()?.name || "")}`,
@@ -544,10 +554,13 @@ function render() {
     chat: { gruppo: "Tra di noi", ai: `${AI()} cerca, organizza e vi tiene in riga`, ascolto: "Uno spazio privato, solo per te" }[UI.chatSeg],
     gruppo: `${S.members.length} ${S.members.length === 1 ? "persona" : "persone"}`,
     giochi: "Sfide e classifica del gruppo",
+    ...Object.fromEntries(Object.entries(EX).map(([k, v]) => [k, v.sub || ""])),
   };
+  Object.entries(EX).forEach(([k, v]) => { titles[k] = v.title; });
   root.innerHTML = `<div id="app">
     ${OFFLINE ? `<div class="offline">Sei offline: vedi l'ultima copia salvata</div>` : ""}
     <header class="topbar">
+      ${EX[UI.tab] ? `<button class="btn icon glass-btn" data-act="tab" data-tab="${EX[UI.tab].back || "home"}" aria-label="Indietro">${ico("chev", 20, 'style="transform:rotate(180deg)"')}</button>` : ""}
       <div class="grow"><h1>${esc(titles[UI.tab])}</h1><div class="sub">${subs[UI.tab]}</div></div>
       <button class="btn icon glass-btn" data-act="tab" data-tab="giochi" aria-label="Giochi">${ico("game", 21)}</button>
       <button class="tap" data-act="tab" data-tab="gruppo" aria-label="Il gruppo">${avatar(me())}</button>
@@ -559,7 +572,8 @@ function render() {
   $("#app").classList.toggle("with-fab", !$("#fab").hidden);
   const composer = $("#composer");
   composer.classList.toggle("show", UI.tab === "chat");
-  $("#composer-input").placeholder = { gruppo: "Scrivi al gruppo…", ai: `Chiedi a ${AI()}…`, ascolto: "Scrivi quello che senti…" }[UI.chatSeg];
+  const muted = effectsOf(ME).mute;
+  $("#composer-input").placeholder = { gruppo: muted ? `Silenziato fino alle ${fmtTime(muted)}` : "Scrivi al gruppo…", ai: `Chiedi a ${AI()}…`, ascolto: "Scrivi quello che senti…" }[UI.chatSeg];
   renderReplyBar();
   if (typeof syncComposerButtons === "function") {
     // Un vocale o una dettatura in corso si annulla se si cambia scheda.
@@ -567,6 +581,7 @@ function render() {
     syncComposerButtons();
   }
   if (UI.tab === "home") mountHome();
+  EX[UI.tab]?.mount?.();
   if (UI.tab === "chat") {
     if (UI.chatSeg === "gruppo") { const last = msgs("gruppo").at(-1); if (last) storage.set(SEEN_KEY, last.created_at); renderDock(); }
     const n = msgs(chatChannel()).length;
@@ -1641,9 +1656,10 @@ function viewChat() {
       const time = fmtTime(m.created_at);
       if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Ascolto" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
       const mine = m.member_id === ME; const w = member(m.member_id);
+      const fx = effectsOf(m.member_id);
       const body = m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");
       const tap = seg === "gruppo" && m.id !== "tmp" ? `data-act="msg-menu" data-id="${m.id}"` : "";
-      return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(w?.name || "—")}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
+      return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(fx.nick || w?.name || "—")}${fx.nick ? ` <span class="fx-nick">alias di ${esc(w?.name || "")}</span>` : ""}${fx.title ? ` <span class="fx-title">${esc(fx.title)}</span>` : ""}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
     }).join("")}
     ${UI.waiting && UI.waiting === seg ? `<div class="msg ai">${avatar(null, "sm")}<div class="bubble"><div class="who" id="thinking-label">${seg === "ascolto" ? "Sto leggendo" : "Sto pensando"}</div><div class="typing"><span></span><span></span><span></span></div></div></div>` : ""}
     ${seg === "ascolto" && list.length ? `<button class="link" style="align-self:center;margin-top:8px" data-act="clear-private">${ico("trash", 15)}Cancella questa conversazione</button>` : ""}
@@ -1664,9 +1680,16 @@ function startReply(id) {
   $("#composer-input").focus();
 }
 
+function mutedNotice() {
+  const until = effectsOf(ME).mute;
+  if (!until) return false;
+  const by = (S.effects || []).find(e => e.kind === "mute" && e.target === ME && e.until === until)?.by;
+  toast(`${by ? mname(by) : "La ruota"} ti ha silenziato fino alle ${fmtTime(until)}. Zampone invece ti ascolta.`, "lock");
+  return true;
+}
 async function sendGroup(text) {
   text = String(text || "").trim();
-  if (!text) return;
+  if (!text || mutedNotice()) return;
   const reply = UI.replyTo;
   UI.replyTo = null; renderReplyBar();
   try {

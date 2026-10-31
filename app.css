@@ -527,3 +527,5 @@ body.gaming #root,body.gaming .dock,body.gaming .fab,body.gaming .composer,body.
 .cb-mini{display:grid;grid-template-columns:repeat(8,1fr);border-radius:10px;overflow:hidden;aspect-ratio:1;box-shadow:0 20px 50px -20px rgba(120,100,255,.6);animation:cbfloat 3s ease-in-out infinite}
 .cb-mini i{display:block}.cb-mini .l{background:#e9e6f7}.cb-mini .d{background:#8a84c8}
 @keyframes cbfloat{50%{transform:translateY(-6px) rotate(-2deg)}}
+.fx-nick{font-weight:500;color:var(--t3);font-size:11px}
+.fx-title{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--pearl);color:#0a0a0c;margin-left:4px;vertical-align:1px}

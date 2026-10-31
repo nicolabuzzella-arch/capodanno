@@ -42,6 +42,7 @@ async function startVoice() {
 // ───────────────────────── Registrazione (chat di gruppo) ─────────────────────────
 
 async function startRecording() {
+  if (mutedNotice()) return;
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast("Questo telefono non permette di registrare dall'app", "alert");
   try {
     V.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });

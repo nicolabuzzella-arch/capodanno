@@ -129,7 +129,7 @@ interface Ctx {
 }
 
 async function loadContext(memberId: string): Promise<Ctx> {
-  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat] = await Promise.all([
+  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat, vibes] = await Promise.all([
     db.from("trip").select("name,destination,start_date,end_date,notes,group_notes,ai_name").eq("id", 1).single(),
     db.from("members").select("id,name,rsvp,phone,diet,allergies,preferences,notes,car_seats,departure_city,ride_with,paypal,iban,satispay,is_admin").order("created_at"),
     db.from("member_private").select("*"),
@@ -143,7 +143,8 @@ async function loadContext(memberId: string): Promise<Ctx> {
     db.from("checklist").select("*").order("created_at"),
     db.from("messages").select("member_id,role,content,created_at,meta").eq("channel", "assistente").order("created_at", { ascending: false }).limit(21),
     db.from("scores").select("member_id,game,score,day").order("created_at", { ascending: false }).limit(200),
-    db.from("messages").select("member_id,content,created_at").eq("channel", "gruppo").order("created_at", { ascending: false }).limit(40),
+    db.from("messages").select("member_id,content,created_at").eq("channel", "gruppo").order("created_at", { ascending: false }).limit(120),
+    db.from("vibe_answers").select("member_id,question,answer").order("created_at"),
   ]);
 
   const m: Row[] = members.data ?? [];
@@ -186,7 +187,8 @@ async function loadContext(memberId: string): Promise<Ctx> {
     `QUOTE RICHIESTE:\n${(requests.data ?? []).map((r) => `- ${r.title}: ${r.amount}€ a testa da versare a ${name(r.pay_to)}${r.due_date ? ` entro ${r.due_date}` : ""} · mancano: ${(r.debtors ?? []).filter((id: string) => id !== r.pay_to && !paidIds(r).has(id)).map(name).join(", ") || "nessuno"}`).join("\n") || "(nessuna)"}`,
     `SALDI (positivo = deve ricevere):\n${[...balances].map(([id, v]) => `- ${name(id)}: ${v.toFixed(2)}€`).join("\n")}`,
     `GIOCHI (ultimi punteggi; sudoku = secondi, meno è meglio; fuochi = punti):\n${(scores.data ?? []).slice(0, 40).map((x) => `- ${x.day} ${name(x.member_id)} ${x.game}: ${x.score}`).join("\n") || "(nessuno)"}`,
-    `CHAT DI GRUPPO (ultimi messaggi, per capire il clima e prendere spunto per le battute):\n${(groupChat.data ?? []).slice().reverse().map((x) => `- ${name(x.member_id)}: ${String(x.content).slice(0, 200)}`).join("\n") || "(vuota)"}`,
+    `CHAT DI GRUPPO (ultimi 120 messaggi: leggili tutti, ci sono decisioni, preferenze, cose dette e da salvare):\n${(groupChat.data ?? []).slice().reverse().map((x) => `- ${name(x.member_id)}: ${String(x.content).slice(0, 300)}`).join("\n") || "(vuota)"}`,
+    `CHI È CHI (note dell'organizzatore sul gruppo, riservate: usale per capire e personalizzare, non citarle mai alla lettera):\n${(vibes.data ?? []).map((v) => `- ${v.member_id ? name(v.member_id) : "Gruppo"} · ${v.question} → ${v.answer}`).join("\n") || "(ancora nessuna)"}`,
     `CHECKLIST:\n${(checklist.data ?? []).map((c) => `- [${c.done ? "x" : " "}] ${c.text}${c.assignee ? ` → ${name(c.assignee)}` : ""}`).join("\n") || "(vuota)"}`,
   ].join("\n\n");
 
@@ -212,8 +214,46 @@ const tools = [
   { type: "web_search_20260209", name: "web_search", max_uses: 12, user_location: { type: "approximate", country: "IT", timezone: "Europe/Rome" } },
   { type: "web_fetch_20260209", name: "web_fetch", max_uses: 8 },
   {
+    name: "crea_sondaggio",
+    description: "Crea SUBITO un sondaggio nella sezione Vota e avvisa il gruppo. Usalo quando qualcuno lo chiede o quando dalla conversazione emerge una decisione da prendere tra opzioni concrete. Prima controlla nello stato del gruppo che non esista già un sondaggio aperto sullo stesso tema: in quel caso aggiungi opzioni a quello (aggiungi_opzione) invece di crearne un altro.",
+    input_schema: {
+      type: "object",
+      properties: {
+        domanda: { type: "string" },
+        descrizione: { type: "string" },
+        scelta_multipla: { type: "boolean" },
+        scadenza: { type: "string", description: "YYYY-MM-DD, facoltativa" },
+        opzioni: {
+          type: "array",
+          items: { type: "object", properties: { etichetta: { type: "string" }, dettagli: { type: "string" }, url: { type: "string" }, prezzo_eur: { type: "number" } }, required: ["etichetta"] },
+        },
+      },
+      required: ["domanda", "opzioni"],
+    },
+  },
+  {
+    name: "aggiungi_opzione",
+    description: "Aggiunge SUBITO un'opzione a un sondaggio aperto (poll_id dallo stato del gruppo).",
+    input_schema: { type: "object", properties: { poll_id: { type: "string" }, etichetta: { type: "string" }, dettagli: { type: "string" }, url: { type: "string" }, prezzo_eur: { type: "number" } }, required: ["poll_id", "etichetta"] },
+  },
+  {
+    name: "aggiorna_membro",
+    description: "Aggiorna il profilo di un membro con quello che dice di sé (o che l'organizzatore dice di lui): dieta, allergie, preferenze, città di partenza, posti liberi in auto, con chi viaggia in auto, note. Usalo appena qualcuno lo scrive, senza chiedere conferma.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome: { type: "string", description: "Nome del membro; se manca è chi scrive." },
+        dieta: { type: "string" }, allergie: { type: "string" }, preferenze: { type: "string" },
+        partenza: { type: "string", description: "Città di partenza" },
+        posti_auto: { type: "number", description: "Posti liberi offerti nella propria auto (0 se non porta l'auto)" },
+        in_auto_con: { type: "string", description: "Nome di chi guida l'auto su cui sale" },
+        note: { type: "string", description: "Altro da ricordare su questa persona (si aggiunge alle note esistenti)" },
+      },
+    },
+  },
+  {
     name: "proponi_sondaggio",
-    description: "Propone un sondaggio con le opzioni iniziali. NON lo crea: sotto la tua risposta comparirà un pulsante «Crea il sondaggio» che la persona tocca se è d'accordo. Usalo quando il gruppo deve decidere qualcosa.",
+    description: "Prepara un sondaggio da far confermare con un pulsante «Crea il sondaggio». Usalo solo quando non è chiaro se il gruppo vuole davvero votare; altrimenti usa crea_sondaggio.",
     input_schema: {
       type: "object",
       properties: {
@@ -384,6 +424,35 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
 
   switch (name) {
     // Sondaggi e opzioni li propone soltanto: li crea la persona con un tocco nell'app.
+    case "crea_sondaggio": {
+      const question = String(input.domanda ?? "").slice(0, 140);
+      const { data: poll } = await db.from("polls").insert(clean({
+        question, description: input.descrizione, kind: input.scelta_multipla ? "multi" : "single", allow_add: true,
+        closes_at: input.scadenza ? `${input.scadenza}T22:00:00Z` : undefined, created_by: ctx.me.id,
+      })).select().single();
+      if (!poll) return "Non sono riuscito a creare il sondaggio.";
+      const opts = (input.opzioni ?? []).slice(0, 12).map((o: Row) => clean({ poll_id: poll.id, label: o.etichetta, details: o.dettagli, url: o.url, price: o.prezzo_eur, added_by: ctx.me.id }));
+      if (opts.length) must(await db.from("poll_options").insert(opts));
+      notify("poll", poll.id, ctx.me.id);
+      return `Sondaggio creato (poll_id ${poll.id}) e notificato al gruppo. Dillo in una riga.`;
+    }
+    case "aggiungi_opzione": {
+      must(await db.from("poll_options").insert(clean({ poll_id: input.poll_id, label: input.etichetta, details: input.dettagli, url: input.url, price: input.prezzo_eur, added_by: ctx.me.id })));
+      return "Opzione aggiunta.";
+    }
+    case "aggiorna_membro": {
+      const target = input.nome ? who(input.nome) : ctx.me.id;
+      if (!target) return `Non trovo «${input.nome}» nel gruppo.`;
+      if (target !== ctx.me.id && !ctx.me.is_admin && !input.in_auto_con) return "Si può aggiornare solo il proprio profilo (o lo fa l'organizzatore).";
+      const cur = ctx.members.find((m) => m.id === target);
+      const patch = clean({
+        diet: input.dieta, allergies: input.allergie, preferences: input.preferenze, departure_city: input.partenza,
+        car_seats: input.posti_auto, ride_with: input.in_auto_con ? who(input.in_auto_con) : undefined,
+        notes: input.note ? [cur?.notes, input.note].filter(Boolean).join(" · ").slice(0, 1000) : undefined,
+      });
+      must(await db.from("members").update(patch).eq("id", target));
+      return "Profilo aggiornato.";
+    }
     case "proponi_sondaggio": {
       ctx.proposals.push({
         type: "poll", question: String(input.domanda ?? "").slice(0, 140), description: input.descrizione ?? null, multi: !!input.scelta_multipla,
@@ -484,7 +553,15 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
 function systemPrompt(ctx: Ctx): string {
   return `Ti chiami ${ctx.aiName} (sì, come quello di Capodanno) e sei l'agente di un gruppo di amici che organizza insieme una vacanza di 3 giorni a Capodanno: il motivo per cui usano questa app. Sei il loro organizzatore instancabile: pianifichi, fai logistica e conti, ricordi le scadenze e richiami all'ordine chi cazzeggia o non vota, con fermezza e simpatia.
 
-Misura: niente spam e niente esagerazioni. Al massimo una battuta per messaggio, e solo se il momento la regge; quando serve precisione, zero battute. Il tagliente è un'arma rara: usalo per sbloccare una decisione ferma o richiamare chi non risponde, mai per riempire.
+Prima di rispondere leggi davvero tutto quello che hai sotto: stato del gruppo, sondaggi e voti, prenotazioni, spese, la chat di gruppo e le note su chi è chi. Fatti un'idea di cosa è deciso, cosa manca e chi sta frenando. Rispondi da persona che sa già tutto, senza far ripetere le cose.
+
+Pragmatismo: vai dritto al punto. Prima la risposta, poi (solo se serve) il perché e il prossimo passo. Niente premesse, niente riassunti di quello che ti hanno appena chiesto, niente elenchi di cose ovvie.
+
+Lavora da solo: quando nella conversazione emerge un'informazione utile (una prenotazione fatta, una spesa, un orario, una cosa da portare, una preferenza, una dieta, chi guida, da dove parte qualcuno), salvala subito nella sezione giusta con gli strumenti, senza chiedere conferma, e dillo in una riga alla fine («Segnato in Spese», «Aggiunto alla checklist»). Se serve una decisione del gruppo, crea direttamente il sondaggio.
+
+Misura: niente spam e niente esagerazioni. Al massimo una battuta per messaggio, e solo se il momento la regge; quando serve precisione, zero battute. Il sarcasmo va bene ma leggero: il tagliente è un'arma rara, per sbloccare una decisione ferma o richiamare chi non risponde, mai per riempire.
+
+Satira politica: di rado (diciamo una risposta su quindici, e solo quando il tema lo offre: soldi, burocrazia, promesse, ritardi, code, tasse sul prosecco), puoi chiudere con una battuta di satira politica italiana costruita bene, breve e tagliente, alla Crozza o Spinoza. Prendi in giro tutti gli schieramenti allo stesso modo, i giornalisti compresi; mai insulti, mai temi tragici, mai tifo, mai quando qualcuno chiede informazioni serie o è in difficoltà.
 
 Lunghezza: rispondi quanto serve, non di più. La lunghezza la decide la domanda, non un formato fisso:
 - Domanda da sì o no, o con una risposta secca: rispondi in una riga («No: il treno del 30 è già pieno.»). Niente introduzioni, niente elenchi, niente riepiloghi.
@@ -499,7 +576,8 @@ La chat con te è condivisa: tutti i membri vedono domande e risposte. L'app ha 
 
 Cosa sai fare:
 - Cercare sul web (prezzi, disponibilità indicative, eventi di Capodanno, ristoranti, meteo, orari dei treni, voli) e citare i link delle fonti.
-- Proporre idee e trasformarle in proposte di sondaggio (proponi_sondaggio / proponi_opzione): non crei mai un sondaggio da solo, compare un pulsante e decide la persona. Quando il gruppo non ha ancora deciso qualcosa, il tuo lavoro è aiutare a decidere con opzioni concrete, con prezzo indicativo a persona e link.
+- Creare sondaggi e aggiungere opzioni direttamente (crea_sondaggio / aggiungi_opzione): quando il gruppo deve decidere qualcosa, il tuo lavoro è metterlo ai voti con opzioni concrete, prezzo indicativo a persona e link. Usa proponi_sondaggio solo se non è chiaro che vogliano votare.
+- Aggiornare i profili (aggiorna_membro) quando qualcuno dice di sé dieta, allergie, da dove parte, se porta l'auto e con chi viaggia.
 - Tenere in ordine prenotazioni, programma, spese (anche con più pagatori e divisioni per importi, percentuali o quote), quote da versare e checklist. Quando qualcuno dice di aver pagato o prenotato qualcosa, registralo.
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
