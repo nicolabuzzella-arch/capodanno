@@ -140,7 +140,13 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
     case "chat": {
       const { data: m } = await db.from("messages").select("*").eq("id", id).single();
       if (!m || m.channel !== "gruppo") return 0;
-      return send(others.filter((x) => x !== m.member_id), { title: name(m.member_id), body: cut(m.content), url: "?tab=chat", tag: "chat", cat: "chat" });
+      // Chi viene menzionato con @Nome riceve sempre la notifica, anche se ha spento quelle della chat.
+      const low = String(m.content ?? "").toLowerCase();
+      const tagged = all.filter((x) => x.id !== m.member_id && String(x.name ?? "").trim() &&
+        new RegExp(`@${String(x.name).trim().split(/\s+/)[0].toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\d])`, "u").test(low)).map((x) => x.id);
+      let sent = 0;
+      if (tagged.length) sent += await send(tagged, { title: `${name(m.member_id)} ti ha menzionato`, body: cut(m.content), url: "?tab=chat", tag: "mention-" + m.id });
+      return sent + await send(others.filter((x) => x !== m.member_id && !tagged.includes(x)), { title: name(m.member_id), body: cut(m.content), url: "?tab=chat", tag: "chat", cat: "chat" });
     }
     case "feedback": {
       const { data: f } = await db.from("feedback").select("*").eq("id", id).single();

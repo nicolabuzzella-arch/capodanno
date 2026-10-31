@@ -441,6 +441,8 @@ function scheduleReload(payload) {
   if (payload?.table === "chess_games") { window.onChessChange?.(payload); return; }
   if (payload?.table === "card_games") { window.onScopaChange?.(payload); return; }
   if (payload?.table === "duels") { window.onDuelChange?.(payload); return; }
+  const nm = payload?.table === "messages" && payload.eventType === "INSERT" ? payload.new : null;
+  if (nm && nm.channel === "gruppo" && nm.member_id !== ME && mentionsMe(nm.content) && !(UI.tab === "chat" && UI.chatSeg === "gruppo")) { toast(`${mname(nm.member_id)} ti ha menzionato`, "chat"); navigator.vibrate?.([20, 40, 20]); }
   clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250);
 }
 async function reload() {
@@ -582,6 +584,7 @@ function render() {
   };
   Object.entries(EX).forEach(([k, v]) => { titles[k] = v.title; });
   document.body.dataset.tab = UI.tab;
+  setTimeout(() => window.presenceTrack?.(), 0);
   root.innerHTML = `<div id="app">
     ${OFFLINE ? `<div class="offline">Sei offline: vedi l'ultima copia salvata</div>` : ""}
     <header class="topbar">
@@ -1684,7 +1687,7 @@ function viewChat() {
       if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Psicologo" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
       const mine = m.member_id === ME; const w = member(m.member_id);
       const fx = effectsOf(m.member_id);
-      const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");
+      const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? mentions(linkify(m.content)) : esc(m.content).replace(/\n/g, "<br>");
       const tap = seg === "gruppo" && m.id !== "tmp" ? `data-act="msg-menu" data-id="${m.id}"` : "";
       return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(fx.nick || w?.name || "—")}${fx.nick ? ` <span class="fx-nick">alias di ${esc(w?.name || "")}</span>` : ""}${fx.title ? ` <span class="fx-title">${esc(fx.title)}</span>` : ""}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
     }).join("")}
@@ -1692,6 +1695,16 @@ function viewChat() {
     ${seg === "ascolto" && list.length ? `<button class="link" style="align-self:center;margin-top:8px" data-act="clear-private">${ico("trash", 15)}Cancella questa conversazione</button>` : ""}
   </div>`;
 }
+
+// Menzioni: «@Nome» diventa un'etichetta evidenziata (più forte se sei tu).
+const firstName = m => String(m?.name || "").trim().split(/\s+/)[0];
+function mentions(html) {
+  const names = S.members.map(m => ({ id: m.id, n: firstName(m) })).filter(x => x.n).sort((a, b) => b.n.length - a.n.length);
+  if (!names.length) return html;
+  const re = new RegExp(`(^|[\\s(>])@(${names.map(x => x.n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\wàèéìòù])`, "giu");
+  return html.replace(re, (all, pre, n) => { const hit = names.find(x => x.n.toLowerCase() === n.toLowerCase()); return `${pre}<span class="mention ${hit?.id === ME ? "me" : ""}">@${n}</span>`; });
+}
+const mentionsMe = text => { const n = firstName(me()); return !!n && new RegExp(`@${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\wàèéìòù])`, "iu").test(text || ""); };
 
 function renderReplyBar() {
   const bar = $("#reply-bar");
@@ -1868,7 +1881,8 @@ function viewGruppo() {
       <div><div class="eyebrow">Codice invito</div><div class="num" style="font-size:26px;letter-spacing:.14em;margin-top:6px">${esc(t.invite_code || "—")}</div></div>
       <button class="btn primary" data-act="invite">${ico("share", 17)}Invita</button>
     </div>
-  </section>` : ""}
+  </section>
+  <section class="card tap" data-act="tab" data-tab="attivita"><div class="row" style="gap:12px">${ico("chart", 22)}<div class="grow"><div class="t">Attività dal vivo</div><div class="small muted">Chi è nell'app, dove si trova e cosa succede. Solo tu la vedi.</div></div><span class="chev">${ico("chev", 18)}</span></div></section>` : ""}
 
   <div class="section"><div class="label">Partecipanti · ${S.members.length}</div>${isAdmin() ? `<button class="link" data-act="add-person">${ico("plus", 15)}Aggiungi</button>` : ""}</div>
   <section class="card">${S.members.slice().sort(byCreated).map(x => `
@@ -2803,13 +2817,32 @@ document.addEventListener("submit", async e => {
 
 // Composer della chat: scrive al gruppo o all'assistente, a seconda della scheda.
 const composer = $("#composer-input");
-composer.addEventListener("input", () => { composer.style.height = "auto"; composer.style.height = Math.min(140, composer.scrollHeight) + "px"; });
+composer.addEventListener("input", () => { composer.style.height = "auto"; composer.style.height = Math.min(140, composer.scrollHeight) + "px"; mentionSuggest(); });
+// Scrivendo «@» compaiono le persone del gruppo: un tocco e il nome è inserito.
+function mentionSuggest() {
+  let bar = $("#mention-bar");
+  if (!bar) { bar = document.createElement("div"); bar.id = "mention-bar"; bar.className = "mention-bar"; $("#composer").prepend(bar); bar.addEventListener("mousedown", e => e.preventDefault()); bar.addEventListener("click", e => { const b = e.target.closest("[data-mn]"); if (b) pickMention(b.dataset.mn); }); }
+  const pos = composer.selectionStart ?? composer.value.length, before = composer.value.slice(0, pos);
+  const m = UI.chatSeg === "gruppo" ? before.match(/(^|\s)@([\p{L}]*)$/u) : null;
+  if (!m) { bar.hidden = true; return; }
+  const q = m[2].toLowerCase();
+  const list = S.members.filter(x => x.id !== ME && firstName(x).toLowerCase().startsWith(q)).slice(0, 6);
+  bar.hidden = !list.length;
+  bar.innerHTML = list.map(x => `<button type="button" data-mn="${x.id}">${avatar(x, "sm")}<span>${esc(x.name)}</span></button>`).join("");
+}
+function pickMention(id) {
+  const pos = composer.selectionStart ?? composer.value.length, before = composer.value.slice(0, pos), after = composer.value.slice(pos);
+  const start = before.lastIndexOf("@"), name = firstName(member(id));
+  composer.value = `${before.slice(0, start)}@${name} ${after}`;
+  const caret = start + name.length + 2; composer.setSelectionRange(caret, caret); composer.focus();
+  $("#mention-bar").hidden = true; syncComposerButtons();
+}
 composer.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !isIOS) { e.preventDefault(); $("#composer-form").requestSubmit(); } });
 $("#composer-form").addEventListener("submit", e => {
   e.preventDefault();
   e.stopPropagation();
   const text = composer.value;
-  composer.value = ""; composer.style.height = "auto"; syncComposerButtons();
+  composer.value = ""; composer.style.height = "auto"; syncComposerButtons(); if ($("#mention-bar")) $("#mention-bar").hidden = true;
   if (UI.chatSeg === "gruppo") sendGroup(text); else ask(text, UI.chatSeg);
 });
 $("#composer-send").innerHTML = ico("send", 20);

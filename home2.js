@@ -357,7 +357,23 @@ $("#composer-photo-input")?.addEventListener("change", e => { const f = e.target
 
 // ───────────────────────── Chi è online ─────────────────────────
 // Presenza in tempo reale (Supabase Realtime): quando qualcuno apre l'app compare un piccolo avviso in alto.
-const PRESENT = new Set();
+const PRESENT = new Set(), PINFO = new Map(), LASTSEEN = new Map();
+// Dove si trova ognuno (solo la sezione, mai i contenuti). Lo Psicologo non viene mai indicato: risulta «Chat».
+const WHERE = { home: "Home", vota: "Sondaggi", piano: "Piano", spese: "Splitwise", chat: "Chat", gruppo: "Il gruppo", giochi: "Giochi", mappa: "Mappa", meteo: "Meteo", passaggi: "Passaggi", foto: "Foto", profilo: "Profilo", vibe: "Vibe", attivita: "Attività" };
+function whereNow() {
+  if (document.body.classList.contains("gaming")) { const g = document.querySelector("#game .eyebrow")?.textContent?.trim(); return `In partita${g ? ` · ${g.split("·")[0].trim()}` : ""}`; }
+  const base = WHERE[UI.tab] || "App";
+  if (UI.tab === "chat") return UI.chatSeg === "gruppo" ? "Chat · Gruppo" : UI.chatSeg === "ai" ? `Chat · ${AI()}` : "Chat";
+  return base;
+}
+let lastTrack = "", trackT = 0;
+function presenceTrack(force) {
+  if (!presenceCh || document.hidden) return;
+  const w = whereNow(); if (!force && w === lastTrack) return;
+  lastTrack = w; clearTimeout(trackT);
+  trackT = setTimeout(() => { try { presenceCh.track({ at: Date.now(), where: w }); } catch { /* rete */ } }, 400);
+}
+window.presenceTrack = presenceTrack;
 let presenceCh = null, presenceSince = 0;
 const POP_SEEN = new Map();
 window.onlineStrip = () => {
@@ -385,13 +401,13 @@ function startPresence() {
   try {
     presenceCh = api.channel("presenza", { config: { presence: { key: ME } } });
     if (typeof presenceCh?.on !== "function" || typeof presenceCh.track !== "function") { presenceCh = null; return; }
-    const sync = () => { const st = presenceCh.presenceState?.() || {}; PRESENT.clear(); Object.keys(st).forEach(k => PRESENT.add(k)); paintOnline(); };
+    const sync = () => { const st = presenceCh.presenceState?.() || {}; PRESENT.clear(); PINFO.clear(); Object.entries(st).forEach(([k, v]) => { PRESENT.add(k); const last = [...(v || [])].sort((a, b) => (b.at || 0) - (a.at || 0))[0]; if (last) PINFO.set(k, last); }); paintOnline(); window.onPresence?.(); };
     presenceCh.on("presence", { event: "sync" }, sync)
       .on("presence", { event: "join" }, ({ key }) => { const was = PRESENT.has(key); PRESENT.add(key); paintOnline(); if (!was) presencePop(key); })
-      .on("presence", { event: "leave" }, ({ key }) => { PRESENT.delete(key); paintOnline(); })
-      .subscribe(status => { if (status === "SUBSCRIBED") { presenceSince = Date.now(); if (!document.hidden) presenceCh.track({ at: Date.now() }); } });
+      .on("presence", { event: "leave" }, ({ key }) => { PRESENT.delete(key); LASTSEEN.set(key, Date.now()); paintOnline(); window.onPresence?.(); })
+      .subscribe(status => { if (status === "SUBSCRIBED") { presenceSince = Date.now(); if (!document.hidden) presenceTrack(true); } });
     document.addEventListener("visibilitychange", () => {
-      try { if (document.hidden) presenceCh?.untrack(); else { presenceSince = Math.max(presenceSince, Date.now() - 4000); presenceCh?.track({ at: Date.now() }); } } catch { /* rete */ }
+      try { if (document.hidden) presenceCh?.untrack(); else { presenceSince = Math.max(presenceSince, Date.now() - 4000); presenceTrack(true); } } catch { /* rete */ }
     });
   } catch (e) { console.warn(e); presenceCh = null; }
 }
@@ -399,3 +415,53 @@ function startPresence() {
   if (typeof ME !== "undefined" && ME && (!CLOUD || api.sb)) { startPresence(); return; }
   setTimeout(waitPresence, 700);
 })();
+
+// ───────────────────────── Attività dal vivo (solo organizzatore) ─────────────────────────
+// Chi è nell'app e in quale sezione, più il filo di quello che succede nel gruppo. Mai i contenuti dello Psicologo
+// né le conversazioni private con Zampone: solo azioni già visibili a tutto il gruppo.
+const agoShort = t => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 45 ? "adesso" : s < 3600 ? `${Math.round(s / 60)} min fa` : s < 86400 ? `${Math.round(s / 3600)} h fa` : `${Math.round(s / 86400)} g fa`; };
+const GNAME = { sudoku9: "Sudoku", killer: "Sudoku Killer", fune: "Tiro alla fune", fuochi: "Fuochi", enigma: "Indovinello", trivia: "Ordine di grandezza", onorevoli: "Onorevoli", geo: "GeoScatto" };
+function activityFeed() {
+  const ev = [];
+  const add = (at, who, icon, txt) => at && ev.push({ t: new Date(at).getTime(), who, icon, txt });
+  for (const m of S.messages.filter(m => m.channel === "gruppo" && m.role !== "assistant").slice(-60)) add(m.created_at, m.member_id, "chat", m.meta?.photo ? "ha mandato una foto" : m.meta?.voice ? "ha mandato un vocale" : `ha scritto: «${String(m.content).slice(0, 70)}${m.content.length > 70 ? "…" : ""}»`);
+  for (const v of S.votes) { const o = S.poll_options.find(x => x.id === v.option_id), p = S.polls.find(x => x.id === v.poll_id); add(v.created_at, v.member_id, "vote", `ha votato «${o?.label || "?"}»${p ? ` in «${p.question}»` : ""}`); }
+  for (const p of S.polls) add(p.created_at, p.created_by, "vote", `ha creato il sondaggio «${p.question}»`);
+  for (const s of S.scores || []) add(s.created_at, s.member_id, "trophy", `ha giocato a ${GNAME[s.game] || s.game}${s.score ? ` · ${s.score} punti` : ""}`);
+  for (const e of S.expenses) add(e.created_at, e.created_by || Object.keys(e.payers || {})[0], "wallet", e.kind === "payment" ? `ha registrato un pagamento di ${eur(e.amount)}` : `ha aggiunto la spesa «${e.title || "spesa"}» (${eur(e.amount)})`);
+  for (const p of S.photos || []) add(p.created_at, p.member_id, "image", "ha caricato una foto");
+  for (const d of S.daily_answers || []) add(d.created_at, d.member_id, "spark", "ha risposto alla domanda del giorno");
+  for (const w of S.wheel_spins || []) add(w.created_at, w.member_id, "star", "ha girato la ruota");
+  for (const b of S.bookings) add(b.created_at, b.created_by, "calendar", `ha aggiunto «${b.title}» al piano`);
+  for (const g of (typeof DU !== "undefined" ? DU.games : [])) add(g.created_at, g.created_by, "swap", `ha sfidato ${mname(g.players.find(x => x !== g.created_by))} a ${DKIND[g.kind] || g.kind}`);
+  return ev.filter(e => member(e.who)).sort((a, b) => b.t - a.t).slice(0, 60);
+}
+EXTRA_VIEWS.attivita = {
+  title: "Attività", sub: "Dal vivo, solo per l'organizzatore", back: "gruppo",
+  view() {
+    if (!isAdmin()) return `<section class="card"><div class="small muted">Questa sezione è solo per l'organizzatore.</div></section>`;
+    return `<div id="act-live">${activityLive()}</div>
+      <div class="label" style="margin:18px 4px 8px">Cosa succede nel gruppo</div>
+      <section class="card act-feed" id="act-feed">${activityFeedHtml()}</section>
+      <p class="tiny faint" style="margin:10px 6px 24px">Vedi la sezione aperta e le azioni già visibili al gruppo. I messaggi allo Psicologo e a ${AI()} restano privati.</p>`;
+  },
+  mount() {
+    window.onPresence = () => { const el = $("#act-live"); if (el) el.innerHTML = activityLive(); };
+    clearInterval(window.__actT); window.__actT = setInterval(() => { if (UI.tab !== "attivita") return clearInterval(window.__actT); window.onPresence(); }, 15000);
+  },
+};
+function activityLive() {
+  const on = S.members.filter(m => PRESENT.has(m.id)).map(m => ({ m, i: PINFO.get(m.id) || {} })).sort((a, b) => (b.i.at || 0) - (a.i.at || 0));
+  const off = S.members.filter(m => !PRESENT.has(m.id));
+  const lastAct = new Map(); for (const e of activityFeed()) if (!lastAct.has(e.who)) lastAct.set(e.who, e.t);
+  return `<section class="card act-live"><div class="row between" style="margin-bottom:10px"><div class="label" style="margin:0">Nell'app adesso</div><span class="pill plain num"><span class="h3-dot"></span>${on.length}</span></div>
+    ${on.length ? on.map(({ m, i }) => `<div class="li act-on">${avatar(m, "sm")}<div class="grow"><div class="t">${esc(m.id === ME ? "Tu" : m.name)}</div><div class="small muted">${esc(i.where || "Nell'app")}${i.at ? ` · da ${agoShort(i.at).replace(" fa", "")}` : ""}</div></div><span class="act-dot"></span></div>`).join("") : `<div class="small muted">Nessuno in questo momento.</div>`}
+  </section>
+  <section class="card"><div class="label">Non collegati</div>
+    ${off.map(m => { const t = Math.max(LASTSEEN.get(m.id) || 0, lastAct.get(m.id) || 0); return `<div class="li">${avatar(m, "sm")}<div class="grow t">${esc(m.name)}</div><span class="tiny faint">${t ? `visto ${agoShort(t)}` : "nessuna attività"}</span></div>`; }).join("") || `<div class="small muted">Sono tutti dentro.</div>`}
+  </section>`;
+}
+function activityFeedHtml() {
+  const ev = activityFeed();
+  return ev.length ? ev.map(e => `<div class="li act-ev">${avatar(member(e.who), "sm")}<div class="grow"><div class="small"><b>${esc(mname(e.who))}</b> ${esc(e.txt)}</div><div class="tiny faint">${agoShort(e.t)}</div></div><span class="act-ico">${ico(e.icon, 15)}</span></div>`).join("") : `<div class="small muted">Ancora niente.</div>`;
+}

@@ -43,17 +43,9 @@ function face(r, s) {
     ${suitGlyph(s, 50, 110, 0.85)}`;
 }
 const CARD_CACHE = new Map();
-function cardSrc(id) {
-  if (CARD_CACHE.has(id)) return CARD_CACHE.get(id);
-  const s = cardS(id), r = cardR(id), idx = r === 1 ? "A" : r <= 7 ? String(r) : ["J", "Q", "K"][r - 8];
-  const body = r === 1 ? suitGlyph(s, 50, 75, 2.6) : r <= 7 ? PIP_POS[r].map(([x, y, flip]) => suitGlyph(s, x, y, 1.15, flip ? 180 : 0)).join("") : face(r, s);
-  const corner = (x, y, rot) => `<g transform="translate(${x} ${y}) rotate(${rot})"><text x="0" y="0" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="17" fill="${suitColor(s)}">${idx}</text>${suitGlyph(s, 0, 11, 0.55)}</g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><rect x="1" y="1" width="98" height="148" rx="9" fill="#ffffff" stroke="#d6d6de" stroke-width="1.5"/>${body}${corner(13, 21, 0)}${corner(87, 129, 180)}</svg>`;
-  const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-  CARD_CACHE.set(id, src);
-  return src;
-}
-const BACK_SRC = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><defs><pattern id="d" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="#1b1f4a"/><path d="M0 5h10" stroke="#3b3f86" stroke-width="2"/></pattern></defs><rect x="1" y="1" width="98" height="148" rx="9" fill="#fff" stroke="#d6d6de" stroke-width="1.5"/><rect x="6" y="6" width="88" height="138" rx="6" fill="url(#d)"/><circle cx="50" cy="75" r="15" fill="#fff"/><text x="50" y="81" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="18" fill="#1b1f4a">C</text></svg>`);
+// Carte francesi classiche (disegni di Adrian Kennard, dominio pubblico CC0): file SVG nella cartella «carte».
+function cardSrc(id) { return `carte/${"DHSC"[cardS(id)]}${cardR(id)}.svg`; }
+const BACK_SRC = "carte/retro.svg";
 
 // ───────────────────────── Motore ─────────────────────────
 

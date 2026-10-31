@@ -174,42 +174,38 @@ const ENIGMI = [
 ];
 // Indovinelli del giorno: una parola sola da indovinare. a = risposte accettate (senza articolo), h = indizio.
 const INDOVINELLI = [
-  { q: "Più ne togli, più divento grande.", a: ["buco", "buca", "fossa"], h: "Lo fai con una pala." },
-  { q: "Ha i denti ma non morde.", a: ["pettine", "forchetta", "sega", "chiave", "cerniera"], h: "Lo passi tra i capelli." },
-  { q: "Ha le lancette ma non punge, cammina sempre ma non si muove dal muro.", a: ["orologio"], h: "Tic tac." },
-  { q: "Più è caldo, più è fresco.", a: ["pane"], h: "Lo sforna il fornaio." },
-  { q: "Se lo nomini, sparisce.", a: ["silenzio"], h: "In biblioteca è d'obbligo." },
-  { q: "Ha un occhio solo ma non vede niente.", a: ["ago"], h: "Ci passa il filo." },
-  { q: "Ti segue ovunque col sole, ma sparisce col buio.", a: ["ombra"], h: "A mezzogiorno è cortissima." },
-  { q: "Ha le chiavi ma non apre nessuna porta.", a: ["pianoforte", "piano", "tastiera"], h: "Bianchi e neri." },
-  { q: "Più si asciuga, più si bagna.", a: ["asciugamano", "telo"], h: "Esci dalla doccia." },
-  { q: "Si rompe senza essere mai toccata.", a: ["promessa", "parola"], h: "La dai a qualcuno." },
-  { q: "Ha il collo ma non ha la testa.", a: ["bottiglia"], h: "Si stappa a mezzanotte." },
-  { q: "Corre ma non ha gambe, ha un letto ma non dorme mai.", a: ["fiume"], h: "Ha una foce." },
-  { q: "Ha un tetto sopra la testa e quattro gambe, ma non è una casa.", a: ["tavolo"], h: "Ci si apparecchia." },
-  { q: "Vola senza ali, piange senza occhi.", a: ["nuvola", "nube"], h: "Guarda in alto prima di un temporale." },
-  { q: "Bianco era, nero diventa; se lo usi si consuma.", a: ["carbone", "fiammifero", "candela"], h: "Con lui si accende il fuoco." },
-  { q: "Ha le foglie ma non è un albero, ha il dorso ma non è un animale.", a: ["libro"], h: "Si legge." },
-  { q: "Ti accompagna sempre: domani c'è, ieri c'era, oggi non arriva mai.", a: ["futuro", "domani"], h: "È sempre davanti a te." },
-  { q: "Si alza la mattina, cala la sera, e nessuno lo può fermare.", a: ["sole"], h: "Tramonta." },
-  { q: "Ha la barba ma non è un uomo, ha i denti ma non mangia.", a: ["aglio", "spiga", "chiave"], h: "Allontana i vampiri." },
-  { q: "Più ne hai, meno vedi.", a: ["buio", "oscurita", "nebbia"], h: "Spegni la luce." },
-  { q: "Ha la coda ma non è un animale; vola ma non è un uccello.", a: ["aquilone", "cometa"], h: "Si fa volare al vento." },
-  { q: "Sta nel mare ma non si bagna mai.", a: ["r", "erre", "lettera r"], h: "Guarda la parola, non l'acqua." },
-  { q: "Lo prendi prima di averlo, lo dai dopo averlo preso.", a: ["raffreddore", "fiato"], h: "Etciù." },
-  { q: "È tuo, ma gli altri lo usano più di te.", a: ["nome"], h: "Ti chiamano così." },
-  { q: "Ha le ali ma non vola, ha il becco ma non mangia.", a: ["teiera", "caffettiera", "bricco"], h: "Ci bolle l'acqua." },
-  { q: "Ha mille aghi e non sa cucire.", a: ["riccio", "porcospino", "pino", "abete"], h: "Si appallottola se ha paura." },
-  { q: "Più sale, più scende.", a: ["età", "eta"], h: "Il giorno del compleanno." },
-  { q: "Entra secco, esce bagnato; più ci resta, più è forte.", a: ["tè", "te", "bustina", "tea"], h: "Si mette in infusione." },
-  { q: "Ha il cappello ma non la testa, il piede ma non la scarpa.", a: ["fungo"], h: "Nasce nel bosco dopo la pioggia." },
-  { q: "Si apre per chiudersi sopra di te quando piove.", a: ["ombrello"], h: "Non aprirlo in casa." },
-  { q: "Tutti lo hanno, nessuno lo perde, e tutti lo festeggiano una volta all'anno.", a: ["compleanno"], h: "Candeline." },
-  { q: "Cade senza farsi male, si posa senza peso, a Capodanno lo speri sulle piste.", a: ["neve"], h: "È bianca." },
-  { q: "Brucia ma non è fuoco, fa luce ma non è il sole, a mezzanotte esplode in cielo.", a: ["fuochi", "fuochi d'artificio", "fuoco d'artificio", "razzo", "petardo", "botti"], h: "Botti." },
-  { q: "Ha dodici figli, ognuno con trenta figli, metà bianchi e metà neri.", a: ["anno"], h: "Il 31 dicembre finisce." },
-  { q: "Si beve in piedi a mezzanotte e salta il tappo.", a: ["spumante", "champagne", "prosecco"], h: "Bollicine." },
-  { q: "Ha le gambe ma non cammina, ha le braccia ma non abbraccia.", a: ["sedia", "poltrona", "divano"], h: "Ci si siede." },
+  { q: "Chi lo fabbrica lo vende, chi lo compra non lo usa, chi lo usa non lo vede.", a: ["bara", "cassa da morto", "feretro"], h: "Riguarda l'ultimo viaggio." },
+  { q: "Ho città ma nessuna casa, foreste ma nessun albero, mari ma nessun pesce.", a: ["mappa", "cartina", "carta geografica", "atlante"], h: "La apri prima di partire." },
+  { q: "Se mi condividi, non mi hai più.", a: ["segreto"], h: "Acqua in bocca." },
+  { q: "Nasco alta e muoio bassa; più vivo, più mi consumo.", a: ["candela", "matita"], h: "Brucia piano piano." },
+  { q: "Divora tutto: uccelli, bestie, fiori; rode il ferro e sbriciola la pietra. Nessuno lo ferma.", a: ["tempo"], h: "Scorre." },
+  { q: "Grida senza voce, morde senza denti, sussurra senza bocca.", a: ["vento"], h: "Muove gli alberi." },
+  { q: "Non ha inizio né fine, eppure lo porti al dito.", a: ["anello", "fede"], h: "Si scambia all'altare." },
+  { q: "Si compra per mangiare, ma non si mangia mai.", a: ["piatto", "posate", "forchetta", "coltello", "cucchiaio"], h: "Sta in tavola, sotto il cibo." },
+  { q: "Ha tante vesti una sopra l'altra, e chi la spoglia piange.", a: ["cipolla"], h: "Si usa nel soffritto." },
+  { q: "Sale e scende senza mai muoversi.", a: ["scala", "scale"], h: "Gradini." },
+  { q: "Più ne fai, più ne lasci dietro di te.", a: ["passi", "passo", "orme", "impronte"], h: "Camminando." },
+  { q: "Mi trovi una volta in un minuto, due volte in un momento, mai in cento anni.", a: ["m", "emme", "lettera m"], h: "Guarda le parole, non il tempo." },
+  { q: "Ha quattro dita e un pollice, ma non è viva.", a: ["guanto", "guanti"], h: "D'inverno." },
+  { q: "Ha una testa e una croce, ma nessun corpo.", a: ["moneta", "monetina"], h: "Si lancia per decidere." },
+  { q: "Più è sporca, più è bianca.", a: ["lavagna"], h: "A scuola." },
+  { q: "Ha la testa ma nessun cervello, ed è fatta di spicchi pur non essendo un'arancia.", a: ["aglio"], h: "Odore forte." },
+  { q: "Ha il collo ma non la testa, le braccia ma non le mani.", a: ["camicia", "maglia", "maglietta", "giacca", "maglione"], h: "Si indossa." },
+  { q: "Ha mille occhi ma non vede niente; trattiene senza stringere.", a: ["rete"], h: "La usa il pescatore." },
+  { q: "Fa il giro del mondo restando sempre nello stesso angolo.", a: ["francobollo"], h: "Sta su una busta." },
+  { q: "Indica il nord senza sapere dov'è.", a: ["bussola"], h: "Ha un ago." },
+  { q: "Nasce dall'acqua, nell'acqua muore, e sulla tavola non manca mai.", a: ["sale"], h: "Si estrae dal mare." },
+  { q: "Più la tiri, più si accorcia.", a: ["sigaretta", "sigaro"], h: "Si accende." },
+  { q: "Se mi dai da mangiare vivo, se mi dai da bere muoio.", a: ["fuoco", "fiamma"], h: "Si spegne con l'acqua." },
+  { q: "Ha un cuore che non batte e foglie che non volano.", a: ["carciofo", "lattuga", "insalata"], h: "Si mangia." },
+  { q: "Più ce n'è, meno pesa la stanza; più è grande, meno resta.", a: ["buco", "vuoto"], h: "È fatto di niente." },
+  { q: "Ti precede quando cammini verso la luce sbagliata, e sparisce a mezzogiorno senza andarsene.", a: ["ombra"], h: "Dipende dal sole." },
+  { q: "Lo hai prima di nascere, lo perdi quando muori, ma non lo puoi mai toccare.", a: ["battito", "cuore", "respiro"], h: "Il medico lo ascolta." },
+  { q: "Più è vecchio, più vale, eppure tutti lo vogliono giovane... in bottiglia.", a: ["vino"], h: "Si brinda." },
+  { q: "Corre senza gambe, ha la bocca ma non parla, il letto ma non dorme mai.", a: ["fiume"], h: "Sfocia." },
+  { q: "Si dà senza perderla, si prende senza rubarla, e a Capodanno si spera migliore.", a: ["parola", "fortuna", "mano"], h: "Si stringe tra amici." },
+  { q: "Ha dodici figli, ognuno con circa trenta figli, metà bianchi e metà neri.", a: ["anno"], h: "Il 31 dicembre finisce." },
+  { q: "Tutti lo attraversano ma nessuno lo calpesta; si apre a mezzanotte.", a: ["anno nuovo", "capodanno", "anno"], h: "Si festeggia con il conto alla rovescia." },
 ];
 function riddleOfDay(day = today()) { return INDOVINELLI[((dayNum(day) * 5) % INDOVINELLI.length + INDOVINELLI.length) % INDOVINELLI.length]; }
 const stripArt = s => norm(s).replace(/^(il|lo|la|i|gli|le|un|uno|una|l)\s+|^l'/, "").replace(/^l\s/, "").trim();
@@ -408,161 +404,29 @@ const POLS = [
 ];
 const polInitials = n => n.split(" ").map(w => w[0]).join("").slice(0, 2);
 // Le facce: le foto di Wikipedia (licenze libere), scaricate una volta e ricordate sul telefono.
-const POL_FACES_KEY = "capodanno-volti-1";
+const POL_FACES_KEY = "capodanno-volti-2";
 let polFaces = {}; try { polFaces = JSON.parse(storage.get(POL_FACES_KEY) || "{}") || {}; } catch { polFaces = {}; }
 let polFacesAsked = false;
+// Una richiesta per personaggio alla scheda di Wikipedia (italiana, poi inglese): prende la foto principale.
+async function fetchPolFace(host, title) {
+  const r = await fetch(`https://${host}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}?redirect=true`);
+  if (!r.ok) return null;
+  const d = await r.json();
+  return d.thumbnail?.source || d.originalimage?.source || null;
+}
 async function loadPolFaces() {
   if (polFacesAsked) return; polFacesAsked = true;
-  for (const host of ["it", "en"]) {
-    const missing = POLS.filter(p => !polFaces[p.id]); if (!missing.length) break;
-    try {
-      const r = await fetch(`https://${host}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=320&titles=${encodeURIComponent(missing.map(p => p.n).join("|"))}`);
-      const d = await r.json(), q = d.query || {};
-      const alias = new Map(); for (const x of [...(q.normalized || []), ...(q.redirects || [])]) alias.set(x.to, alias.get(x.from) || x.from);
-      for (const pg of Object.values(q.pages || {})) {
-        const src = pg.thumbnail?.source; if (!src || !/^https:\/\/upload\.wikimedia\.org\//.test(src)) continue;
-        const from = alias.get(pg.title) || pg.title;
-        const p = missing.find(x => x.n === from || x.n === pg.title); if (p) polFaces[p.id] = src;
-      }
-    } catch { /* senza rete restano le iniziali */ }
-  }
+  const missing = POLS.filter(p => !polFaces[p.id]);
+  await Promise.all(missing.map(async p => {
+    for (const host of ["it", "en"]) {
+      try { const u = await fetchPolFace(host, p.w || p.n); if (u && /^https:\/\/upload\.wikimedia\.org\//.test(u)) { polFaces[p.id] = u; break; } } catch { /* senza rete restano le iniziali */ }
+    }
+  }));
   storage.set(POL_FACES_KEY, JSON.stringify(polFaces));
   $$(".pol-face[data-pol]").forEach(el => { const u = polFaces[el.dataset.pol]; if (u && !el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`); });
 }
 const polFace = (p, cls = "") => `<div class="pol-face ${cls}" data-pol="${p.id}" style="--c:${TYPES[p.t].c}"><span>${polInitials(p.n)}</span>${polFaces[p.id] ? `<img src="${esc(polFaces[p.id])}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</div>`;
 const polCard = (p, cls = "") => `<div class="pol ${cls}" style="--c:${TYPES[p.t].c}">${polFace(p)}<div class="pol-name">${esc(p.n)}</div><div class="pol-type">${TYPES[p.t].n}</div></div>`;
-function playOnorevoli() {
-  loadPolFaces();
-  const best = myRank("onorevoli");
-  let team = [];
-  openGame(`
-    <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
-      <div class="grow" style="text-align:center"><div class="eyebrow">Onorevoli</div><div class="tiny faint">Scegli tre combattenti · ${best ? `record ${best.s.score}` : "nessun record"}</div></div><span style="width:36px"></span></div>
-    <div class="ono-intro"><div class="game-ico big">${ico("trophy", 36)}</div><p class="small muted">Satira, non cronaca: si combatte a colpi di frasi celebri. La Satira batte il Carisma, il Carisma il Populismo, il Populismo la Tecnocrazia, la Tecnocrazia la Satira. Ogni vittoria ti porta alla legislatura successiva, più dura.</p></div>
-    <div class="pol-grid" id="ono-pick">${POLS.map(p => `<button data-id="${p.id}">${polCard(p)}</button>`).join("")}</div>
-    <button class="btn pearl block" id="ono-go" disabled style="position:sticky;bottom:calc(var(--sab) + 8px)">Scegli tre onorevoli</button>`);
-  $("#ono-pick").addEventListener("click", e => {
-    const b = e.target.closest("button"); if (!b) return;
-    const id = b.dataset.id;
-    team = team.includes(id) ? team.filter(x => x !== id) : team.length < 3 ? [...team, id] : team;
-    $$("#ono-pick button").forEach(x => x.classList.toggle("on", team.includes(x.dataset.id)));
-    $("#ono-go").disabled = team.length !== 3;
-    $("#ono-go").textContent = team.length === 3 ? "In aula!" : `Scegli tre onorevoli (${team.length}/3)`;
-  });
-  $("#ono-go").addEventListener("click", () => battle(team.map(id => POLS.find(p => p.id === id)), 1, 0));
-}
-const fighter = (p, lvl = 1) => ({ ...p, max: Math.round(p.hp * lvl), cur: Math.round(p.hp * lvl), atkB: 0, defB: 0, stun: false, lv: lvl });
-function battle(teamP, round, score) {
-  const lvl = 1 + (round - 1) * 0.1;
-  const mine = teamP.map(p => (p.cur != null ? p : fighter(p)));
-  const pool = POLS.filter(p => !mine.some(m => m.id === p.id));
-  const rnd = seededRand(Date.now());
-  const foes = [...pool].sort(() => rnd() - 0.5).slice(0, 3).map(p => fighter(p, lvl));
-  let a = mine.findIndex(f => f.cur > 0), b = 0, busy = false;
-  openGame(`
-    <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
-      <div class="grow" style="text-align:center"><div class="eyebrow">Legislatura ${round}</div><div class="tiny faint">Punti ${score}</div></div><span style="width:36px"></span></div>
-    <div class="arena">
-      <div class="side foe" id="ar-foe"></div>
-      <div class="ar-log" id="ar-log">Si apre la seduta.</div>
-      <div class="side me" id="ar-me"></div>
-    </div>
-    <div class="ar-moves" id="ar-moves"></div>
-    <div class="ar-bench" id="ar-bench"></div>`);
-  const hpBar = f => `<div class="hp"><i style="width:${Math.max(0, 100 * f.cur / f.max)}%;background:${f.cur / f.max > 0.5 ? "#7ee2b8" : f.cur / f.max > 0.2 ? "#ffc978" : "#ff8f8f"}"></i></div>`;
-  const side = (f, team, isFoe) => `${polCard(f, isFoe ? "foe" : "")}<div class="side-info"><div class="t">${esc(f.n)}</div>${hpBar(f)}<div class="tiny faint">Consenso ${Math.max(0, f.cur)}/${f.max}${f.atkB ? ` · forza ${f.atkB > 0 ? "+" : ""}${f.atkB}` : ""}${f.defB ? ` · difesa ${f.defB > 0 ? "+" : ""}${f.defB}` : ""}</div>
-    <div class="dots">${team.map(x => `<i class="${x.cur > 0 ? "" : "out"}"></i>`).join("")}</div></div>`;
-  const paint = () => {
-    $("#ar-foe").innerHTML = side(foes[b], foes, true);
-    $("#ar-me").innerHTML = side(mine[a], mine, false);
-    $("#ar-moves").innerHTML = mine[a].m.map((m, i) => `<button data-i="${i}" ${busy ? "disabled" : ""} style="--c:${TYPES[mine[a].t].c}"><b>${esc(m[0])}</b><span>${m[1] ? `${m[3] === "multi" ? "3 × " : ""}potenza ${m[1]}` : { heal: "recupera consenso", "atk+": "più forza", "def+": "più difesa", "def-": "abbassa la difesa", "atk-": "abbassa la forza" }[m[3]]}${m[3] === "stun" ? " · può zittire" : ""} · ${m[2]}%</span></button>`).join("");
-    $("#ar-bench").innerHTML = mine.map((f, i) => i === a ? "" : `<button data-sw="${i}" ${f.cur <= 0 || busy ? "disabled" : ""}>${polFace(f, "mini")}<span>${Math.max(0, f.cur)}</span></button>`).join("");
-  };
-  const log = t => { const el = $("#ar-log"); el.textContent = t; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); };
-  const wait = ms => new Promise(r => setTimeout(r, ms));
-  const hit = async (att, def, mv, foeSide) => {
-    const [name, pow, acc, eff] = mv;
-    log(`${att.n}: «${name}»`);
-    await wait(650);
-    if (att.stun) { att.stun = false; log(`${att.n} è stato zittito e non riesce a parlare.`); await wait(800); return; }
-    if (Math.random() * 100 > acc) { log("Nessuno se n'è accorto. Mossa a vuoto."); await wait(800); return; }
-    if (eff === "heal") { const h = Math.round(att.max * 0.3); att.cur = Math.min(att.max, att.cur + h); log(`${att.n} recupera ${h} di consenso.`); paint(); await wait(800); return; }
-    if (eff === "atk+" || eff === "def+") { att[eff === "atk+" ? "atkB" : "defB"] += 1; log(`${att.n} ${eff === "atk+" ? "si carica" : "si blinda"}.`); paint(); await wait(800); return; }
-    if (eff === "def-" || eff === "atk-") { def[eff === "def-" ? "defB" : "atkB"] -= 1; log(`${def.n} ${eff === "def-" ? "abbassa la guardia" : "perde mordente"}.`); paint(); await wait(800); return; }
-    const mult = BEATS[att.t] === def.t ? 1.5 : BEATS[def.t] === att.t ? 0.67 : 1;
-    const times = eff === "multi" ? 3 : 1;
-    let tot = 0;
-    for (let k = 0; k < times; k++) {
-      const atk = att.atk * att.lv * (1 + 0.25 * att.atkB), dfn = def.def * def.lv * (1 + 0.25 * def.defB);
-      const dmg = Math.max(1, Math.round(pow * atk / dfn * mult * (0.85 + Math.random() * 0.3) * 0.55));
-      def.cur -= dmg; tot += dmg;
-      const el = $(foeSide ? "#ar-foe" : "#ar-me");
-      el.classList.remove("hit"); void el.offsetWidth; el.classList.add("hit");
-      const fl = document.createElement("div"); fl.className = "dmg"; fl.textContent = `−${dmg}`; el.appendChild(fl); setTimeout(() => fl.remove(), 900);
-      navigator.vibrate?.(12); paint(); await wait(times > 1 ? 330 : 500);
-    }
-    if (eff === "stun" && Math.random() < 0.35) def.stun = true;
-    log(`${mult > 1 ? "Colpo superefficace! " : mult < 1 ? "Poco efficace. " : ""}${def.n} perde ${tot} di consenso${def.stun ? " ed è zittito" : ""}.`);
-    await wait(850);
-  };
-  const cpuMove = (att, def) => {
-    const opts = att.m.map(m => {
-      let v = m[1] * (BEATS[att.t] === def.t ? 1.5 : BEATS[def.t] === att.t ? 0.67 : 1) * (m[2] / 100) * (m[3] === "multi" ? 3 : 1);
-      if (m[3] === "heal") v = att.cur / att.max < 0.45 ? 70 : 5;
-      if (["atk+", "def+"].includes(m[3])) v = att.cur / att.max > 0.7 ? 35 : 8;
-      if (["atk-", "def-"].includes(m[3])) v = 28;
-      if (m[3] === "stun") v += 12;
-      return { m, v: v * (0.8 + Math.random() * 0.4) };
-    });
-    return opts.sort((x, y) => y.v - x.v)[0].m;
-  };
-  const turn = async (myMv, switchTo) => {
-    busy = true; paint();
-    const me1 = mine[a], foe = foes[b];
-    const foeMv = cpuMove(foe, me1);
-    if (switchTo != null) { a = switchTo; log(`Entra in aula ${mine[a].n}.`); paint(); await wait(800); await hit(foe, mine[a], foeMv, false); }
-    else {
-      const first = me1.spd * (1 + 0.1 * me1.atkB) >= foe.spd ? "me" : "foe";
-      if (first === "me") { await hit(me1, foe, myMv, true); if (foe.cur > 0) await hit(foe, me1, foeMv, false); }
-      else { await hit(foe, me1, foeMv, false); if (me1.cur > 0) await hit(me1, foe, myMv, true); }
-    }
-    if (foes[b].cur <= 0) {
-      log(`${foes[b].n} lascia l'aula.`); await wait(900);
-      score += 10;
-      const nb = foes.findIndex(f => f.cur > 0);
-      if (nb < 0) {
-        // Legislatura vinta: si passa alla successiva con la squadra un po' rimessa in sesto.
-        score += 20 + Math.round(mine.reduce((t, f) => t + Math.max(0, f.cur), 0) / 10);
-        mine.forEach(f => { f.cur = Math.min(f.max, Math.max(f.cur, 0) + Math.round(f.max * 0.45)); f.atkB = f.defB = 0; f.stun = false; });
-        $("#ar-moves").innerHTML = `<div class="glass win"><div class="serif" style="font-size:32px">Legislatura ${round} vinta</div><div class="small muted">${score} punti. La squadra recupera consenso.</div>
-          <div class="actions"><button class="btn" id="ono-stop">Mi ritiro</button><button class="btn primary" id="ono-next">Avanti</button></div></div>`;
-        $("#ar-bench").innerHTML = "";
-        confettiBurst();
-        $("#ono-next").onclick = () => battle(mine, round + 1, score);
-        $("#ono-stop").onclick = () => endRun(score, round);
-        return;
-      }
-      b = nb;
-    }
-    if (mine[a].cur <= 0) {
-      log(`${mine[a].n} cade.`); await wait(800);
-      const na = mine.findIndex(f => f.cur > 0);
-      if (na < 0) return endRun(score, round - 1);
-      a = na;
-    }
-    busy = false; paint();
-  };
-  const endRun = async (pts, rounds) => {
-    $("#ar-moves").innerHTML = `<div class="glass win"><div class="serif" style="font-size:32px">${rounds > 0 ? `${rounds} legislature` : "Sfiduciati"}</div><div class="small muted">${pts} punti</div><div id="ono-rank" class="small" style="margin-top:6px"></div>
-      <div class="actions"><button class="btn" data-act="close-game">Chiudi</button><button class="btn primary" data-act="play-onorevoli">Rigioca</button></div></div>`;
-    $("#ar-bench").innerHTML = "";
-    if (pts > 0) { await saveScore("onorevoli", pts, { rounds }); const r = myRank("onorevoli"); const el = $("#ono-rank"); if (el && r) el.innerHTML = `Record: <b>${r.s.score}</b> · ${r.pos}° su ${r.of}`; }
-  };
-  $("#ar-moves").addEventListener("click", e => { const btn = e.target.closest("[data-i]"); if (btn && !busy) turn(mine[a].m[Number(btn.dataset.i)]); });
-  $("#ar-bench").addEventListener("click", e => { const btn = e.target.closest("[data-sw]"); if (btn && !busy) turn(null, Number(btn.dataset.sw)); });
-  paint();
-}
-
 // ───────────────────────── Schede nei Giochi ─────────────────────────
 
 window.games2Cards = function () {

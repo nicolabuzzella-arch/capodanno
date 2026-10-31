@@ -461,6 +461,7 @@ window.homeExtras = function () {
     <button data-act="tab" data-tab="foto">${ico("image", 18)}Foto</button>
     <button data-act="chat-go" data-v="ai">${ico("spark", 18)}${AI()}</button>
     <button data-act="chat-go" data-v="ascolto">${ico("user", 18)}Psicologo</button>
+    ${isAdmin() ? `<button data-act="tab" data-tab="attivita">${ico("chart", 18)}Attività</button>` : ""}
   </div>
   ${miss ? `<section class="card tap pf-nudge" data-act="tab" data-tab="profilo">
     <div class="row" style="gap:14px"><div class="pf-ring sm" style="--p:${score}"><b>${score}%</b></div>

@@ -137,6 +137,7 @@ function openGame(html) {
   if (!document.body.classList.contains("gaming")) gameScroll = scrollY;
   document.body.classList.add("gaming");
   document.body.style.overflow = "hidden";
+  setTimeout(() => window.presenceTrack?.(), 50);
 }
 function closeGame() {
   gameCleanup && gameCleanup(); gameCleanup = null;
@@ -144,6 +145,7 @@ function closeGame() {
   el.hidden = true; el.innerHTML = "";
   document.body.style.overflow = "";
   if (document.body.classList.contains("gaming")) { document.body.classList.remove("gaming"); scrollTo(0, gameScroll); }
+  setTimeout(() => window.presenceTrack?.(), 50);
 }
 
 // ───────────────────────── Sudoku ─────────────────────────
