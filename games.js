@@ -23,7 +23,11 @@ function leaderboard(game) {
   for (const s of S.scores) {
     if (s.game !== game || !member(s.member_id)) continue;
     const cur = rows.get(s.member_id);
-    if (GAMES[game].kind === "wins") {
+    if (GAMES[game].kind === "sum") {
+      const r = cur || { member_id: s.member_id, score: 0, played: 0 };
+      r.score += s.score; r.played++;
+      rows.set(s.member_id, r);
+    } else if (GAMES[game].kind === "wins") {
       const r = cur || { member_id: s.member_id, score: 0, played: 0 };
       r.score += s.score > 0 ? 1 : 0; r.played++;
       rows.set(s.member_id, r);
@@ -45,7 +49,7 @@ function rankCard(game) {
         <span class="pos p${i + 1}">${i + 1}</span>
         ${avatar(member(s.member_id), "sm")}
         <span class="grow t ellipsis">${esc(mname(s.member_id))}${s.member_id === ME ? ` <span class="faint small">tu</span>` : ""}</span>
-        ${s.played ? `<span class="tiny faint">${s.played} ${s.played === 1 ? "sfida" : "sfide"}</span>` : s.meta?.mistakes ? `<span class="tiny faint">${s.meta.mistakes} err.</span>` : ""}
+        ${s.played ? `<span class="tiny faint">${s.played} ${GAMES[game].kind === "sum" ? (s.played === 1 ? "giorno" : "giorni") : s.played === 1 ? "sfida" : "sfide"}</span>` : s.meta?.mistakes ? `<span class="tiny faint">${s.meta.mistakes} err.</span>` : ""}
         <b class="num">${fmtScore(game, s)}</b>
       </div>`).join("")}
   </section>`;
@@ -63,6 +67,8 @@ window.viewGiochi = function () {
   };
   return `
   ${window.chessCard ? chessCard() : ""}
+  ${window.scopaCard ? scopaCard() : ""}
+  ${window.games2Cards ? games2Cards() : ""}
   <section class="card game-card">
     <div class="row top"><div class="game-ico">${ico("grid", 30)}</div>
       <div class="grow"><div class="serif" style="font-size:28px;line-height:1">Sudoku del giorno</div>
@@ -89,7 +95,7 @@ window.viewGiochi = function () {
   </section>
 
   <div class="section"><div class="label row" style="gap:8px">${ico("trophy", 15)}Classifiche di sempre</div></div>
-  ${window.chessRankCard ? chessRankCard() : ""}${rankCard("sudoku9")}${rankCard("killer")}${rankCard("fune")}${rankCard("fuochi")}
+  ${window.chessRankCard ? chessRankCard() : ""}${window.scopaRankCard ? scopaRankCard() : ""}${window.games2Ranks ? games2Ranks() : ""}${rankCard("sudoku9")}${rankCard("killer")}${rankCard("fune")}${rankCard("fuochi")}
   ${rs || rk || rt ? "" : ""}`;
 };
 

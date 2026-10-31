@@ -133,7 +133,7 @@ window.chessCard = function () {
   const row = (g, right) => `<div class="li"><div class="cb-vs">${avatar(member(g.white), "sm")}${avatar(member(g.black), "sm")}</div>
     <div class="grow"><div class="t ellipsis">${esc(mname(g.white))} – ${esc(mname(g.black))}</div><div class="tiny faint">${tcLabel(g.tc)} · ${g.moves.length ? `${Math.ceil(g.moves.length / 2)}ª mossa` : "inizio"}</div></div>${right}</div>`;
   return `<section class="card game-card chess-card" id="chess-card">
-    <div class="row top"><div class="game-ico chess-ico">${ico("chess", 30)}</div>
+    <div class="row top"><img class="game-logo" src="loghi/scacchi.png" alt="">
       <div class="grow"><div class="serif" style="font-size:28px;line-height:1">Scacchi</div>
         <div class="small muted" style="margin-top:6px">Sfide dal vivo con l'orologio: 3+2, 5+5 o 10 minuti. ${me ? `Il tuo Elo: <b>${me.score}</b>.` : "Classifica Elo del gruppo."}</div></div></div>
     ${incoming.map(g => `<div class="li cb-inv"><div class="cb-vs">${avatar(member(g.created_by), "sm")}</div><div class="grow"><div class="t">${esc(mname(g.created_by))} ti sfida</div><div class="tiny faint">${tcLabel(g.tc)} · giochi ${myColorIn(g) === "w" ? "con il bianco" : "con il nero"}</div></div>
@@ -182,7 +182,7 @@ function sheetCpu() {
     <button class="btn ${saved ? "" : "pearl"} block" style="margin-top:18px" data-act="chess-cpu-start">${saved ? "Nuova partita" : "Inizia"}</button>
     <div class="tiny faint" style="margin-top:10px;text-align:center">Allenamento: non conta per la classifica.</div>`);
 }
-async function invite(opp) {
+async function chessInvite(opp) {
   closeSheet();
   try {
     const g = await rpc("chess_invite", { p_opp: opp, p_tc: pick.tc, p_color: pick.color });
@@ -592,7 +592,7 @@ function openBoard(opts) {
       try { const row = await rpc("chess_draw", { p_id: game.id, p_action: a === "draw" ? "offer" : a === "draw-yes" ? "accept" : "decline" }); upsertGame(row); update(row); if (a === "draw") toast("Patta proposta"); } catch (err) { toast(err.message, "alert"); }
     } else if (a === "rematch") {
       pick.tc = game.tc; pick.color = myColor === "w" ? "b" : "w";
-      invite(opponentOf(game));
+      chessInvite(opponentOf(game));
     } else if (a === "again") {
       if (cpu) startCpu(opts.level, myColor === "w" ? "b" : "w"); else openBoard({ kind: "local" });
     }
@@ -640,7 +640,7 @@ Object.assign(ACTIONS, {
   "chess-cpu-sheet": () => sheetCpu(),
   "chess-local": () => openBoard({ kind: "local" }),
   "chess-pick": el => { pick[el.dataset.k] = el.dataset.k === "level" ? Number(el.dataset.v) : el.dataset.v; el.parentElement.querySelectorAll(".cb-chip").forEach(c => c.classList.toggle("on", c === el)); },
-  "chess-invite": el => invite(el.dataset.id),
+  "chess-invite": el => chessInvite(el.dataset.id),
   "chess-cpu-start": () => { closeSheet(); startCpu(pick.level, pick.cpuColor); },
   "chess-cpu-resume": () => { closeSheet(); const s = cpuSaved(); if (s) openBoard({ kind: "cpu", level: s.level, color: s.color, moves: s.moves }); },
   "chess-open": el => openOnline(CH.games.find(g => g.id === el.dataset.id)),
