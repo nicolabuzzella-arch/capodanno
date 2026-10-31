@@ -1,4 +1,4 @@
-/* Capodanno - Scopa d'assi in quattro (due contro due), con carte di stile milanese.
+/* Capodanno - Scopa d'assi in quattro (due contro due), con carte francesi (quadri valgono come i denari).
    Regole: 40 carte, 9 a testa e 4 in tavola. Si prende la carta di pari valore o, se non c'è, una somma.
    L'asso piglia tutto quello che c'è in tavola. Scopa quando si svuota la tavola (non all'ultima giocata della mano;
    con l'asso solo se chi crea la partita lo decide). A fine mano: carte, denari, settebello, primiera, scope, napola facoltativa.
@@ -7,8 +7,9 @@
 "use strict";
 
 const SC = { games: [], view: null, shown: new Set(), waiting: null };
-const SUITS = ["Denari", "Coppe", "Spade", "Bastoni"];
-const RANK_NAME = { 1: "Asso", 8: "Fante", 9: "Cavallo", 10: "Re" };
+// Carte francesi: quadri (vale come i denari: settebello = 7 di quadri), cuori, picche, fiori. J = 8, Q = 9, K = 10.
+const SUITS = ["Quadri", "Cuori", "Picche", "Fiori"];
+const RANK_NAME = { 1: "Asso", 8: "Jack", 9: "Donna", 10: "Re" };
 const cardS = id => Math.floor(id / 10), cardR = id => (id % 10) + 1;
 const cardName = id => `${RANK_NAME[cardR(id)] || cardR(id)} di ${SUITS[cardS(id)]}`;
 const PRIM = { 1: 16, 2: 12, 3: 13, 4: 14, 5: 15, 6: 18, 7: 21, 8: 10, 9: 10, 10: 10 };
@@ -17,46 +18,42 @@ const teamOf = seat => seat % 2;
 
 // ───────────────────────── Carte (SVG, disegnate una volta e messe in cache) ─────────────────────────
 
-const SUIT_COL = ["#e3a21a", "#c0392b", "#2f6fb5", "#3f7d3a"];
-function suitGlyph(s, x, y, k = 1) {
-  const g = (inner) => `<g transform="translate(${x} ${y}) scale(${k})">${inner}</g>`;
-  if (s === 0) return g(`<circle r="11" fill="#f2c14e" stroke="#a8761b" stroke-width="1.6"/><circle r="6.5" fill="none" stroke="#a8761b" stroke-width="1.2"/>
-    ${[0, 45, 90, 135].map(a => `<path d="M0 -6.5 L0 -10" stroke="#c0392b" stroke-width="1.2" transform="rotate(${a})"/><path d="M0 6.5 L0 10" stroke="#c0392b" stroke-width="1.2" transform="rotate(${a})"/>`).join("")}<circle r="2.4" fill="#c0392b"/>`);
-  if (s === 1) return g(`<path d="M-10 -11 h20 c0 9 -4 14 -10 15 c-6 -1 -10 -6 -10 -15z" fill="#d9483b" stroke="#7a1f16" stroke-width="1.3"/>
-    <path d="M-10 -11 h20" stroke="#f2c14e" stroke-width="2.4"/><rect x="-2" y="4" width="4" height="5" fill="#f2c14e" stroke="#a8761b" stroke-width=".8"/><path d="M-7 12 h14 l-2 -3 h-10z" fill="#f2c14e" stroke="#a8761b" stroke-width=".8"/>`);
-  if (s === 2) return g(`<path d="M0 -14 l3 3 v15 h-6 v-15z" fill="#cfe0f2" stroke="#2f6fb5" stroke-width="1.2"/><path d="M-8 4 h16" stroke="#e3a21a" stroke-width="3" stroke-linecap="round"/>
-    <rect x="-1.6" y="5" width="3.2" height="6" fill="#7a4a1a"/><circle cy="13" r="2.2" fill="#e3a21a"/>`);
-  return g(`<path d="M-2.6 13 l-1 -24 c0 -3 7.2 -3 7.2 0 l-1 24z" fill="#8a5a2b" stroke="#4a2e12" stroke-width="1.1"/>
-    <circle cx="0" cy="-6" r="1.4" fill="#4a2e12"/><circle cx=".8" cy="1" r="1.3" fill="#4a2e12"/><circle cx="-.6" cy="7" r="1.2" fill="#4a2e12"/><path d="M-5 -10 c3 -4 7 -4 10 0" stroke="#3f7d3a" stroke-width="2" fill="none"/>`);
-}
+const RED = "#c8102e", BLACK = "#16161d";
+const suitColor = s => (s <= 1 ? RED : BLACK);
+const SUIT_PATH = [
+  "M0 -10 L7 0 L0 10 L-7 0Z",
+  "M0 7 C-9 -1 -10 -7 -5.5 -9.5 C-2.5 -11 0 -8.5 0 -6.5 C0 -8.5 2.5 -11 5.5 -9.5 C10 -7 9 -1 0 7Z",
+  "M0 -10 C-5 -4 -10 -1 -7 3.5 C-4.5 6.5 -1.5 5 -0.8 3.6 L-2.8 9.5 H2.8 L0.8 3.6 C1.5 5 4.5 6.5 7 3.5 C10 -1 5 -4 0 -10Z",
+  "M0 -10 C3.6 -10 5 -6 3 -3.4 C6.5 -5.2 10 -2.6 9 1.2 C8 4.6 3.5 4.8 1.2 2.2 L2.8 9.5 H-2.8 L-1.2 2.2 C-3.5 4.8 -8 4.6 -9 1.2 C-10 -2.6 -6.5 -5.2 -3 -3.4 C-5 -6 -3.6 -10 0 -10Z",
+];
+const suitGlyph = (s, x, y, k = 1, rot = 0) => `<path d="${SUIT_PATH[s]}" fill="${suitColor(s)}" transform="translate(${x} ${y}) scale(${k}) rotate(${rot})"/>`;
+// Disposizione classica dei semi sulle carte francesi (quelli in basso capovolti).
 const PIP_POS = {
-  1: [[50, 75]], 2: [[50, 42], [50, 108]], 3: [[50, 36], [50, 75], [50, 114]], 4: [[32, 42], [68, 42], [32, 108], [68, 108]],
-  5: [[32, 40], [68, 40], [50, 75], [32, 110], [68, 110]], 6: [[32, 36], [68, 36], [32, 75], [68, 75], [32, 114], [68, 114]],
-  7: [[32, 34], [68, 34], [50, 55], [32, 82], [68, 82], [32, 116], [68, 116]],
+  1: [[50, 75]], 2: [[50, 38], [50, 112, 1]], 3: [[50, 34], [50, 75], [50, 116, 1]], 4: [[32, 40], [68, 40], [32, 110, 1], [68, 110, 1]],
+  5: [[32, 40], [68, 40], [50, 75], [32, 110, 1], [68, 110, 1]], 6: [[32, 38], [68, 38], [32, 75], [68, 75], [32, 112, 1], [68, 112, 1]],
+  7: [[32, 36], [68, 36], [50, 56], [32, 76], [68, 76], [32, 114, 1], [68, 114, 1]],
 };
-function figure(r, s) {
-  const c = SUIT_COL[s];
-  if (r === 9) return `<path d="M30 122 c0 -20 6 -30 14 -38 c-8 -6 -10 -18 -4 -28 c6 -10 20 -14 30 -8 l6 -6 l2 10 c6 6 6 16 0 24 c-4 6 -12 8 -18 6 c6 10 8 24 8 40z" fill="${c}" opacity=".9" stroke="#1d1d2b" stroke-width="1.6"/>
-    <circle cx="64" cy="54" r="2.4" fill="#1d1d2b"/><path d="M40 60 c-6 -8 -4 -18 4 -22" stroke="#1d1d2b" stroke-width="2" fill="none"/>${suitGlyph(s, 30, 46, 0.9)}`;
-  const crown = r === 10 ? `<path d="M38 32 l4 -12 l6 8 l2 -12 l2 12 l6 -8 l4 12z" fill="#f2c14e" stroke="#a8761b" stroke-width="1.2"/>` : `<path d="M36 34 c4 -12 24 -12 28 0z" fill="${c}" stroke="#1d1d2b" stroke-width="1.2"/><path d="M60 26 l10 -8" stroke="#1d1d2b" stroke-width="1.5"/>`;
-  return `${crown}<circle cx="50" cy="44" r="10" fill="#f6dcc0" stroke="#1d1d2b" stroke-width="1.4"/><circle cx="46.5" cy="43" r="1.2" fill="#1d1d2b"/><circle cx="53.5" cy="43" r="1.2" fill="#1d1d2b"/>
-    <path d="M28 124 l6 -52 c4 -10 28 -10 32 0 l6 52z" fill="${c}" stroke="#1d1d2b" stroke-width="1.6"/><path d="M40 72 l10 18 l10 -18" fill="none" stroke="#f2c14e" stroke-width="2.4"/>
-    <path d="M34 92 h32" stroke="#1d1d2b" stroke-width="1.2" opacity=".5"/>${suitGlyph(s, 50, 106, 1.05)}`;
+function face(r, s) {
+  // Figure eleganti: cornice, lettera grande e il seme; niente ritratti finti.
+  const L = { 8: "J", 9: "Q", 10: "K" }[r], c = suitColor(s);
+  const crown = r === 10 ? `<path d="M36 50 l5 -12 l6 7 l3 -11 l3 11 l6 -7 l5 12z" fill="#d4a62a" stroke="#8a6a12" stroke-width="1"/>` : r === 9 ? `<circle cx="50" cy="42" r="6" fill="none" stroke="#d4a62a" stroke-width="2.4"/><circle cx="50" cy="42" r="2" fill="#d4a62a"/>` : `<path d="M40 46 h20 l-3 -8 h-14z" fill="#d4a62a" stroke="#8a6a12" stroke-width="1"/>`;
+  return `<rect x="20" y="24" width="60" height="102" rx="6" fill="none" stroke="${c}" stroke-width="1.4" opacity=".55"/>
+    <rect x="24" y="28" width="52" height="94" rx="4" fill="${c}" opacity=".06"/>
+    ${crown}<text x="50" y="94" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="46" font-weight="700" fill="${c}">${L}</text>
+    ${suitGlyph(s, 50, 110, 0.85)}`;
 }
 const CARD_CACHE = new Map();
 function cardSrc(id) {
   if (CARD_CACHE.has(id)) return CARD_CACHE.get(id);
-  const s = cardS(id), r = cardR(id), idx = r <= 7 ? String(r) : ["F", "C", "R"][r - 8];
-  const body = r === 1 ? `<circle cx="50" cy="75" r="30" fill="${SUIT_COL[s]}" opacity=".14"/>${suitGlyph(s, 50, 75, 2.3)}` : r <= 7 ? PIP_POS[r].map(([x, y]) => suitGlyph(s, x, y, r >= 6 ? 0.95 : 1.1)).join("") : figure(r, s);
-  const corner = (x, y, rot) => `<g transform="translate(${x} ${y}) rotate(${rot})"><text x="0" y="0" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="17" fill="${s === 1 || s === 0 ? "#b0261a" : "#1f3f7a"}">${idx}</text>${suitGlyph(s, 0, 11, 0.42)}</g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf6"/><stop offset="1" stop-color="#f3ead4"/></linearGradient></defs>
-    <rect x="1" y="1" width="98" height="148" rx="9" fill="url(#p)" stroke="#cdb98d" stroke-width="1.5"/><rect x="5" y="5" width="90" height="140" rx="6" fill="none" stroke="${SUIT_COL[s]}" stroke-width="1" opacity=".55"/>
-    ${body}${corner(13, 20, 0)}${corner(87, 130, 180)}</svg>`;
+  const s = cardS(id), r = cardR(id), idx = r === 1 ? "A" : r <= 7 ? String(r) : ["J", "Q", "K"][r - 8];
+  const body = r === 1 ? suitGlyph(s, 50, 75, 2.6) : r <= 7 ? PIP_POS[r].map(([x, y, flip]) => suitGlyph(s, x, y, 1.15, flip ? 180 : 0)).join("") : face(r, s);
+  const corner = (x, y, rot) => `<g transform="translate(${x} ${y}) rotate(${rot})"><text x="0" y="0" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="17" fill="${suitColor(s)}">${idx}</text>${suitGlyph(s, 0, 11, 0.55)}</g>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><rect x="1" y="1" width="98" height="148" rx="9" fill="#ffffff" stroke="#d6d6de" stroke-width="1.5"/>${body}${corner(13, 21, 0)}${corner(87, 129, 180)}</svg>`;
   const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   CARD_CACHE.set(id, src);
   return src;
 }
-const BACK_SRC = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><defs><pattern id="d" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#1f3f7a"/><path d="M0 6h12" stroke="#c0392b" stroke-width="3"/></pattern></defs><rect x="1" y="1" width="98" height="148" rx="9" fill="#fffdf6" stroke="#cdb98d" stroke-width="1.5"/><rect x="7" y="7" width="86" height="136" rx="6" fill="url(#d)"/><circle cx="50" cy="75" r="16" fill="#fffdf6" stroke="#e3a21a" stroke-width="3"/><text x="50" y="81" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="18" fill="#b0261a">C</text></svg>`);
+const BACK_SRC = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><defs><pattern id="d" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="#1b1f4a"/><path d="M0 5h10" stroke="#3b3f86" stroke-width="2"/></pattern></defs><rect x="1" y="1" width="98" height="148" rx="9" fill="#fff" stroke="#d6d6de" stroke-width="1.5"/><rect x="6" y="6" width="88" height="138" rx="6" fill="url(#d)"/><circle cx="50" cy="75" r="15" fill="#fff"/><text x="50" y="81" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="18" fill="#1b1f4a">C</text></svg>`);
 
 // ───────────────────────── Motore ─────────────────────────
 
@@ -102,7 +99,7 @@ function scoreHand(piles, scope, settings) {
   const pts = [0, 0], det = [[], []];
   const give = (t, label) => { pts[t]++; det[t].push(label); };
   if (row[0].cards !== row[1].cards) give(row[0].cards > row[1].cards ? 0 : 1, "Carte");
-  if (row[0].den !== row[1].den) give(row[0].den > row[1].den ? 0 : 1, "Denari");
+  if (row[0].den !== row[1].den) give(row[0].den > row[1].den ? 0 : 1, "Quadri");
   give(row[0].sette ? 0 : 1, "Settebello");
   if (row[0].prim !== row[1].prim) give(row[0].prim > row[1].prim ? 0 : 1, "Primiera");
   for (const t of [0, 1]) {
@@ -236,7 +233,7 @@ window.scopaCard = function () {
   const row = (g, right) => `<div class="li"><div class="cb-vs">${g.players.map(id => avatar(member(id), "sm")).join("")}</div><div class="grow"><div class="t ellipsis">${esc(mname(g.players[0]))} e ${esc(mname(g.players[2]))} contro ${esc(mname(g.players[1]))} e ${esc(mname(g.players[3]))}</div><div class="tiny faint">a ${g.settings?.target || 21} punti${g.status === "invited" ? ` · ${g.accepted.filter(Boolean).length}/4 pronti` : ""}</div></div>${right}</div>`;
   return `<section class="card game-card" id="scopa-card">
     <div class="row top"><div class="game-ico">${ico("star", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Scopa d'assi</div>
-      <div class="small muted" style="margin-top:6px">In quattro, due contro due, con le carte milanesi. L'asso piglia tutto. Chi invita sceglie coppie, punti e varianti.</div></div></div>
+      <div class="small muted" style="margin-top:6px">In quattro, due contro due, con le carte francesi. L'asso piglia tutto. Chi invita sceglie coppie, punti e varianti.</div></div></div>
     ${invites.map(g => row(g, `<button class="btn sm" data-act="sc-answer" data-id="${g.id}" data-ok="0">No</button><button class="btn sm primary" data-act="sc-answer" data-id="${g.id}" data-ok="1">Ci sono</button>`)).join("")}
     ${waiting.map(g => row(g, g.created_by === ME ? `<button class="btn sm" data-act="sc-cancel" data-id="${g.id}">Annulla</button>` : `<span class="tiny faint">attesa</span>`)).join("")}
     ${playing.map(g => row(g, `<button class="btn sm primary" data-act="sc-open" data-id="${g.id}">Gioca</button>`)).join("")}
@@ -272,7 +269,7 @@ function sheetNewScopa() {
     <div class="label">Si vince a</div>${["11", "16", "21", "31"].map(t => `<button class="cb-chip sc-t ${String(SCN.target) === t ? "on" : ""}" data-act="sc-target" data-v="${t}"><b>${t}</b></button>`).join("")}
     <div class="label">Varianti</div>
     <label class="toggle"><span>La presa con l'asso vale scopa</span><span class="switch"><input type="checkbox" id="sc-ace" ${SCN.assoScopa ? "checked" : ""}><span></span></span></label>
-    <label class="toggle"><span>Napola (asso, 2 e 3 di denari)</span><span class="switch"><input type="checkbox" id="sc-nap" ${SCN.napola ? "checked" : ""}><span></span></span></label>
+    <label class="toggle"><span>Napola (asso, 2 e 3 di quadri)</span><span class="switch"><input type="checkbox" id="sc-nap" ${SCN.napola ? "checked" : ""}><span></span></span></label>
     <button class="btn pearl block" style="margin-top:16px" data-act="sc-create" ${SCN.partner && SCN.opp.length === 2 ? "" : "disabled"}>Manda l'invito</button>`);
 }
 async function createScopa() {
@@ -344,7 +341,7 @@ function openScopa(opts) {
     $("#sc-hand").innerHTML = mine.map((c, i) => `<button class="sc-hc ${sel === c ? "sel" : ""}" data-c="${c}" style="--i:${i};--n:${mine.length}" ${myTurn ? "" : "data-wait"}><img src="${cardSrc(c)}" alt="${cardName(c)}"></button>`).join("");
     const t = turnSeat(st.ply);
     $("#sc-turn").innerHTML = st.over ? "" : myTurn ? (sel != null ? `<b>${cardName(sel)}</b>: ${opts.length ? (cardR(sel) === 1 ? "piglia tutto" : opts.length > 1 ? "scegli cosa prendere" : `prendi ${opts[0].map(cardName).join(" + ")}`) : "la lasci in tavola"}` : "Tocca a te: scegli una carta")
-      : `Tocca a ${esc(nameOf(t))}${online ? "" : "…"}`;
+      : `${cur.last ? `<span class="sc-last">${esc(nameOf(cur.last.seat))}: ${cardName(cur.last.card)}${cur.last.take.length ? ` prende ${cur.last.take.map(c => cardR(c)).join(" + ")}` : ""}</span>` : ""}Tocca a ${esc(nameOf(t))}${online ? "" : "…"}`;
     $("#sc-opts").innerHTML = myTurn && sel != null ? `${opts.length > 1 ? opts.map((o, i) => `<button class="sc-opt ${i === choice ? "on" : ""}" data-o="${i}">${o.map(c => cardR(c)).join(" + ")}</button>`).join("") : ""}<button class="btn pearl" id="sc-play">Gioca</button>` : "";
   }
   function splash(text) { const el = $("#sc-splash"); if (!el) return; el.textContent = text; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on"); }
@@ -353,13 +350,13 @@ function openScopa(opts) {
     if (st.hands.length > prevHands) {
       // Mano finita: resoconto dei punti.
       const h = st.hands.at(-1), myTeam = teamOf(mySeat);
-      const lines = ["Carte", "Denari", "Settebello", "Primiera"];
+      const lines = ["Carte", "Quadri", "Settebello", "Primiera"];
       $("#sc-end").innerHTML = `<div class="glass win sc-report"><div class="serif" style="font-size:30px">${st.over ? (st.over.winner === myTeam ? "Avete vinto" : "Hanno vinto loro") : `Mano ${st.hands.length}`}</div>
         <table><tr><th></th><th>${online ? "Squadra 1" : "Noi"}</th><th>${online ? "Squadra 2" : "Loro"}</th></tr>
         ${lines.map(l => `<tr><td>${l}</td><td>${h.det[0].includes(l) ? "1" : ""}</td><td>${h.det[1].includes(l) ? "1" : ""}</td></tr>`).join("")}
         <tr><td>Scope e napola</td><td>${h.det[0].filter(x => !lines.includes(x)).join(", ")}</td><td>${h.det[1].filter(x => !lines.includes(x)).join(", ")}</td></tr>
         <tr class="tot"><td>Totale</td><td>${h.totals[0]}</td><td>${h.totals[1]}</td></tr></table>
-        <div class="tiny faint">Carte ${h.row[0].cards}–${h.row[1].cards} · denari ${h.row[0].den}–${h.row[1].den} · primiera ${h.row[0].prim}–${h.row[1].prim}</div>
+        <div class="tiny faint">Carte ${h.row[0].cards}–${h.row[1].cards} · quadri ${h.row[0].den}–${h.row[1].den} · primiera ${h.row[0].prim}–${h.row[1].prim}</div>
         <div class="actions">${st.over ? `<button class="btn" data-act="close-game">Chiudi</button><button class="btn primary" id="sc-again">${online ? "Rivincita" : "Un'altra"}</button>` : `<button class="btn primary" id="sc-next">Prossima mano</button>`}</div></div>`;
       $("#sc-next")?.addEventListener("click", () => { $("#sc-end").innerHTML = ""; paint(); loop(); });
       $("#sc-again")?.addEventListener("click", () => { if (online) { SCN.partner = game.players[(mySeat + 2) % 4]; SCN.opp = [game.players[(mySeat + 1) % 4], game.players[(mySeat + 3) % 4]]; SCN.target = settings.target; sheetNewScopa(); } else { storage.del("capodanno-scopa-bot"); openScopa({ bots: true }); } });
@@ -386,7 +383,7 @@ function openScopa(opts) {
     if (online || st.over || $("#sc-end").innerHTML) return;
     const t = turnSeat(st.ply);
     if (t === mySeat) return;
-    botTimer = setTimeout(() => { const a = botChoose(st.cur, t); if (!apply(a)) loop(); }, 750);
+    botTimer = setTimeout(() => { const a = botChoose(st.cur, t); if (!apply(a)) loop(); }, 1700);
   }
   async function playMine() {
     if (sel == null || pending) return;
@@ -428,7 +425,7 @@ function openScopa(opts) {
     <p>Giochi una carta: se in tavola c'è una carta dello stesso valore la prendi (se sono più d'una scegli tu); altrimenti puoi prendere più carte la cui somma fa il suo valore. Fante 8, cavallo 9, re 10.</p>
     <p><b>L'asso piglia tutto</b> quello che c'è in tavola${settings.assoScopa ? " e vale scopa" : ", ma non vale scopa"}.</p>
     <p>Se svuoti la tavola fai <b>scopa</b> (non all'ultima giocata della mano). A fine mano le carte rimaste vanno a chi ha preso per ultimo.</p>
-    <p>Punti di ogni mano: carte (più di 20), denari (più di 5), settebello, primiera, una per ogni scopa${settings.napola ? ", napola (asso, 2 e 3 di denari: 3 punti più uno per ogni denaro successivo)" : ""}.</p>
+    <p>Le carte: dall'asso al 7, poi jack (vale 8), donna (9) e re (10). I quadri fanno da denari.</p><p>Punti di ogni mano: carte (più di 20), quadri (più di 5), settebello (il 7 di quadri), primiera, una per ogni scopa${settings.napola ? ", napola (asso, 2 e 3 di quadri: 3 punti più uno per ogni quadri successivo)" : ""}.</p>
     <p>Vince la coppia che arriva per prima a <b>${settings.target}</b>.</p></div>`));
 
   const view = { id: online ? game.id : null, update };
