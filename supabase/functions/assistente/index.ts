@@ -52,7 +52,29 @@ Deno.serve(async (req) => {
     const { data: device } = await db.from("devices").select("member_id").eq("user_id", auth.user.id).maybeSingle();
     if (!device) return json({ error: "Non fai parte del gruppo" }, 403);
 
-    const { message, mode } = await req.json();
+    const { message, mode, message_id } = await req.json();
+    // «Osserva»: Zampone legge un messaggio della chat di gruppo e, se c'è qualcosa da registrare o da fare,
+    // lo fa da solo e lo dice in una riga nella sua chat, proponendo il passo successivo.
+    if (mode === "osserva") {
+      const { data: gm } = await db.from("messages").select("id,member_id,channel,content,created_at,meta").eq("id", message_id).maybeSingle();
+      if (!gm || gm.channel !== "gruppo" || gm.member_id !== device.member_id) return json({ skipped: true });
+      if (gm.meta?.osservato) return json({ skipped: true });
+      await db.from("messages").update({ meta: { ...(gm.meta ?? {}), osservato: true } }).eq("id", gm.id);
+      background((async () => {
+        try {
+          const ctx = await loadContext(device.member_id);
+          ctx.history = [];
+          const reply = await runAssistant(ctx, `[Automatico, non è una domanda] Nella chat di gruppo ${ctx.me.name} ha appena scritto: «${String(gm.content).slice(0, 1500)}».
+Se contiene qualcosa da registrare (un pagamento o una spesa, una prenotazione fatta, un orario, da dove parte qualcuno, chi guida, diete o allergie, cose da portare, una data) registralo SUBITO tu con gli strumenti, senza chiedere.
+Se contiene una cosa da fare (prenotare, cercare, decidere, pagare una quota), fai tu la parte che puoi fare adesso (ricerca, sondaggio, quota) e proponi di occuparti del resto.
+Poi rispondi in una o due righe: cosa hai segnato e il prossimo passo che ti offri di fare tu («Vuoi che…?»).
+Se il messaggio non contiene niente di utile per l'organizzazione, rispondi esattamente: NIENTE`);
+          if (/^\s*NIENTE\s*\.?\s*$/i.test(reply) || (!ctx.proposals.length && reply.length < 3)) return;
+          await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: reply, meta: { auto: true, from: gm.id, ...(ctx.proposals.length ? { actions: ctx.proposals } : {}) } });
+        } catch (err) { console.error(err); }
+      })());
+      return json({ accepted: true }, 202);
+    }
     const text = String(message ?? "").trim().slice(0, 4000);
     if (!text) return json({ error: "Messaggio vuoto" }, 400);
 
@@ -235,6 +257,38 @@ const tools = [
         solo_frecce: { type: "boolean" },
       },
       required: ["da", "a", "data"],
+    },
+  },
+  {
+    name: "mostra_alloggi",
+    description: "Mostra nella chat le strutture trovate come SCHEDE con foto (nome, piattaforma, foto, prezzo, posti letto, voto, zona, cancellazione, link diretto) e un pulsante per metterle ai voti. Usalo SEMPRE quando proponi alloggi, con 4-8 strutture reali trovate sulle varie piattaforme. La foto è l'immagine principale della pagina della struttura (og:image o prima foto della galleria), letta con web_fetch.",
+    input_schema: {
+      type: "object",
+      properties: {
+        strutture: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              nome: { type: "string" },
+              piattaforma: { type: "string", description: "Booking, Airbnb, Expedia, Hotels.com, Vrbo, sito ufficiale…" },
+              url: { type: "string", description: "Link diretto alla pagina della struttura, con le date se possibile" },
+              foto: { type: "string", description: "URL https di un'immagine della struttura" },
+              prezzo_totale: { type: "number", description: "Euro per tutte le notti e tutte le persone" },
+              prezzo_testa: { type: "number" },
+              posti_letto: { type: "integer" },
+              camere: { type: "integer" },
+              voto: { type: "string", description: "es. «9,1 su 10 (1.240 recensioni)» o «4,92 ★»" },
+              zona: { type: "string", description: "Quartiere e distanza dal centro" },
+              cancellazione: { type: "string" },
+              note: { type: "string", description: "Una riga: perché va bene o cosa non va" },
+              visto_il: { type: "string", description: "Data e ora in cui hai letto il prezzo" },
+            },
+            required: ["nome", "url"],
+          },
+        },
+      },
+      required: ["strutture"],
     },
   },
   {
@@ -503,6 +557,19 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
         return JSON.stringify({ errore: String((e as Error).message ?? e), consiglio: "Il sistema Trenitalia non ha risposto: cerca con web_search/web_fetch sui siti ufficiali (trenitalia.com, italotreno.com, oebb.at, sbb.ch, thetrainline.com) per la data esatta." });
       }
     }
+    case "mostra_alloggi": {
+      const ok = (u: unknown) => typeof u === "string" && /^https:\/\//.test(u) ? u : null;
+      // deno-lint-ignore no-explicit-any
+      const items = ((input.strutture as any[]) ?? []).slice(0, 10).map((s: any) => clean({
+        name: String(s.nome ?? "").slice(0, 120), platform: s.piattaforma ? String(s.piattaforma).slice(0, 40) : null, url: ok(s.url), img: ok(s.foto),
+        total: Number(s.prezzo_totale) || null, head: Number(s.prezzo_testa) || null, beds: Number(s.posti_letto) || null, rooms: Number(s.camere) || null,
+        rating: s.voto ? String(s.voto).slice(0, 60) : null, zone: s.zona ? String(s.zona).slice(0, 120) : null, cancel: s.cancellazione ? String(s.cancellazione).slice(0, 120) : null,
+        note: s.note ? String(s.note).slice(0, 200) : null, seen: s.visto_il ? String(s.visto_il).slice(0, 40) : null,
+      })).filter((s: Row) => s.name && s.url);
+      if (!items.length) return "Nessuna struttura valida: servono almeno nome e link https.";
+      ctx.proposals.push({ type: "stays", items });
+      return `Mostrate ${items.length} schede con foto nella chat. Nel testo della risposta fai solo un breve confronto e la tua raccomandazione, senza ripetere tutti i dettagli.`;
+    }
     case "link_alloggi": {
       const { data: tr } = await db.from("trip").select("start_date,end_date").eq("id", 1).single();
       const city = String(input.citta ?? "").trim();
@@ -518,6 +585,9 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
         booking_appartamenti: `https://www.booking.com/searchresults.it.html?ss=${q}${dates}&group_adults=${ad}&no_rooms=${rooms}&group_children=0&nflt=${encodeURIComponent("ht_id=201")}`,
         airbnb: `https://www.airbnb.it/s/${encodeURIComponent(city.replace(/\s+/g, "-"))}/homes?${ci && co ? `checkin=${ci}&checkout=${co}&` : ""}adults=${ad}${max > 0 ? `&price_max=${max}` : ""}`,
         google_hotels: `https://www.google.com/travel/hotels/${q}?hl=it&q=${encodeURIComponent(`hotel ${city} ${ci} ${co} ${ad} persone`)}`,
+        expedia: `https://www.expedia.it/Hotel-Search?destination=${q}${ci && co ? `&startDate=${ci}&endDate=${co}` : ""}&adults=${ad}&rooms=${rooms}`,
+        hotels_com: `https://it.hotels.com/Hotel-Search?destination=${q}${ci && co ? `&startDate=${ci}&endDate=${co}` : ""}&adults=${ad}`,
+        vrbo: `https://www.vrbo.com/it-it/search?destination=${q}${ci && co ? `&startDate=${ci}&endDate=${co}` : ""}&adults=${ad}`,
         date: ci && co ? `${ci} → ${co}` : "date non ancora decise", persone: ad,
       };
       return JSON.stringify(out);
@@ -656,6 +726,8 @@ Prima di rispondere leggi davvero tutto quello che hai sotto: stato del gruppo, 
 
 Pragmatismo: vai dritto al punto. Prima la risposta, poi (solo se serve) il perché e il prossimo passo. Niente premesse, niente riassunti di quello che ti hanno appena chiesto, niente elenchi di cose ovvie.
 
+Fai tu: non lasciare mai il lavoro agli altri. Ogni volta che c'è qualcosa da fare (prenotare, cercare, confrontare, compilare dati, creare quote, ricordare a qualcuno di pagare) offriti di farlo tu, con una domanda secca alla fine («Vuoi che lo prenoti io?», «Preparo io la quota per tutti?»), e quando puoi fallo direttamente.
+
 Lavora da solo: quando nella conversazione emerge un'informazione utile (una prenotazione fatta, una spesa, un orario, una cosa da portare, una preferenza, una dieta, chi guida, da dove parte qualcuno), salvala subito nella sezione giusta con gli strumenti, senza chiedere conferma, e dillo in una riga alla fine («Segnato in Spese», «Aggiunto alla checklist»). Se serve una decisione del gruppo, crea direttamente il sondaggio.
 
 Misura: tono sobrio e asciutto, da assistente competente, non da animatore. Di norma niente battute, niente sarcasmo, niente giochi di parole, niente commenti sul gruppo o sulle persone. Al massimo, raramente, una frase leggera quando qualcuno scherza per primo; mai quando si parla di soldi, scadenze, prenotazioni o informazioni.
@@ -686,7 +758,8 @@ Treni e trasporti: per i treni italiani e quelli venduti da Trenitalia usa SEMPR
 Ricerche di alloggi (Booking, Airbnb, hotel, appartamenti): è il tuo lavoro principale e lo fai fino in fondo.
 - Chiama subito link_alloggi per avere le ricerche già compilate con città, date del viaggio e numero di persone.
 - Poi trova strutture CONCRETE: fai più ricerche mirate (es. «site:booking.com/hotel <città> appartamento <N> persone», «site:airbnb.it/rooms <città> <zona>», «<città> appartamento <N> posti letto centro capodanno») e apri con web_fetch le pagine delle singole strutture per leggere posti letto, camere, bagni, prezzo per le date, cancellazione, voto e zona.
-- Nella risposta dai 4-6 strutture, ognuna con: nome, link DIRETTO alla pagina della camera o dell'appartamento (non alla ricerca), posti letto e camere, prezzo totale e a testa per le notti del viaggio, cancellazione, voto, zona e distanza dal centro, una riga su perché va bene o cosa non va. Poi la tua raccomandazione e, se serve, il sondaggio.
+- Guarda TUTTE le piattaforme principali, non una sola: Booking, Airbnb, Expedia/Hotels.com, Vrbo, Google Hotels e, quando c'è, il sito ufficiale della struttura (spesso costa meno). Confronta lo stesso posto su più siti quando puoi.
+- Mostra le strutture con lo strumento mostra_alloggi (4-8 schede): per ognuna nome, piattaforma, link DIRETTO alla pagina della camera o dell'appartamento (non alla ricerca), FOTO (l'immagine principale della pagina, og:image, letta con web_fetch), posti letto e camere, prezzo totale e a testa per le notti del viaggio con la data in cui l'hai letto, cancellazione, voto, zona e distanza dal centro, una riga su pro e contro. Nel testo poi solo il confronto breve e la tua raccomandazione; il gruppo può metterle ai voti dalle schede.
 - Non chiudere mai con «non sono riuscito a verificare»: se un sito non mostra il prezzo aggiornato, riporta il prezzo che hai trovato con la data in cui l'hai visto, scrivi «da confermare al link (le tariffe cambiano)» e dai comunque il link diretto e quello di ricerca già compilato. Continua a cercare finché hai opzioni concrete. Non inventare mai una struttura, un prezzo o un link: usa solo quello che hai trovato davvero.
 
 Come fai le ricerche (sei il miglior organizzatore di viaggi che esista):

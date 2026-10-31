@@ -1651,8 +1651,24 @@ function proposalCards(m) {
         ${done ? `<div class="small pos row" style="gap:6px">${ico("check", 14)}Aggiunta</div>`
           : `<button class="btn sm primary" data-act="create-proposal" data-id="${m.id}" data-i="${i}">${ico("plus", 15)}Aggiungi</button>`}</div>`;
     }
+    if (a.type === "stays") return staysCards(m, a, i);
     return "";
   }).join("");
+}
+// Le strutture trovate da Zampone: schede con foto da scorrere, link diretto e voto con un tocco.
+function staysCards(m, a, i) {
+  const pollOpt = s => S.poll_options.some(o => o.label.trim().toLowerCase() === s.name.trim().toLowerCase());
+  return `<div class="stays" data-noswipe>${(a.items || []).map((s, j) => `<div class="stay">
+    <a class="stay-img" href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener" data-stop>${s.img ? `<img src="${esc(s.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${s.platform ? `<span class="stay-pl">${esc(s.platform)}</span>` : ""}${s.rating ? `<span class="stay-rt">${esc(s.rating)}</span>` : ""}</a>
+    <div class="stay-b"><div class="t">${esc(s.name)}</div>
+      ${s.total || s.head ? `<div class="stay-pr">${s.total ? `<span><b>${eur(Math.round(s.total))}</b> in totale</span>` : ""}${s.head ? `<span>${eur(Math.round(s.head))} a testa</span>` : ""}</div>` : ""}
+      <div class="stay-f">${[s.beds ? `${s.beds} posti letto` : "", s.rooms ? `${s.rooms} camere` : "", s.zone || ""].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")}</div>
+      ${s.cancel ? `<div class="tiny faint">${esc(s.cancel)}</div>` : ""}
+      ${s.note ? `<div class="small muted" style="margin-top:4px">${esc(s.note)}</div>` : ""}
+      ${s.seen ? `<div class="tiny faint" style="margin-top:4px">Prezzo visto ${esc(s.seen)}</div>` : ""}
+      <div class="stay-a"><a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener" data-stop>${ico("link", 14)}Apri</a>
+        ${pollOpt(s) ? `<span class="small pos row" style="gap:4px">${ico("check", 14)}Ai voti</span>` : `<button class="btn sm primary" data-act="stay-vote" data-id="${m.id}" data-i="${i}" data-j="${j}">${ico("vote", 14)}Metti ai voti</button>`}</div>
+    </div></div>`).join("")}</div>`;
 }
 
 function quoteOf(id) {
@@ -1738,6 +1754,9 @@ async function sendGroup(text) {
   UI.replyTo = null; renderReplyBar();
   try {
     const row = await api.insert("messages", { member_id: ME, role: "user", channel: "gruppo", content: text.slice(0, 2000), reply_to: reply || null });
+    // Zampone legge i messaggi che contengono qualcosa da segnare o da fare e se ne occupa da solo.
+    if (CLOUD && /pagat|pago|speso|spesa|€|euro|prenotat|prenoto|biglietto|treno|volo|hotel|apparta|airbnb|booking|parto|partenz|arrivo|guido|macchina|auto|allerg|vegan|vegetarian|celiac|porto|portiamo|compro|comprare|quota|bonifico|satispay|paypal|caparra|orario|alle \d|cena|ristorante|serata/i.test(text))
+      api.sb.functions.invoke("assistente", { body: { mode: "osserva", message_id: row.id } }).catch(() => {});
     api.notify("chat", row.id);
     if (CLOUD) { S.messages.push(row); render(); }
   } catch (e) { toast(e.message, "alert"); }
@@ -2444,6 +2463,21 @@ const ACTIONS = {
         await api.insert("poll_options", { poll_id: a.poll_id, label: a.label, details: a.details || null, url: a.url || null, price: a.price ?? null, added_by: ME });
         toast("Opzione aggiunta", "check");
       }
+      await reload();
+    } catch (e) { toast(e.message, "alert"); el.disabled = false; }
+  },
+  async "stay-vote"(el) {
+    const m = S.messages.find(x => x.id === el.dataset.id); const s = m?.meta?.actions?.[el.dataset.i]?.items?.[el.dataset.j];
+    if (!s) return;
+    el.disabled = true;
+    try {
+      let poll = S.polls.find(p => p.status === "open" && /dorm|allogg|dove stiamo|casa|hotel|appartament|struttur/i.test(p.question));
+      let created = false;
+      if (!poll) { poll = await api.insert("polls", { question: "Dove dormiamo?", kind: "single", allow_add: true, created_by: ME }); created = true; }
+      const details = [s.platform, s.beds ? `${s.beds} posti letto` : "", s.zone, s.rating, s.cancel].filter(Boolean).join(" · ");
+      await api.insert("poll_options", { poll_id: poll.id, label: s.name.slice(0, 120), details: details || null, url: s.url, price: s.head ?? null, added_by: ME });
+      if (created) api.notify("poll", poll.id);
+      toast(created ? "Creato il sondaggio «Dove dormiamo?»" : "Aggiunta al sondaggio", "check");
       await reload();
     } catch (e) { toast(e.message, "alert"); el.disabled = false; }
   },

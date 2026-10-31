@@ -1166,3 +1166,17 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .prio-chev{align-self:center;color:var(--t3)}
 .prio-foot{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px 14px}
 .prio-later{font-size:14px;color:var(--t3);padding:8px 16px}
+/* Schede alloggi di Zampone */
+.stays{display:flex;gap:10px;overflow-x:auto;margin:10px -4px 4px;padding:2px 4px 6px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.stays::-webkit-scrollbar{display:none}
+.stay{flex:none;width:min(250px,72vw);scroll-snap-align:start;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line-2)}
+.stay-img{position:relative;display:block;aspect-ratio:4/3;background:linear-gradient(135deg,#2a2550,#13112b)}
+.stay-img img{width:100%;height:100%;object-fit:cover;display:block}
+.stay-pl{position:absolute;left:8px;top:8px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:rgba(0,0,0,.65);color:#fff}
+.stay-rt{position:absolute;right:8px;bottom:8px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--pearl);color:#0a0a0c}
+.stay-b{padding:10px 12px 12px;display:flex;flex-direction:column;gap:3px}
+.stay-b .t{font-size:14.5px;font-weight:700;line-height:1.25}
+.stay-pr{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--t2)}.stay-pr b{font-size:17px;color:var(--t1);font-family:var(--mono)}
+.stay-f{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0}.stay-f span{font-size:11px;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.08);color:var(--t2)}
+.stay-a{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px}
+.stay-pr{flex-direction:column;align-items:flex-start;gap:0}.stay-pr b{white-space:nowrap}.stay-pr span{font-size:12.5px}
