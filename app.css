@@ -1091,3 +1091,9 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
 .sc-seat span:not(.av){flex:1}
 .sc-seat .av{flex:0 0 auto!important}
+.vote-pop{position:fixed;left:12px;right:12px;top:calc(var(--sat) + 10px);z-index:121;max-width:560px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:22px;
+  background:rgba(16,14,38,.96);box-shadow:inset 0 0 0 1px rgba(230,212,255,.35),0 18px 50px -12px rgba(0,0,0,.85);transform:translateY(-160%);opacity:0;transition:transform .45s var(--ease),opacity .3s}
+.vote-pop.show{transform:none;opacity:1}
+.vote-pop .vp-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--pearl);color:#0a0a0c;flex:none}
+.vote-pop .grow{min-width:0;display:flex;flex-direction:column}.vote-pop b{font-size:14px}.vote-pop span{font-size:12.5px;color:var(--t2)}
+.vote-pop .vp-x{width:30px;height:30px;display:grid;place-items:center;color:var(--t3);flex:none}

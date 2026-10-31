@@ -465,3 +465,31 @@ function activityFeedHtml() {
   const ev = activityFeed();
   return ev.length ? ev.map(e => `<div class="li act-ev">${avatar(member(e.who), "sm")}<div class="grow"><div class="small"><b>${esc(mname(e.who))}</b> ${esc(e.txt)}</div><div class="tiny faint">${agoShort(e.t)}</div></div><span class="act-ico">${ico(e.icon, 15)}</span></div>`).join("") : `<div class="small muted">Ancora niente.</div>`;
 }
+
+// ───────────────────────── Promemoria sondaggi da votare ─────────────────────────
+// All'apertura (al massimo ogni 3 ore) e quando esce un sondaggio nuovo: un avviso in alto con «Vota ora».
+const VOTE_POP_KEY = "capodanno-vota-avviso-";
+function votePop(force) {
+  if (!ME || typeof openPollsToVote !== "function") return;
+  const list = openPollsToVote(); if (!list.length) return;
+  if (UI.tab === "vota" || !$("#game").hidden || $("#sheet")?.classList.contains("open")) return;
+  const last = Number(storage.get(VOTE_POP_KEY + ME) || 0);
+  if (!force && Date.now() - last < 3 * 3600e3) return;
+  storage.set(VOTE_POP_KEY + ME, String(Date.now()));
+  document.querySelector(".vote-pop")?.remove();
+  const el = document.createElement("div");
+  el.className = "vote-pop";
+  el.innerHTML = `<div class="vp-ico">${ico("vote", 20)}</div><div class="grow"><b>${list.length === 1 ? "Hai un sondaggio da votare" : `Hai ${list.length} sondaggi da votare`}</b><span class="ellipsis">${esc(list[0].question)}</span></div>
+    <button class="btn sm pearl" data-vp="go">Vota ora</button><button class="vp-x" data-vp="x" aria-label="Chiudi">${ico("close", 16)}</button>`;
+  el.addEventListener("click", e => { const b = e.target.closest("[data-vp]"); if (!b) return; el.classList.remove("show"); setTimeout(() => el.remove(), 350); if (b.dataset.vp === "go") { UI.tab = "vota"; render(); scrollTo(0, 0); } });
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 9000);
+  navigator.vibrate?.(15);
+}
+window.votePop = votePop;
+(function waitVotePop() {
+  if (typeof ME !== "undefined" && ME && S.polls && (!CLOUD || api.sb)) { setTimeout(() => votePop(false), 2500); return; }
+  setTimeout(waitVotePop, 800);
+})();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(() => votePop(false), 1500); });

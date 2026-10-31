@@ -441,6 +441,7 @@ function scheduleReload(payload) {
   if (payload?.table === "chess_games") { window.onChessChange?.(payload); return; }
   if (payload?.table === "card_games") { window.onScopaChange?.(payload); return; }
   if (payload?.table === "duels") { window.onDuelChange?.(payload); return; }
+  if (payload?.table === "polls" && payload.eventType === "INSERT" && payload.new?.created_by !== ME) setTimeout(() => window.votePop?.(true), 1500);
   const nm = payload?.table === "messages" && payload.eventType === "INSERT" ? payload.new : null;
   if (nm && nm.channel === "gruppo" && nm.member_id !== ME && mentionsMe(nm.content) && !(UI.tab === "chat" && UI.chatSeg === "gruppo")) { toast(`${mname(nm.member_id)} ti ha menzionato`, "chat"); navigator.vibrate?.([20, 40, 20]); }
   clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250);
@@ -577,7 +578,7 @@ function render() {
     vota: "Decidiamo insieme",
     piano: "Prenotazioni, programma e cose da fare",
     spese: "Chi ha pagato, chi deve, quanto",
-    chat: { gruppo: "Tra di noi", ai: `${AI()} cerca, organizza e vi tiene in riga`, ascolto: "Uno spazio privato, solo per te" }[UI.chatSeg],
+    chat: { gruppo: "Tra di noi", ai: `${AI()} cerca, organizza e fa i conti`, ascolto: "Uno spazio privato, solo per te" }[UI.chatSeg],
     gruppo: `${S.members.length} ${S.members.length === 1 ? "persona" : "persone"}`,
     giochi: "Sfide e classifica del gruppo",
     ...Object.fromEntries(Object.entries(EX).map(([k, v]) => [k, v.sub || ""])),
@@ -768,7 +769,7 @@ function aiCard() {
   const last = msgs("assistente").filter(m => m.role === "assistant").at(-1);
   const plain = last ? last.content.replace(/[*_`#>\[\]]/g, "").replace(/\(https?:[^)]+\)/g, "").replace(/\s+/g, " ").trim() : "";
   return `<section class="card ai-card">
-    <div class="row" style="gap:12px">${avatar(null)}<div class="grow"><div class="serif" style="font-size:26px;line-height:1">${esc(AI())}</div><div class="tiny faint">L'agente del gruppo: cerca, pianifica, fa i conti e vi tiene in riga</div></div></div>
+    <div class="row" style="gap:12px">${avatar(null)}<div class="grow"><div class="serif" style="font-size:26px;line-height:1">${esc(AI())}</div><div class="tiny faint">L'agente del gruppo: cerca, pianifica e fa i conti</div></div></div>
     ${last ? `<div class="ai-last tap" data-act="chat-go" data-v="ai"><div class="small">${esc(plain.slice(0, 220))}${plain.length > 220 ? "…" : ""}</div><div class="tiny faint" style="margin-top:6px">${esc(fmtDateTime(last.created_at))} · leggi tutto</div></div>` : ""}
     <form data-form="home-ask" class="ai-ask"><input name="q" placeholder="Chiedi a ${esc(AI())}…" autocomplete="off" enterkeyhint="send"><button class="send" aria-label="Chiedi">${ico("send", 18)}</button></form>
     <div class="chips scroll" style="margin-top:12px">${AI_SUGGESTIONS.map(q => `<button class="chip" data-act="ask" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
