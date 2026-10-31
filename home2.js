@@ -289,6 +289,9 @@ const GL = () => {
   const rk = g => { const r = myRank(g); return r ? `${r.pos}° su ${r.of}` : ""; };
   const enOk = (S.scores || []).find(s => s.game === "enigma" && s.member_id === ME && s.day === today());
   return [
+    { sec: "In primo piano", feat: true, rows: [
+      { id: "onorevoli", ico: "trophy", t: "Onorevoli", s: `${POLS.length} personaggi, mosse speciali e ultim'ora in aula. Sfida un amico`, hot: true },
+    ] },
     { sec: "Ogni giorno", rows: [
       { id: "indovinello", ico: "key", t: "Indovinello del giorno", s: enOk ? (enOk.meta?.ok ? "Indovinato" : "Sbagliato, domani va meglio") : "Una parola sola: o la sai o no", hot: !enOk },
       { id: "sudoku", ico: "grid", t: "Sudoku del giorno", s: done("sudoku9") && done("killer") ? "Normale e Killer fatti" : "Normale e Killer, uguali per tutti", hot: !done("sudoku9") },
@@ -299,7 +302,6 @@ const GL = () => {
       { id: "scacchi", ico: "chess", t: "Scacchi", s: "Dal vivo con l'orologio, Elo del gruppo" },
       { id: "miniera", ico: "pick", t: "Miniera", s: "Scava prima dell'altro: diamanti, oro, TNT" },
       { id: "geo", ico: "pin", t: "GeoScatto", s: "Una foto, un mappamondo: dov'è?" },
-      { id: "onorevoli", ico: "trophy", t: "Onorevoli", s: "Tre politici a testa, a colpi di frasi celebri" },
       { id: "fune", ico: "swap", t: "Tiro alla fune", s: "Chi tocca più veloce vince" },
     ] },
     { sec: "In quattro", rows: [{ id: "scopa", ico: "users", t: "Scopa d'assi", s: "Due contro due, l'asso piglia tutto" }] },
@@ -310,7 +312,9 @@ const GL = () => {
   ];
 };
 window.viewGiochi = function () {
-  return `${GL().map(g => `<div class="label gl-sec">${g.sec}</div><section class="card gl-list">${g.rows.map(r => `
+  return `${GL().map(g => g.feat ? `<div class="label gl-sec">${g.sec}</div><button class="card gl-feat" data-act="gl-open" data-id="onorevoli">
+      <div class="glf-faces">${["meloni", "berlusconi", "stalin", "che", "trump", "pertini"].map(id => POLS.find(p => p.id === id)).filter(Boolean).map(p => polFace(p)).join("")}</div>
+      <div class="glf-t">Onorevoli</div><div class="small muted">${g.rows[0].s}</div><span class="glf-go">Gioca ${ico("chev", 16)}</span></button>` : `<div class="label gl-sec">${g.sec}</div><section class="card gl-list">${g.rows.map(r => `
     <button class="gl-row" data-act="gl-open" data-id="${r.id}"><span class="gl-ico">${ico(r.ico, 20)}</span>
       <span class="grow"><b>${r.t}</b><span class="small muted">${r.s}</span></span>${r.hot ? `<i class="gl-dot"></i>` : ""}<span class="chev">${ico("chev", 18)}</span></button>`).join("")}</section>`).join("")}
     <button class="btn block" style="margin:6px 0 18px" data-act="gl-ranks">${ico("trophy", 17)}Classifiche di sempre</button>`;

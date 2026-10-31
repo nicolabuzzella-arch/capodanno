@@ -19,6 +19,8 @@ const SPECIAL = {
   cavour: ["L'Unità d'Italia", 88], stalin: ["Il culto della personalità", 90], che: ["La maglietta su ogni muro", 86], castro: ["La Storia mi assolverà", 88],
   napoleone: ["Il ritorno dall'Elba", 88], cesare: ["Il trionfo", 88], churchill: ["Combatteremo sulle spiagge", 88], lenin: ["Tutto il potere ai soviet", 88],
   kennedy: ["Sulla Luna entro il decennio", 86], obama: ["Change", 86], trump: ["Make America Great Again", 88], thatcher: ["There is no alternative", 88],
+  malgioglio: ["La giacca di paillettes", 86], durso: ["Ciao Carmelita!", 86], corona: ["Il ritorno di Corona", 88], marini: ["Seduzioneee", 84],
+  lamborghini: ["Mala", 86], vacchi: ["Enjoy! Il ballo finale", 86], casella: ["Ora apri gli occhi", 88], tina: ["Ma vattene!", 88], gemma: ["Gemma forever", 84], signorini: ["Il televoto", 86],
   merkel: ["Sedici anni di cancelleria", 86], degaulle: ["La Quinta Repubblica", 86], gandhi: ["L'indipendenza", 86], lincoln: ["Il Proclama di emancipazione", 88],
 };
 const EFF_TXT = { heal: "Recupera consenso", "atk+": "Aumenta la forza", "def+": "Aumenta la difesa", "def-": "Abbassa la difesa avversaria", "atk-": "Abbassa la forza avversaria" };
@@ -26,12 +28,13 @@ const LOSES = Object.fromEntries(Object.entries(BEATS).map(([a, b]) => [b, a]));
 const typeMult = (a, d) => (BEATS[a] === d ? 1.5 : BEATS[d] === a ? 0.67 : 1);
 const onoF = (p, lv = 1) => ({ id: p.id, n: p.n, t: p.t, atk: p.atk, def: p.def, spd: p.spd, m: p.m, max: Math.round(p.hp * lv), cur: Math.round(p.hp * lv), atkB: 0, defB: 0, stun: false, lv, meter: 0, dealt: 0, kos: 0 });
 const ONO_SPEED_KEY = "capodanno-ono-veloce";
+const ONO_TURN = 45; // secondi per mossa nelle sfide online, poi sceglie il telefono
 
 // ───────── Motore (deterministico) ─────────
 function onoHit(st, s, mv, rnd, ev) {
   const o = 1 - s, att = st.team[s][st.act[s]], def = st.team[o][st.act[o]];
   const [name, pow, acc, eff] = mv;
-  ev.push({ say: name, by: att.n, side: s, special: eff === "special" });
+  ev.push({ say: name, by: att.n, id: att.id, side: s, special: eff === "special" });
   if (att.stun) { att.stun = false; ev.push({ log: `${att.n} è stato zittito: non riesce a parlare.` }); return; }
   if (rnd() * 100 > acc) { ev.push({ log: "Nessuno se n'è accorto. Mossa a vuoto." }); return; }
   if (eff === "heal") { const h = Math.round(att.max * 0.3); const was = att.cur; att.cur = Math.min(att.max, att.cur + h); ev.push({ heal: att.cur - was, side: s, log: `${att.n} recupera ${att.cur - was} di consenso.` }); return; }
@@ -75,9 +78,32 @@ function onoApply(st, a, rnd, names) {
   }
   return ev;
 }
+// Ultim'ora: ogni tanto succede qualcosa in aula che cambia la partita (uguale sui due telefoni: dipende dal seme).
+const ONO_NEWS = [
+  { t: "Sondaggio a sorpresa", d: "Il Favore popolare sale di 30 punti per chi è in aula.", f: (st) => [0, 1].forEach(s => { const f = st.team[s][st.act[s]]; f.meter = Math.min(100, f.meter + 30); }) },
+  { t: "Sciopero dei treni", d: "Tutti in aula perdono il 10% del consenso.", f: (st) => [0, 1].forEach(s => { const f = st.team[s][st.act[s]]; f.cur = Math.max(1, f.cur - Math.round(f.max * 0.1)); }) },
+  { t: "Talk show in prima serata", d: "Chi è in aula recupera il 15% del consenso.", f: (st) => [0, 1].forEach(s => { const f = st.team[s][st.act[s]]; f.cur = Math.min(f.max, f.cur + Math.round(f.max * 0.15)); }) },
+  { t: "Fuorionda!", d: "Un microfono rimasto acceso: {X} resta zittito per un turno.", side: true, f: (st, s) => { st.team[s][st.act[s]].stun = true; } },
+  { t: "Scandalo sui rimborsi", d: "{X} perde mordente: meno forza.", side: true, f: (st, s) => { const f = st.team[s][st.act[s]]; f.atkB = Math.max(-3, f.atkB - 1); } },
+  { t: "Endorsement inatteso", d: "{X} si sente forte: più difesa e più forza.", side: true, f: (st, s) => { const f = st.team[s][st.act[s]]; f.defB = Math.min(3, f.defB + 1); f.atkB = Math.min(3, f.atkB + 1); } },
+  { t: "Crisi di governo", d: "Si azzera tutto: il Favore popolare torna a zero per chi è in aula.", f: (st) => [0, 1].forEach(s => { st.team[s][st.act[s]].meter = 0; }) },
+  { t: "Diretta social virale", d: "{X} sfonda online: Favore popolare al massimo.", side: true, f: (st, s) => { st.team[s][st.act[s]].meter = 100; } },
+  { t: "Voto di fiducia", d: "Tutta la squadra di {X} si ricompatta: +10% di consenso a tutti quelli ancora in gioco.", side: true, f: (st, s) => st.team[s].forEach(f => { if (f.cur > 0) f.cur = Math.min(f.max, f.cur + Math.round(f.max * 0.1)); }) },
+];
+function onoNews(st, k, seed) {
+  // dopo le scelte delle squadre, una notizia ogni 5 mosse circa
+  const rnd = seededRand(((Number(seed) || 1) * 31 + k * 104729) >>> 0);
+  if (k < 5 || (k - 1) % 5 !== 0 || rnd() > 0.85) return null;
+  const n = ONO_NEWS[Math.floor(rnd() * ONO_NEWS.length)], s = rnd() < 0.5 ? 0 : 1;
+  n.f(st, s);
+  return { news: n.t, log: n.d.replace("{X}", st.team[s][st.act[s]].n) };
+}
 function onoReplay(game, names, upto = game.actions.length) {
   const st = { team: [null, null], act: [0, 0], over: false, winner: null, ev: [], n: 0 };
-  game.actions.slice(0, upto).forEach((a, k) => { st.ev = onoApply(st, a, seededRand(((Number(game.seed) || 1) + k * 7919) >>> 0), names); st.n = k + 1; });
+  game.actions.slice(0, upto).forEach((a, k) => {
+    st.ev = onoApply(st, a, seededRand(((Number(game.seed) || 1) + k * 7919) >>> 0), names); st.n = k + 1;
+    if (!a.pick && !st.over && st.team[0] && st.team[1]) { const nw = onoNews(st, k, game.seed); if (nw) st.ev.push(nw); }
+  });
   st.ready = !!(st.team[0] && st.team[1]);
   st.turn = st.n % 2;
   if (!st.over && game.status === "over" && game.result?.winner != null) { st.over = true; st.winner = game.result.winner; if (game.result.quit) st.ev = [{ log: `${names[1 - game.result.winner]} ha lasciato l'aula.` }]; }
@@ -133,7 +159,7 @@ function playOno(opts) {
   const names = online ? game.players.map(id => mname(id)) : ["Tu", "Il telefono"];
   names[mySeat] = "Tu";
   const round = opts.round || 1, lvFoe = 1 + (round - 1) * 0.12;
-  let pickFilter = "tutti", shown = 0, playing = false, pending = false, team = opts.team ? [...opts.team] : [], benchOpen = false, skip = null, cpuT = null, finished = false;
+  let turnT = 0, turnStart = { n: -1, at: 0 }, pickFilter = "tutti", shown = 0, playing = false, pending = false, team = opts.team ? [...opts.team] : [], benchOpen = false, skip = null, cpuT = null, finished = false;
   if (!online && opts.team) game.actions.push({ pick: opts.team, s: 0 });
 
   openGame(`
@@ -160,7 +186,7 @@ function playOno(opts) {
     body.innerHTML = `<div class="on-pick-head">
         <div class="on-slots">${[0, 1, 2].map(i => { const p = POLS.find(x => x.id === team[i]); return p ? `<button class="on-slot full" data-sheet="${p.id}">${polFace(p)}<span>${esc(p.n.split(" ").slice(-1)[0])}</span></button>` : `<div class="on-slot"><span>${i + 1}</span></div>`; }).join("")}</div>
         <div class="tiny faint" style="text-align:center;margin-top:8px">Tocca un onorevole per la sua scheda. Mischia i tipi: ognuno ne batte uno.</div></div>
-      <div class="on-filter" data-noswipe>${[["tutti", `Tutti · ${POLS.length}`], ["oggi", "Italia di oggi"], ["storia-it", "Prima Repubblica e Risorgimento"], ["mondo", "Il mondo e la storia"]].map(([k, l]) => `<button data-flt="${k}" class="${pickFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="on-filter" data-noswipe>${[["tutti", `Tutti · ${POLS.length}`], ["oggi", "Italia di oggi"], ["storia-it", "Prima Repubblica e Risorgimento"], ["mondo", "Il mondo e la storia"], ["tv", "TV trash"]].map(([k, l]) => `<button data-flt="${k}" class="${pickFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="pol-grid" id="ono-pick">${POLS.filter(p => pickFilter === "tutti" || POL_GROUP(p.id) === pickFilter).map(p => `<button data-sheet="${p.id}" class="${team.includes(p.id) ? "on" : ""}">${polCard(p)}</button>`).join("")}</div>
       <div class="on-pick-bar"><button class="btn" id="on-rand">${ico("swap", 16)}A caso</button><button class="btn pearl grow" id="ono-go" ${team.length === 3 && !pending ? "" : "disabled"}>${team.length === 3 ? "In aula!" : `Scegli tre onorevoli (${team.length}/3)`}</button></div>`;
     body.querySelectorAll("[data-flt]").forEach(b => b.addEventListener("click", () => { pickFilter = b.dataset.flt; paintPick(); }));
@@ -203,7 +229,24 @@ function playOno(opts) {
     const myTurn = !st.over && st.turn === mySeat && !pending && !playing;
     const turnEl = $("#on-turn");
     turnEl.className = `on-turn ${st.over ? "" : myTurn ? "mine" : "theirs"}`;
+    clearInterval(turnT);
+    if (online && !st.over && !playing && !pending) {
+      const mine = st.turn === mySeat, n = st.n;
+      if (turnStart.n !== n) turnStart = { n, at: Date.now() };
+      const startedAt = turnStart.at;
+      const tick = () => {
+        const left = Math.max(0, ONO_TURN - Math.round((Date.now() - startedAt) / 1000));
+        const el = $("#on-turn"); if (!el) return clearInterval(turnT);
+        el.innerHTML = `${mine ? "Tocca a te: scegli una frase o cambia onorevole" : `Tocca a ${esc(names[oSeat])}…`} <span class="on-clock ${left <= 10 ? "low" : ""}">${left}s</span>`;
+        if (left <= 0) { clearInterval(turnT); const cur = onoReplay(game, names); if (mine && cur.n === n && cur.turn === mySeat && !cur.over) { toast("Tempo scaduto: ho scelto io per te"); commit(onoCpu(cur, mySeat, true)); } }
+      };
+      tick(); turnT = setInterval(tick, 1000);
+      return paintArenaRest(st, me1, foe, myTurn);
+    }
     turnEl.innerHTML = st.over ? "Seduta chiusa" : playing ? "In aula si parla…" : myTurn ? "Tocca a te: scegli una frase o cambia onorevole" : online ? `Tocca a ${esc(names[oSeat])}…` : "Il telefono ci pensa…";
+    paintArenaRest(st, me1, foe, myTurn);
+  };
+  const paintArenaRest = (st, me1, foe, myTurn) => {
     $("#on-match-w").innerHTML = st.over ? "" : matchup(me1, foe);
     const act = $("#on-act");
     if (st.over) { act.innerHTML = ""; return; }
@@ -238,6 +281,18 @@ function playOno(opts) {
   const playEvents = async (ev, stBefore) => {
     for (const e of ev) {
       if (!$("#on-log")) return;
+      if (e.news) {
+        const b = document.createElement("div"); b.className = "on-news"; b.innerHTML = `<span>ULTIM'ORA</span><b>${esc(e.news)}</b><em>${esc(e.log)}</em>`;
+        $("#game").appendChild(b); requestAnimationFrame(() => b.classList.add("show")); navigator.vibrate?.([20, 30, 20]);
+        pushLog(`<span class="who">Ultim'ora · ${esc(e.news)}</span>${esc(e.log)}`, "news");
+        paintSideOnly(onoReplay(game, names, shown));
+        await wait(2600); b.classList.remove("show"); setTimeout(() => b.remove(), 400);
+        continue;
+      }
+      if (e.say && e.special) {
+        const p = POLS.find(x => x.id === e.id);
+        if (p) { const c = document.createElement("div"); c.className = "on-cutin"; c.innerHTML = `${polFace(p, "xl")}<div><span>MOSSA SPECIALE</span><b>«${esc(e.say)}»</b><em>${esc(e.by)}</em></div>`; $("#game").appendChild(c); requestAnimationFrame(() => c.classList.add("show")); setTimeout(() => { c.classList.remove("show"); setTimeout(() => c.remove(), 400); }, 1700); }
+      }
       if (e.say) {
         pushLog(`<span class="who">${esc(e.by)}</span>${e.special ? `<span class="spk">MOSSA SPECIALE</span>` : ""}«${esc(e.say)}»`, e.special ? "special" : "");
         if (e.special) flash(e.side, "charge");
@@ -337,7 +392,7 @@ function playOno(opts) {
     else if (!wasOver && st.over) { if (game.result?.quit) pushLog(st.ev[0]?.log || ""); paint(); }
   };
   DU.view = online ? { id: game.id, update } : null;
-  gameCleanup = () => { clearTimeout(cpuT); skip = null; DU.view = null; };
+  gameCleanup = () => { clearTimeout(cpuT); clearInterval(turnT); skip = null; DU.view = null; };
   shown = game.actions.length;
   paint();
 }

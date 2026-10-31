@@ -437,9 +437,21 @@ const POLS = [
   { id: "degaulle", n: "Charles de Gaulle", t: "C", hp: 106, atk: 58, def: 52, spd: 46, m: [["L'appello del 18 giugno", 54, 90], ["Vive le Québec libre!", 46, 100], ["La grandeur", 0, 100, "atk+"], ["Je vous ai compris", 0, 100, "heal"]] },
   { id: "gandhi", n: "Mahatma Gandhi", t: "S", hp: 104, atk: 50, def: 60, spd: 50, m: [["La marcia del sale", 50, 95], ["Resistenza passiva", 0, 100, "def+"], ["Il digiuno", 0, 100, "heal"], ["Sii il cambiamento", 44, 100]] },
   { id: "lincoln", n: "Abraham Lincoln", t: "T", hp: 108, atk: 58, def: 54, spd: 46, m: [["Governo del popolo, dal popolo, per il popolo", 54, 90], ["Gettysburg", 46, 100], ["Il cilindro", 0, 100, "def+"], ["La barba", 0, 100, "heal"]] },
+  // ── TV trash ──
+  { id: "malgioglio", n: "Cristiano Malgioglio", t: "S", hp: 100, atk: 56, def: 48, spd: 58, m: [["Che ansiaaa!", 28, 95, "stun"], ["Il giudizio di Malgy", 48, 95], ["Il ciuffo bianco", 0, 100, "def+"], ["Tormentone estivo", 44, 100]] },
+  { id: "durso", n: "Barbara D'Urso", t: "C", hp: 106, atk: 56, def: 52, spd: 52, m: [["Col cuore", 0, 100, "heal"], ["Lo scoop in esclusiva", 50, 95], ["L'ospite in collegamento", 28, 95, "stun"], ["Pomeriggio Cinque", 44, 100]] },
+  { id: "corona", n: "Fabrizio Corona", t: "P", hp: 102, atk: 62, def: 44, spd: 58, m: [["Lo scandalo", 54, 90], ["Il paparazzo", 46, 100], ["Diretta Instagram", 28, 95, "stun"], ["Il tatuaggio", 0, 100, "def+"]] },
+  { id: "marini", n: "Valeria Marini", t: "C", hp: 100, atk: 54, def: 48, spd: 56, m: [["Stellare!", 48, 95], ["Lo sguardo da diva", 28, 95, "stun"], ["La linea di costumi", 0, 100, "atk+"], ["Il bacio", 0, 100, "heal"]] },
+  { id: "lamborghini", n: "Elettra Lamborghini", t: "S", hp: 98, atk: 58, def: 44, spd: 62, m: [["Il twerking", 20, 95, "multi"], ["Pem pem", 46, 100], ["La parrucca rosa", 0, 100, "def+"], ["Il patrimonio di famiglia", 0, 100, "heal"]] },
+  { id: "vacchi", n: "Gianluca Vacchi", t: "C", hp: 102, atk: 56, def: 50, spd: 56, m: [["Enjoy", 46, 100], ["Balletto sullo yacht", 20, 95, "multi"], ["I tatuaggi", 0, 100, "def+"], ["La barba bianca", 0, 100, "atk+"]] },
+  { id: "casella", n: "Giucas Casella", t: "S", hp: 100, atk: 54, def: 50, spd: 50, m: [["L'ipnosi", 30, 95, "stun"], ["Quando lo dico io!", 50, 95], ["Le mani incollate", 0, 100, "atk-"], ["Il trucco", 44, 100]] },
+  { id: "tina", n: "Tina Cipollari", t: "P", hp: 104, atk: 60, def: 48, spd: 50, m: [["Il commento al vetriolo", 52, 90], ["Lo sguardo di Tina", 28, 95, "stun"], ["Il cartello", 46, 100], ["La poltrona in studio", 0, 100, "def+"]] },
+  { id: "gemma", n: "Gemma Galgani", t: "C", hp: 108, atk: 50, def: 54, spd: 46, m: [["La sfilata", 0, 100, "atk+"], ["Il ballo col cavaliere", 44, 100], ["L'ennesimo cuore spezzato", 50, 90], ["Il trono over", 0, 100, "heal"]] },
+  { id: "signorini", n: "Alfonso Signorini", t: "T", hp: 102, atk: 56, def: 52, spd: 50, m: [["La busta", 28, 95, "stun"], ["Il gossip", 44, 100], ["Il Grande Fratello", 50, 95], ["La copertina", 0, 100, "atk+"]] },
 ];
 // Gruppi per il filtro nella scelta della squadra.
-const POL_GROUP = id => (["moro", "berlinguer", "pertini", "garibaldi", "cavour", "andreotti", "craxi"].includes(id) ? "storia-it"
+const POL_TV = ["malgioglio", "durso", "corona", "marini", "lamborghini", "vacchi", "casella", "tina", "gemma", "signorini"];
+const POL_GROUP = id => (POL_TV.includes(id) ? "tv" : ["moro", "berlinguer", "pertini", "garibaldi", "cavour", "andreotti", "craxi"].includes(id) ? "storia-it"
   : ["stalin", "che", "castro", "napoleone", "cesare", "churchill", "lenin", "kennedy", "obama", "trump", "thatcher", "merkel", "degaulle", "gandhi", "lincoln"].includes(id) ? "mondo" : "oggi");
 const polInitials = n => n.split(" ").map(w => w[0]).join("").slice(0, 2);
 // Le facce: le foto di Wikipedia (licenze libere), scaricate una volta e ricordate sul telefono.
