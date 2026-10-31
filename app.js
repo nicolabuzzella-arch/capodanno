@@ -415,7 +415,11 @@ function loadCache() {
 }
 
 let reloadTimer = null;
-function scheduleReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250); }
+function scheduleReload(payload) {
+  // Le mosse degli scacchi vanno dritte alla scacchiera, senza ricaricare tutta l'app.
+  if (payload?.table === "chess_games") { window.onChessChange?.(payload); return; }
+  clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250);
+}
 async function reload() {
   try {
     const data = await api.loadAll();
@@ -1775,6 +1779,7 @@ function applyDeepLink(q) {
   UI.tab = tab;
   if (tab === "spese" && q.get("seg")) UI.moneySeg = q.get("seg");
   if (tab === "chat") UI.chatSeg = "gruppo";
+  if (q.get("chess")) window.chessDeepLink?.(q);
   return true;
 }
 

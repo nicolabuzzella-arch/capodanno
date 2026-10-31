@@ -25,10 +25,12 @@ Manda il link insieme a una delle due immagini in `guida/`: **iphone.png** o **a
   - programma, checklist, auto e passaggi, emergenze.
 - **Splitwise**: spese con uno o più pagatori, divise in parti uguali, per importi, per percentuali o per quote. Debiti semplificati, «Salda», quote da versare, grafici, scontrini e «Chiudi i conti» a fine vacanza.
 - **Chat**:
-  - **Gruppo**, tra di voi, con risposte ai singoli messaggi;
-  - **Zampone**;
+  - **Gruppo**, tra di voi, con risposte ai singoli messaggi e messaggi vocali;
+  - **Zampone**, a cui si può anche parlare: il microfono detta il messaggio;
   - **Ascolto**, uno spazio privato con l'AI che nell'app vede solo chi scrive.
-- **Giochi**: Sudoku del giorno 9×9 (Normale e Killer), Tiro alla fune 1 contro 1 in tempo reale, Fuochi, con le classifiche di sempre.
+- **Giochi**:
+  - **Scacchi** 1 contro 1 dal vivo con l'orologio (3+2, 5+5, 10 minuti), patta, abbandono, partite da guardare e classifica Elo; allenamento contro il telefono (tre livelli) o in due sullo stesso telefono;
+  - Sudoku del giorno 9×9 (Normale e Killer), Tiro alla fune 1 contro 1 in tempo reale, Fuochi, con le classifiche di sempre.
 - **Gruppo**:
   - profili con foto, esigenze, documenti (visibili solo all'organizzatore) e metodi di pagamento;
   - questionario al primo accesso;
@@ -49,7 +51,7 @@ L'app non salva carte: servirebbero certificazioni di sicurezza (PCI-DSS) che un
 Servono GitHub Pages (l'app), Supabase (database, notifiche, foto) e una chiave di Claude (l'agente, pochi euro).
 
 1. **GitHub Pages**: in Settings → Pages scegli *Deploy from a branch*, poi `main` e `/ (root)`.
-2. **Database**: in Supabase → SQL Editor esegui `supabase/schema.sql` (cambiando prima il codice invito `CAMBIAMI`), poi `supabase/aggiornamento-1.sql`. In Authentication → Sign In / Providers attiva **Allow anonymous sign-ins**.
+2. **Database**: in Supabase → SQL Editor esegui `supabase/schema.sql` (cambiando prima il codice invito `CAMBIAMI`), poi `supabase/aggiornamento-1.sql` e `supabase/aggiornamento-2.sql`. In Authentication → Sign In / Providers attiva **Allow anonymous sign-ins**.
 3. **Collegamento**: Project URL e chiave *publishable* vanno in `config.js`.
 4. **Funzioni**: in Edge Functions crea `assistente` e `notifiche` incollando i file in `supabase/functions/…/index.ts`. Per **entrambe** disattiva *Verify JWT*: l'autorizzazione la fanno da sole, e serve per i promemoria automatici. In Secrets aggiungi `ANTHROPIC_API_KEY`.
 
@@ -58,11 +60,15 @@ Servono GitHub Pages (l'app), Supabase (database, notifiche, foto) e una chiave 
 ```
 index.html, app.css, app.js       l'app
 games.js, killer-lib.js           giochi e libreria di Killer Sudoku verificati
+chess.js, chess-engine.js         scacchi: partite dal vivo, regole complete e avversario al computer
+pezzi/                            pezzi degli scacchi (set Celtic, licenza MIT)
+voice.js                          messaggi vocali e dettatura
 config.js                         collegamento a Supabase
 sw.js, manifest.webmanifest       offline, notifiche e icona
 guida/                            immagini da mandare con il link
 supabase/schema.sql               database di base
 supabase/aggiornamento-1.sql      profili, notifiche, chat, Ascolto, giochi, Zampone, suggerimenti
+supabase/aggiornamento-2.sql      messaggi vocali e scacchi
 supabase/functions/assistente     Zampone e lo spazio Ascolto
 supabase/functions/notifiche      notifiche push, promemoria e richiami
 ```
