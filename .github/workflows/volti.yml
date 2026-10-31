@@ -1,0 +1,23 @@
+name: Foto di Onorevoli
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["tools/volti.py", ".github/workflows/volti.yml"]
+permissions:
+  contents: write
+jobs:
+  volti:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pillow
+      - run: python tools/volti.py
+      - name: Salva le foto nel repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add volti
+          git diff --cached --quiet && echo "Niente di nuovo" || (git commit -m "Foto dei personaggi di Onorevoli (Wikimedia Commons)" && git push)

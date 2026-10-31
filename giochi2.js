@@ -416,16 +416,29 @@ async function fetchPolFace(host, title) {
 }
 async function loadPolFaces() {
   if (polFacesAsked) return; polFacesAsked = true;
-  const missing = POLS.filter(p => !polFaces[p.id]);
+  const missing = POLS.filter(p => !polFaces[p.id] && (LOCAL_FAIL.has(p.id) || !LOCAL_FACE.has(p.id)));
+  if (!missing.length) return;
   await Promise.all(missing.map(async p => {
     for (const host of ["it", "en"]) {
       try { const u = await fetchPolFace(host, p.w || p.n); if (u && /^https:\/\/upload\.wikimedia\.org\//.test(u)) { polFaces[p.id] = u; break; } } catch { /* senza rete restano le iniziali */ }
     }
   }));
   storage.set(POL_FACES_KEY, JSON.stringify(polFaces));
-  $$(".pol-face[data-pol]").forEach(el => { const u = polFaces[el.dataset.pol]; if (u && !el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`); });
+  $$(".pol-face[data-pol]").forEach(el => { const u = polFaces[el.dataset.pol]; if (u && !el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="polFaceErr(this)">`); });
 }
-const polFace = (p, cls = "") => `<div class="pol-face ${cls}" data-pol="${p.id}" style="--c:${TYPES[p.t].c}"><span>${polInitials(p.n)}</span>${polFaces[p.id] ? `<img src="${esc(polFaces[p.id])}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</div>`;
+// Prima la foto salvata nell'app (cartella volti/), se manca quella presa da Wikipedia, se manca anche quella le iniziali.
+const LOCAL_FACE = new Set(["berlusconi", "meloni", "salvini", "renzi", "conte", "schlein", "grillo", "dimaio", "bersani", "andreotti", "sgarbi", "draghi", "mentana", "vespa", "travaglio", "dipietro", "prodi", "fornero"]);
+const LOCAL_FAIL = new Set();
+window.polFaceErr = img => {
+  const box = img.closest(".pol-face"), id = box?.dataset.pol; img.remove();
+  if (!id) return;
+  if (img.dataset.local) { LOCAL_FAIL.add(id); if (polFaces[id]) $$(`.pol-face[data-pol="${id}"]`).forEach(el => { if (!el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(polFaces[id])}" alt="" referrerpolicy="no-referrer" onerror="polFaceErr(this)">`); }); else { clearTimeout(window.__pfT); window.__pfT = setTimeout(() => { polFacesAsked = false; loadPolFaces(); }, 300); } }
+};
+const polFace = (p, cls = "") => {
+  const local = LOCAL_FACE.has(p.id) && !LOCAL_FAIL.has(p.id);
+  const src = local ? `volti/${p.id}.jpg` : polFaces[p.id];
+  return `<div class="pol-face ${cls}" data-pol="${p.id}" style="--c:${TYPES[p.t].c}"><span>${polInitials(p.n)}</span>${src ? `<img src="${esc(src)}" alt="" ${local ? 'data-local="1"' : 'referrerpolicy="no-referrer"'} onerror="polFaceErr(this)">` : ""}</div>`;
+};
 const polCard = (p, cls = "") => `<div class="pol ${cls}" style="--c:${TYPES[p.t].c}">${polFace(p)}<div class="pol-name">${esc(p.n)}</div><div class="pol-type">${TYPES[p.t].n}</div></div>`;
 // ───────────────────────── Schede nei Giochi ─────────────────────────
 

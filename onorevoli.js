@@ -112,7 +112,8 @@ const ONO_RULES = `<div class="on-rules"><b>Come si gioca</b>
   <p><b>Tipi.</b> La Satira batte il Carisma, il Carisma batte il Populismo, il Populismo batte la Tecnocrazia, la Tecnocrazia batte la Satira: colpi ×1,5 se sei in vantaggio, ×0,67 se sei in svantaggio.</p>
   <p><b>Favore popolare.</b> Sale quando colpisci e quando incassi. Al 100% sblocca la mossa speciale del personaggio: fortissima e infallibile.</p>
   <p><b>Zittito.</b> Alcune mosse possono zittire: chi è zittito salta la prossima frase. Ogni tanto arriva un colpo critico.</p>
-  <p>Vince chi resta in aula. Tocca la cronaca per far scorrere più in fretta.</p></div>`;
+  <p>Vince chi resta in aula. Tocca la cronaca per far scorrere più in fretta.</p>
+  <p class="tiny faint">Foto da Wikimedia Commons con licenze libere: autori e licenze nel file <a href="volti/fonti.json" target="_blank" rel="noopener">volti/fonti.json</a>.</p></div>`;
 
 function playOnorevoli() { playOno({ cpu: true, round: 1, score: 0 }); }
 
