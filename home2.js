@@ -477,7 +477,10 @@ const PRIO_KEY = "capodanno-priorita-";
 function priorityItems() {
   const out = [];
   const polls = typeof openPollsToVote === "function" ? openPollsToVote() : [];
-  for (const p of polls.slice(0, 4)) out.push({ k: "poll", block: true, ico: "vote", t: p.question, s: "È bloccante: vota!", act: `data-prio="vota"` });
+  for (const p of polls.slice(0, 4)) {
+    const d = pollData(p), tot = Math.max(1, going().length), done = d.voterIds.size;
+    out.push({ k: "poll", block: true, ico: "vote", t: p.question, s: "È bloccante: vota!", act: `data-prio="vota"`, extra: { done, tot, avs: [...d.voterIds].slice(0, 5).map(id => member(id)).filter(Boolean) } });
+  }
   const req = typeof myOpenRequests === "function" ? myOpenRequests() : [];
   for (const r of req.slice(0, 2)) out.push({ k: "pay", ico: "card", t: `${r.title}: ${eur(r.amount)}`, s: `Da versare a ${mname(r.pay_to)}`, act: `data-prio="spese"` });
   const seenAi = storage.get(SEEN_KEY + "-ai-" + ME) || "";
@@ -496,12 +499,24 @@ function priorityPop(force) {
   storage.set(PRIO_KEY + ME, JSON.stringify({ sig, at: Date.now(), snooze: last.snooze || 0 }));
   const block = items.filter(i => i.block).length;
   const el = document.createElement("div"); el.className = "prio";
+  const hour = new Date().getHours(), hello = hour < 13 ? "Buongiorno" : hour < 18 ? "Ciao" : "Buonasera";
+  const row = i => {
+    const prog = i.extra ? `<div class="prio-prog">${i.extra.avs.length ? `<div class="prio-avs">${i.extra.avs.map(m => avatar(m, "sm")).join("")}</div>` : ""}<span>${i.extra.done ? `${i.extra.done} su ${i.extra.tot} hanno già votato` : "Puoi essere il primo a votare"}</span></div><div class="prio-bar"><i style="width:${Math.round(i.extra.done / i.extra.tot * 100)}%"></i></div>` : "";
+    return `<button class="prio-row ${i.block ? "block" : ""}" ${i.act}>
+      <span class="prio-ico">${ico(i.ico, 18)}</span>
+      <span class="grow">${i.block ? `<span class="prio-tag"><i></i>Il gruppo aspetta te</span>` : ""}<b>${esc(i.t)}</b>${i.block ? "" : `<small>${esc(i.s)}</small>`}${prog}</span>
+      ${i.block ? `<em>Vota</em>` : `<span class="prio-chev">${ico("chev", 16)}</span>`}</button>`;
+  };
   el.innerHTML = `<div class="prio-card">
-    <div class="prio-h">${block ? `<span class="prio-badge">${block === 1 ? "1 cosa bloccante" : `${block} cose bloccanti`}</span>` : ""}<div class="serif" style="font-size:30px;line-height:1.05">Prima le cose importanti</div>
-      <div class="small muted">${block ? "Il gruppo aspetta il tuo voto per andare avanti." : "Due minuti e sei in pari."}</div></div>
-    <div class="prio-list">${items.map(i => `<button class="prio-row ${i.block ? "block" : ""}" ${i.act}><span class="prio-ico">${ico(i.ico, 18)}</span><span class="grow"><b>${esc(i.t)}</b><small>${esc(i.s)}</small></span>${i.block ? `<em>Vota!</em>` : ico("chev", 16)}</button>`).join("")}</div>
-    <button class="btn ${block ? "pearl" : "primary"} block" data-prio="${block ? "vota" : items[0].act.match(/"(\w+)"/)[1]}">${block ? "Vota adesso" : "Vai"}</button>
-    <button class="link" data-prio="later" style="align-self:center">Più tardi</button></div>`;
+    <div class="prio-hero">
+      <div class="prio-orb">${ico(block ? "vote" : "spark", 26)}</div>
+      <div class="prio-kicker">${hello}, ${esc(firstName(me()))}</div>
+      <div class="prio-title">${block ? (block === 1 ? "Manca solo il tuo voto" : `Mancano ${block} tuoi voti`) : "Un paio di cose per te"}</div>
+      <div class="prio-sub">${block ? "Finché non voti il gruppo non può decidere. Ci vuole un attimo." : "Due minuti e sei in pari con il gruppo."}</div>
+    </div>
+    <div class="prio-list">${items.map(row).join("")}</div>
+    <div class="prio-foot"><button class="btn ${block ? "pearl" : "primary"} block" data-prio="${block ? "vota" : items[0].act.match(/"(\w+)"/)[1]}">${block ? "Vota adesso" : "Vai"}</button>
+    <button class="prio-later" data-prio="later">Più tardi</button></div></div>`;
   el.addEventListener("click", e => {
     const b = e.target.closest("[data-prio]"); if (!b) return;
     const go_ = b.dataset.prio;
