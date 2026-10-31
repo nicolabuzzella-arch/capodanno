@@ -171,7 +171,7 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       // Duelli generici (Miniera, GeoScatto): id = la sfida appena creata.
       const { data: g } = await db.from("duels").select("*").eq("id", id).maybeSingle();
       if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
-      const nome = g.kind === "miniera" ? "Miniera" : "GeoScatto";
+      const nome = g.kind === "miniera" ? "Miniera" : g.kind === "onorevoli" ? "Onorevoli" : "GeoScatto";
       return send([g.players[1]], { title: `${name(actor)} ti sfida a ${nome}`, body: "Apri l'app e accetta, se hai il coraggio.", url: "?tab=giochi", tag: "duel-" + g.id, cat: "giochi" });
     }
     case "booking": {

@@ -54,7 +54,7 @@ L'app non salva carte: servirebbero certificazioni di sicurezza (PCI-DSS) che un
 Servono GitHub Pages (l'app), Supabase (database, notifiche, foto) e una chiave di Claude (l'agente, pochi euro).
 
 1. **GitHub Pages**: in Settings → Pages scegli *Deploy from a branch*, poi `main` e `/ (root)`.
-2. **Database**: in Supabase → SQL Editor esegui `supabase/schema.sql` (cambiando prima il codice invito `CAMBIAMI`), poi `supabase/aggiornamento-1.sql`, `supabase/aggiornamento-2.sql` `supabase/aggiornamento-3.sql` e `supabase/aggiornamento-4.sql`. In Authentication → Sign In / Providers attiva **Allow anonymous sign-ins**.
+2. **Database**: in Supabase → SQL Editor esegui `supabase/schema.sql` (cambiando prima il codice invito `CAMBIAMI`), poi `supabase/aggiornamento-1.sql`, `supabase/aggiornamento-2.sql` `supabase/aggiornamento-3.sql`, `supabase/aggiornamento-4.sql` e `supabase/aggiornamento-5.sql`. In Authentication → Sign In / Providers attiva **Allow anonymous sign-ins**.
 3. **Collegamento**: Project URL e chiave *publishable* vanno in `config.js`.
 4. **Funzioni**: in Edge Functions crea `assistente`, `notifiche` e `notizie` incollando i file in `supabase/functions/…/index.ts`. Per **tutte e tre** disattiva *Verify JWT*: l'autorizzazione la fanno da sole, e serve per i promemoria automatici. In Secrets aggiungi `ANTHROPIC_API_KEY`.
 
@@ -74,6 +74,7 @@ supabase/aggiornamento-1.sql      profili, notifiche, chat, Ascolto, giochi, Zam
 supabase/aggiornamento-2.sql      messaggi vocali e scacchi
 supabase/aggiornamento-3.sql      notifiche a scelta, vibe del gruppo, ruota e premi, scopa d'assi
 supabase/aggiornamento-4.sql      foto, duelli 1 contro 1, posizione, domanda del giorno, notizie, promemoria 14:30
+supabase/aggiornamento-5.sql      Onorevoli come sfida 1 contro 1
 supabase/functions/notizie        rassegna dai grandi giornali, ogni tre ore
 home2.js, mappa3d.js, duelli.js   Home, tab Giochi, foto; mappa 3D; Miniera e GeoScatto
 sezioni.js                        profilo, vibe, passaggi, meteo, mappa

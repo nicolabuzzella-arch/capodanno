@@ -172,6 +172,53 @@ const ENIGMI = [
   { q: "Un orologio rintocca 6 volte in 5 secondi alle 6. Quanti secondi impiega a rintoccare 12 volte a mezzanotte?", a: ["11"], h: "Conta gli intervalli, non i rintocchi." },
   { q: "Ho tanti fratelli quante sorelle, ma ognuna delle mie sorelle ha il doppio dei fratelli rispetto alle sorelle. Quanti figli ci sono in famiglia?", a: ["7"], h: "Prova con 4 maschi e 3 femmine." },
 ];
+// Indovinelli del giorno: una parola sola da indovinare. a = risposte accettate (senza articolo), h = indizio.
+const INDOVINELLI = [
+  { q: "Più ne togli, più divento grande.", a: ["buco", "buca", "fossa"], h: "Lo fai con una pala." },
+  { q: "Ha i denti ma non morde.", a: ["pettine", "forchetta", "sega", "chiave", "cerniera"], h: "Lo passi tra i capelli." },
+  { q: "Ha le lancette ma non punge, cammina sempre ma non si muove dal muro.", a: ["orologio"], h: "Tic tac." },
+  { q: "Più è caldo, più è fresco.", a: ["pane"], h: "Lo sforna il fornaio." },
+  { q: "Se lo nomini, sparisce.", a: ["silenzio"], h: "In biblioteca è d'obbligo." },
+  { q: "Ha un occhio solo ma non vede niente.", a: ["ago"], h: "Ci passa il filo." },
+  { q: "Ti segue ovunque col sole, ma sparisce col buio.", a: ["ombra"], h: "A mezzogiorno è cortissima." },
+  { q: "Ha le chiavi ma non apre nessuna porta.", a: ["pianoforte", "piano", "tastiera"], h: "Bianchi e neri." },
+  { q: "Più si asciuga, più si bagna.", a: ["asciugamano", "telo"], h: "Esci dalla doccia." },
+  { q: "Si rompe senza essere mai toccata.", a: ["promessa", "parola"], h: "La dai a qualcuno." },
+  { q: "Ha il collo ma non ha la testa.", a: ["bottiglia"], h: "Si stappa a mezzanotte." },
+  { q: "Corre ma non ha gambe, ha un letto ma non dorme mai.", a: ["fiume"], h: "Ha una foce." },
+  { q: "Ha un tetto sopra la testa e quattro gambe, ma non è una casa.", a: ["tavolo"], h: "Ci si apparecchia." },
+  { q: "Vola senza ali, piange senza occhi.", a: ["nuvola", "nube"], h: "Guarda in alto prima di un temporale." },
+  { q: "Bianco era, nero diventa; se lo usi si consuma.", a: ["carbone", "fiammifero", "candela"], h: "Con lui si accende il fuoco." },
+  { q: "Ha le foglie ma non è un albero, ha il dorso ma non è un animale.", a: ["libro"], h: "Si legge." },
+  { q: "Ti accompagna sempre: domani c'è, ieri c'era, oggi non arriva mai.", a: ["futuro", "domani"], h: "È sempre davanti a te." },
+  { q: "Si alza la mattina, cala la sera, e nessuno lo può fermare.", a: ["sole"], h: "Tramonta." },
+  { q: "Ha la barba ma non è un uomo, ha i denti ma non mangia.", a: ["aglio", "spiga", "chiave"], h: "Allontana i vampiri." },
+  { q: "Più ne hai, meno vedi.", a: ["buio", "oscurita", "nebbia"], h: "Spegni la luce." },
+  { q: "Ha la coda ma non è un animale; vola ma non è un uccello.", a: ["aquilone", "cometa"], h: "Si fa volare al vento." },
+  { q: "Sta nel mare ma non si bagna mai.", a: ["r", "erre", "lettera r"], h: "Guarda la parola, non l'acqua." },
+  { q: "Lo prendi prima di averlo, lo dai dopo averlo preso.", a: ["raffreddore", "fiato"], h: "Etciù." },
+  { q: "È tuo, ma gli altri lo usano più di te.", a: ["nome"], h: "Ti chiamano così." },
+  { q: "Ha le ali ma non vola, ha il becco ma non mangia.", a: ["teiera", "caffettiera", "bricco"], h: "Ci bolle l'acqua." },
+  { q: "Ha mille aghi e non sa cucire.", a: ["riccio", "porcospino", "pino", "abete"], h: "Si appallottola se ha paura." },
+  { q: "Più sale, più scende.", a: ["età", "eta"], h: "Il giorno del compleanno." },
+  { q: "Entra secco, esce bagnato; più ci resta, più è forte.", a: ["tè", "te", "bustina", "tea"], h: "Si mette in infusione." },
+  { q: "Ha il cappello ma non la testa, il piede ma non la scarpa.", a: ["fungo"], h: "Nasce nel bosco dopo la pioggia." },
+  { q: "Si apre per chiudersi sopra di te quando piove.", a: ["ombrello"], h: "Non aprirlo in casa." },
+  { q: "Tutti lo hanno, nessuno lo perde, e tutti lo festeggiano una volta all'anno.", a: ["compleanno"], h: "Candeline." },
+  { q: "Cade senza farsi male, si posa senza peso, a Capodanno lo speri sulle piste.", a: ["neve"], h: "È bianca." },
+  { q: "Brucia ma non è fuoco, fa luce ma non è il sole, a mezzanotte esplode in cielo.", a: ["fuochi", "fuochi d'artificio", "fuoco d'artificio", "razzo", "petardo", "botti"], h: "Botti." },
+  { q: "Ha dodici figli, ognuno con trenta figli, metà bianchi e metà neri.", a: ["anno"], h: "Il 31 dicembre finisce." },
+  { q: "Si beve in piedi a mezzanotte e salta il tappo.", a: ["spumante", "champagne", "prosecco"], h: "Bollicine." },
+  { q: "Ha le gambe ma non cammina, ha le braccia ma non abbraccia.", a: ["sedia", "poltrona", "divano"], h: "Ci si siede." },
+];
+function riddleOfDay(day = today()) { return INDOVINELLI[((dayNum(day) * 5) % INDOVINELLI.length + INDOVINELLI.length) % INDOVINELLI.length]; }
+const stripArt = s => norm(s).replace(/^(il|lo|la|i|gli|le|un|uno|una|l)\s+|^l'/, "").replace(/^l\s/, "").trim();
+function checkRiddle(r, input) {
+  const v = stripArt(String(input).replace(/'/g, " "));
+  if (!v) return false;
+  const stem = w => (w.length > 3 ? w.replace(/[aeiou]$/, "") : w);
+  return r.a.some(a => { const n = stripArt(String(a).replace(/'/g, " ")); return v === n || (v.length === n.length && stem(v) === stem(n)) || v.split(" ").includes(n); });
+}
 const ENIGMA_KEY = "capodanno-enigma-";
 function enigmaOfDay(day = today()) { return ENIGMI[((dayNum(day) * 7) % ENIGMI.length + ENIGMI.length) % ENIGMI.length]; }
 function checkAnswer(e, input) {
@@ -181,7 +228,8 @@ function checkAnswer(e, input) {
 }
 function playEnigma(idx) {
   const daily = idx == null;
-  const e = daily ? enigmaOfDay() : ENIGMI[idx];
+  const e = daily ? riddleOfDay() : ENIGMI[idx];
+  const isRight = v => (daily ? checkRiddle(e, v) : checkAnswer(e, v));
   const key = ENIGMA_KEY + (daily ? today() : "x" + idx) + "-" + ME;
   let st; try { st = JSON.parse(storage.get(key)) || {}; } catch { st = {}; }
   st.tries ||= 0;
@@ -189,13 +237,14 @@ function playEnigma(idx) {
   const maxT = daily ? 1 : 3;
   openGame(`
     <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
-      <div class="grow" style="text-align:center"><div class="eyebrow">${daily ? "Enigma del giorno" : `Enigma n. ${idx + 1}`}</div><div class="tiny faint">${daily ? "Una risposta sola: o la sai o no" : "Allenamento · tre tentativi"}</div></div><span style="width:36px"></span></div>
+      <div class="grow" style="text-align:center"><div class="eyebrow">${daily ? "Indovinello del giorno" : `Enigma n. ${idx + 1}`}</div><div class="tiny faint">${daily ? "Una parola sola: o la sai o no" : "Allenamento · tre tentativi"}</div></div><span style="width:36px"></span></div>
     <div class="enigma">
       <div class="game-ico big">${ico("key", 36)}</div>
       <p class="enigma-q serif">${esc(e.q)}</p>
+      ${daily ? `<div class="rd-slots" aria-label="${e.a[0].length} lettere">${[...e.a[0]].map(ch => (ch === " " ? `<i class="sp"></i>` : `<i></i>`)).join("")}</div><div class="tiny faint" style="text-align:center">Una parola${/ /.test(e.a[0]) ? "" : `, ${e.a[0].length} lettere`}</div>` : ""}
       <div id="en-hint" class="enigma-hint" ${st.hint ? "" : "hidden"}>${ico("key", 15)}${esc(e.h)}</div>
-      <form id="en-form" class="row" style="gap:8px;margin-top:16px"><input name="a" placeholder="La tua risposta" autocomplete="off" style="flex:1" ${st.done ? "disabled" : ""}><button class="btn pearl" ${st.done ? "disabled" : ""}>Prova</button></form>
-      <div class="row between" style="margin-top:10px"><span class="tiny faint" id="en-tries">${daily ? "" : `${maxT - st.tries} tentativi`}</span>${daily || st.hint || st.done ? "" : `<button class="link tiny" id="en-hint-btn">Indizio</button>`}</div>
+      <form id="en-form" class="row" style="gap:8px;margin-top:16px"><input name="a" placeholder="${daily ? "La parola" : "La tua risposta"}" autocomplete="off" style="flex:1" ${st.done ? "disabled" : ""}><button class="btn pearl" ${st.done ? "disabled" : ""}>Prova</button></form>
+      <div class="row between" style="margin-top:10px"><span class="tiny faint" id="en-tries">${daily ? "" : `${maxT - st.tries} tentativi`}</span>${st.hint || st.done ? "" : `<button class="link tiny" id="en-hint-btn">Indizio</button>`}</div>
       <div id="en-out"></div>
       ${daily ? "" : `<button class="btn block" style="margin-top:14px" data-act="enigma-next">Un altro enigma</button>`}
     </div>`);
@@ -215,7 +264,7 @@ function playEnigma(idx) {
     const v = new FormData(ev.target).get("a");
     if (!String(v).trim() || st.done) return;
     st.tries++;
-    if (checkAnswer(e, v)) {
+    if (isRight(v)) {
       st.done = st.won = true; save();
       const pts = daily ? 3 : Math.max(1, 4 - st.tries - (st.hint ? 1 : 0));
       out(`<div class="enigma-ok">Esatto! ${official ? `+${pts} punti` : ""}</div>`);
@@ -297,10 +346,12 @@ function playTrivia(practice) {
     const q = qs[i], c = CATS.find(x => x.k === q[0]);
     $("#tr-box").innerHTML = `<div class="tr-cat" style="--c:${c.c}">${c.name}</div>
       <p class="serif tr-q">${esc(q[1])}</p>
-      <form id="tr-form"><div class="tr-in"><input name="g" inputmode="decimal" placeholder="Il tuo numero" autocomplete="off" autofocus><span>${esc(q[3])}</span></div>
+      <form id="tr-form"><div class="tr-in"><button type="button" class="tr-sign" id="tr-sign" aria-label="Cambia segno">±</button><input name="g" inputmode="decimal" placeholder="Il tuo numero" autocomplete="off" autofocus><span>${esc(q[3])}</span></div>
       <button class="btn pearl block" style="margin-top:12px">Conferma</button></form>
       <p class="tiny faint" style="text-align:center;margin-top:8px">Non serve la cifra esatta: più ci vai vicino, più punti (fino a 100).</p>`;
     $("#tr-n").textContent = `${i + 1}/6`;
+    // La tastiera numerica dell'iPhone non ha il meno: lo mette questo tasto.
+    $("#tr-sign").addEventListener("click", () => { const inp = $("#tr-form input[name=g]"); const v = inp.value.trim(); inp.value = v.startsWith("-") ? v.slice(1) : "-" + v; $("#tr-sign").classList.toggle("on", inp.value.startsWith("-")); inp.focus(); });
     $("#tr-form").addEventListener("submit", e => {
       e.preventDefault();
       const raw = String(new FormData(e.target).get("g")).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
@@ -356,8 +407,32 @@ const POLS = [
   { id: "fornero", n: "Elsa Fornero", t: "T", hp: 100, atk: 56, def: 50, spd: 50, m: [["Choosy", 24, 100, "atk-"], ["Le lacrime", 0, 100, "heal"], ["Gli esodati", 54, 90], ["La riforma", 44, 100]] },
 ];
 const polInitials = n => n.split(" ").map(w => w[0]).join("").slice(0, 2);
-const polCard = (p, cls = "") => `<div class="pol ${cls}" style="--c:${TYPES[p.t].c}"><div class="pol-face">${polInitials(p.n)}</div><div class="pol-name">${esc(p.n)}</div><div class="pol-type">${TYPES[p.t].n}</div></div>`;
+// Le facce: le foto di Wikipedia (licenze libere), scaricate una volta e ricordate sul telefono.
+const POL_FACES_KEY = "capodanno-volti-1";
+let polFaces = {}; try { polFaces = JSON.parse(storage.get(POL_FACES_KEY) || "{}") || {}; } catch { polFaces = {}; }
+let polFacesAsked = false;
+async function loadPolFaces() {
+  if (polFacesAsked) return; polFacesAsked = true;
+  for (const host of ["it", "en"]) {
+    const missing = POLS.filter(p => !polFaces[p.id]); if (!missing.length) break;
+    try {
+      const r = await fetch(`https://${host}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=320&titles=${encodeURIComponent(missing.map(p => p.n).join("|"))}`);
+      const d = await r.json(), q = d.query || {};
+      const alias = new Map(); for (const x of [...(q.normalized || []), ...(q.redirects || [])]) alias.set(x.to, alias.get(x.from) || x.from);
+      for (const pg of Object.values(q.pages || {})) {
+        const src = pg.thumbnail?.source; if (!src || !/^https:\/\/upload\.wikimedia\.org\//.test(src)) continue;
+        const from = alias.get(pg.title) || pg.title;
+        const p = missing.find(x => x.n === from || x.n === pg.title); if (p) polFaces[p.id] = src;
+      }
+    } catch { /* senza rete restano le iniziali */ }
+  }
+  storage.set(POL_FACES_KEY, JSON.stringify(polFaces));
+  $$(".pol-face[data-pol]").forEach(el => { const u = polFaces[el.dataset.pol]; if (u && !el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`); });
+}
+const polFace = (p, cls = "") => `<div class="pol-face ${cls}" data-pol="${p.id}" style="--c:${TYPES[p.t].c}"><span>${polInitials(p.n)}</span>${polFaces[p.id] ? `<img src="${esc(polFaces[p.id])}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</div>`;
+const polCard = (p, cls = "") => `<div class="pol ${cls}" style="--c:${TYPES[p.t].c}">${polFace(p)}<div class="pol-name">${esc(p.n)}</div><div class="pol-type">${TYPES[p.t].n}</div></div>`;
 function playOnorevoli() {
+  loadPolFaces();
   const best = myRank("onorevoli");
   let team = [];
   openGame(`
@@ -401,7 +476,7 @@ function battle(teamP, round, score) {
     $("#ar-foe").innerHTML = side(foes[b], foes, true);
     $("#ar-me").innerHTML = side(mine[a], mine, false);
     $("#ar-moves").innerHTML = mine[a].m.map((m, i) => `<button data-i="${i}" ${busy ? "disabled" : ""} style="--c:${TYPES[mine[a].t].c}"><b>${esc(m[0])}</b><span>${m[1] ? `${m[3] === "multi" ? "3 × " : ""}potenza ${m[1]}` : { heal: "recupera consenso", "atk+": "più forza", "def+": "più difesa", "def-": "abbassa la difesa", "atk-": "abbassa la forza" }[m[3]]}${m[3] === "stun" ? " · può zittire" : ""} · ${m[2]}%</span></button>`).join("");
-    $("#ar-bench").innerHTML = mine.map((f, i) => i === a ? "" : `<button data-sw="${i}" ${f.cur <= 0 || busy ? "disabled" : ""}>${polInitials(f.n)}<span>${Math.max(0, f.cur)}</span></button>`).join("");
+    $("#ar-bench").innerHTML = mine.map((f, i) => i === a ? "" : `<button data-sw="${i}" ${f.cur <= 0 || busy ? "disabled" : ""}>${polFace(f, "mini")}<span>${Math.max(0, f.cur)}</span></button>`).join("");
   };
   const log = t => { const el = $("#ar-log"); el.textContent = t; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); };
   const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -511,7 +586,7 @@ window.games2Cards = function () {
   </section>
   <section class="card game-card">
     <div class="row top"><div class="game-ico">${ico("trophy", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Onorevoli</div>
-      <div class="small muted" style="margin-top:6px">Politici e giornalisti in lotta a turni, con le loro frasi celebri come mosse. Quante legislature reggi?${on ? ` Record: ${on.s.score}.` : ""}</div></div></div>
+      <div class="small muted" style="margin-top:6px">Politici e giornalisti in lotta a turni, con le loro frasi celebri come mosse. Sfida un amico o resisti alle legislature.${on ? ` Record: ${on.s.score}.` : ""}</div></div></div>
     <button class="btn pearl block" style="margin-top:14px" data-act="play-onorevoli">In aula</button>
   </section>`;
 };
@@ -524,8 +599,7 @@ Object.assign(ACTIONS, {
   "play-enigma": () => playEnigma(),
   "enigma-next": () => {
     const solved = new Set(JSON.parse(storage.get(ENIGMA_KEY + "solved") || "[]"));
-    const today_ = ENIGMI.indexOf(enigmaOfDay());
-    const left = ENIGMI.map((_, i) => i).filter(i => !solved.has(i) && i !== today_);
+    const left = ENIGMI.map((_, i) => i).filter(i => !solved.has(i));
     if (!left.length) return toast("Li hai risolti tutti. Rispetto.");
     playEnigma(left[Math.floor(Math.random() * left.length)]);
   },

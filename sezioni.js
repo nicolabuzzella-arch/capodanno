@@ -454,11 +454,13 @@ window.homeExtras = function () {
   const miss = missingQ().length, score = profileScore();
   const vibeLeft = isAdmin() && nextVibe();
   return `
-  <div class="quick">
-    <button data-act="tab" data-tab="mappa"><span class="qi">${ico("globe", 22)}</span>Mappa</button>
-    <button data-act="tab" data-tab="meteo"><span class="qi">${ico("sun", 22)}</span>Meteo</button>
-    <button data-act="tab" data-tab="passaggi"><span class="qi">${ico("car", 22)}</span>Passaggi</button>
-    <button data-act="tab" data-tab="foto"><span class="qi">${ico("image", 22)}</span>Foto</button>
+  <div class="h3-rail" data-noswipe>
+    <button data-act="tab" data-tab="mappa">${ico("globe", 18)}Mappa</button>
+    <button data-act="tab" data-tab="meteo">${ico("sun", 18)}Meteo</button>
+    <button data-act="tab" data-tab="passaggi">${ico("car", 18)}Passaggi</button>
+    <button data-act="tab" data-tab="foto">${ico("image", 18)}Foto</button>
+    <button data-act="chat-go" data-v="ai">${ico("spark", 18)}${AI()}</button>
+    <button data-act="chat-go" data-v="ascolto">${ico("user", 18)}Psicologo</button>
   </div>
   ${miss ? `<section class="card tap pf-nudge" data-act="tab" data-tab="profilo">
     <div class="row" style="gap:14px"><div class="pf-ring sm" style="--p:${score}"><b>${score}%</b></div>

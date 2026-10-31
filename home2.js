@@ -290,7 +290,7 @@ const GL = () => {
   const enOk = (S.scores || []).find(s => s.game === "enigma" && s.member_id === ME && s.day === today());
   return [
     { sec: "Ogni giorno", rows: [
-      { id: "indovinello", ico: "key", t: "Indovinello del giorno", s: enOk ? (enOk.meta?.ok ? "Indovinato" : "Sbagliato, domani va meglio") : "Una risposta sola: o la sai o no", hot: !enOk },
+      { id: "indovinello", ico: "key", t: "Indovinello del giorno", s: enOk ? (enOk.meta?.ok ? "Indovinato" : "Sbagliato, domani va meglio") : "Una parola sola: o la sai o no", hot: !enOk },
       { id: "sudoku", ico: "grid", t: "Sudoku del giorno", s: done("sudoku9") && done("killer") ? "Normale e Killer fatti" : "Normale e Killer, uguali per tutti", hot: !done("sudoku9") },
       { id: "trivia", ico: "chart", t: "Ordine di grandezza", s: done("trivia") ? `Fatta · ${rk("trivia")}` : "Sei domande, risposte con un numero", hot: !done("trivia") },
       { id: "ruota", ico: "star", t: "Ruota della fortuna", s: typeof canSpin === "function" && canSpin() ? "Il giro di oggi ti aspetta" : "Girata, torna domani", hot: typeof canSpin === "function" && canSpin() },
@@ -299,11 +299,11 @@ const GL = () => {
       { id: "scacchi", ico: "chess", t: "Scacchi", s: "Dal vivo con l'orologio, Elo del gruppo" },
       { id: "miniera", ico: "pick", t: "Miniera", s: "Scava prima dell'altro: diamanti, oro, TNT" },
       { id: "geo", ico: "pin", t: "GeoScatto", s: "Una foto, un mappamondo: dov'è?" },
+      { id: "onorevoli", ico: "trophy", t: "Onorevoli", s: "Tre politici a testa, a colpi di frasi celebri" },
       { id: "fune", ico: "swap", t: "Tiro alla fune", s: "Chi tocca più veloce vince" },
     ] },
     { sec: "In quattro", rows: [{ id: "scopa", ico: "users", t: "Scopa d'assi", s: "Due contro due, l'asso piglia tutto" }] },
     { sec: "Da soli", rows: [
-      { id: "onorevoli", ico: "trophy", t: "Onorevoli", s: "Politici a duello con le loro frasi celebri" },
       { id: "fuochi", ico: "burst", t: "Fuochi", s: "Trenta secondi di razzi" },
       { id: "archivio", ico: "key", t: "Archivio enigmi", s: "Per chi non si arrende" },
     ] },
@@ -318,13 +318,12 @@ window.viewGiochi = function () {
 function glOpen(id) {
   const html = {
     scacchi: () => window.chessCard?.(), scopa: () => window.scopaCard?.(), ruota: () => typeof wheelCard === "function" && wheelCard(),
-    miniera: () => window.mineCard?.(), geo: () => window.geoCard?.(),
+    miniera: () => window.mineCard?.(), geo: () => window.geoCard?.(), onorevoli: () => window.onoCard?.(),
   }[id];
   if (html) return openSheet(html().replace('class="card', 'class="card in-sheet'));
   if (id === "indovinello") return playEnigma();
   if (id === "archivio") return ACTIONS["enigma-next"]();
   if (id === "trivia") return playedToday("trivia") ? playTrivia(true) : playTrivia(false);
-  if (id === "onorevoli") return playOnorevoli();
   if (id === "fuochi") return playFuochi();
   if (id === "fune") return openSheet(`<h2>Tiro alla fune</h2><div id="duel-online">${duelOnlineList()}</div><button class="btn block" style="margin-top:12px" data-act="duel-cpu">${ico("device", 17)}Allenati contro il telefono</button>`);
   if (id === "sudoku") return openSheet(`<h2>Sudoku del giorno</h2><p class="small muted" style="margin-top:-6px">Stessa griglia per tutti; conta il primo tentativo, ogni errore vale 15 secondi.</p>
@@ -348,10 +347,55 @@ window.home2Mount = () => { mountDaily(); refreshNews(); setTimeout(maybeNovita,
 
 Object.assign(ACTIONS, {
   "gl-open": el => glOpen(el.dataset.id),
-  "gl-ranks": () => openSheet(`<h2>Classifiche di sempre</h2>${[window.chessRankCard?.(), window.scopaRankCard?.(), window.mineRankCard?.(), window.geoRankCard?.(), window.games2Ranks?.(), rankCard("sudoku9"), rankCard("killer"), rankCard("fune"), rankCard("fuochi")].filter(Boolean).join("")}`),
+  "gl-ranks": () => openSheet(`<h2>Classifiche di sempre</h2>${[window.chessRankCard?.(), window.scopaRankCard?.(), window.mineRankCard?.(), window.geoRankCard?.(), window.onoRankCard?.(), window.games2Ranks?.(), rankCard("sudoku9"), rankCard("killer"), rankCard("fune"), rankCard("fuochi")].filter(Boolean).join("")}`),
   "news-open": el => sheetNews(Number(el.dataset.i)),
   "photo-open": el => { const list = (S.messages || []).filter(m => m.meta?.photo).map(m => ({ ...m.meta.photo, member_id: m.member_id, caption: m.content !== "Foto" ? m.content : "", created_at: m.created_at })); lightbox(list, Math.max(0, list.findIndex(p => p.path === el.dataset.path))); },
   "foto-open": el => { const list = (S.photos || []).slice().sort((a, b) => (b.created_at > a.created_at ? 1 : -1)); lightbox(list, Number(el.dataset.i)); },
   "photo-pick": () => $("#composer-photo-input")?.click(),
 });
 $("#composer-photo-input")?.addEventListener("change", e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) sendChatPhoto(f); });
+
+// ───────────────────────── Chi è online ─────────────────────────
+// Presenza in tempo reale (Supabase Realtime): quando qualcuno apre l'app compare un piccolo avviso in alto.
+const PRESENT = new Set();
+let presenceCh = null, presenceSince = 0;
+const POP_SEEN = new Map();
+window.onlineStrip = () => {
+  const on = S.members.filter(m => PRESENT.has(m.id) && m.id !== ME);
+  return on.length ? `<span class="h3-dot"></span>${on.slice(0, 4).map(m => avatar(m, "sm")).join("")}<span>${on.length === 1 ? `${esc(m1(on[0]))} è online` : `${on.length} online`}</span>` : "";
+};
+const m1 = m => (m.name || "").split(" ")[0];
+function paintOnline() { const el = $("#h3-online"); if (el) el.innerHTML = window.onlineStrip(); }
+function presencePop(id) {
+  const m = member(id); if (!m || id === ME) return;
+  if (Date.now() - presenceSince < 5000) return; // all'avvio non si annuncia chi c'era già
+  if (Date.now() - (POP_SEEN.get(id) || 0) < 20 * 60000) return; // al massimo un avviso ogni 20 minuti a persona
+  POP_SEEN.set(id, Date.now());
+  if (!$("#game").hidden) return; // durante una partita niente distrazioni
+  document.querySelector(".presence-pop")?.remove();
+  const el = document.createElement("button");
+  el.className = "presence-pop"; el.dataset.act = "chat-go"; el.dataset.v = "gruppo";
+  el.innerHTML = `${avatar(m, "sm")}<span><b>${esc(m1(m))}</b> è online</span><i></i>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 3600);
+}
+function startPresence() {
+  if (!CLOUD || presenceCh || !api.sb || !ME) return;
+  try {
+    presenceCh = api.channel("presenza", { config: { presence: { key: ME } } });
+    if (typeof presenceCh?.on !== "function" || typeof presenceCh.track !== "function") { presenceCh = null; return; }
+    const sync = () => { const st = presenceCh.presenceState?.() || {}; PRESENT.clear(); Object.keys(st).forEach(k => PRESENT.add(k)); paintOnline(); };
+    presenceCh.on("presence", { event: "sync" }, sync)
+      .on("presence", { event: "join" }, ({ key }) => { const was = PRESENT.has(key); PRESENT.add(key); paintOnline(); if (!was) presencePop(key); })
+      .on("presence", { event: "leave" }, ({ key }) => { PRESENT.delete(key); paintOnline(); })
+      .subscribe(status => { if (status === "SUBSCRIBED") { presenceSince = Date.now(); if (!document.hidden) presenceCh.track({ at: Date.now() }); } });
+    document.addEventListener("visibilitychange", () => {
+      try { if (document.hidden) presenceCh?.untrack(); else { presenceSince = Math.max(presenceSince, Date.now() - 4000); presenceCh?.track({ at: Date.now() }); } } catch { /* rete */ }
+    });
+  } catch (e) { console.warn(e); presenceCh = null; }
+}
+(function waitPresence() {
+  if (typeof ME !== "undefined" && ME && (!CLOUD || api.sb)) { startPresence(); return; }
+  setTimeout(waitPresence, 700);
+})();

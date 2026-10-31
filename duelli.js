@@ -7,7 +7,13 @@
 "use strict";
 
 const DU = { games: [], view: null, shown: new Set(), waiting: null };
-const DKIND = { miniera: "Miniera", geo: "GeoScatto" };
+const DKIND = { miniera: "Miniera", geo: "GeoScatto", onorevoli: "Onorevoli" };
+const DICO = { miniera: "pick", geo: "pin", onorevoli: "trophy" };
+const DDESC = {
+  miniera: ["Si scava a turno: vince chi trova più tesori.", "Blocchi da scavare a turno: carbone, ferro, oro, diamanti. Occhio a TNT e lava. Una lanterna a testa per sbirciare."],
+  geo: ["Cinque foto, stesso mondo: vince chi ci va più vicino.", "Una foto vera, un mappamondo, 45 secondi. Cinque round, vince chi sbaglia di meno."],
+  onorevoli: ["Tre onorevoli a testa, a turno, a colpi di frasi celebri.", "Scegli tre politici e giornalisti e sfida un amico: si colpisce a turno con le loro frasi celebri. Satira, non cronaca."],
+};
 async function duRpc(fn, args) { const { data, error } = await api.sb.rpc(fn, args); if (error) throw new Error(error.message); return data; }
 function duUpsert(row) { if (!row?.id) return; const i = DU.games.findIndex(g => g.id === row.id); if (i >= 0) DU.games[i] = row; else DU.games.unshift(row); }
 async function duLoad() {
@@ -29,9 +35,9 @@ window.onDuelChange = payload => {
 function duPrompt(g) {
   if (g.status !== "invited" || g.players[1] !== ME || DU.shown.has(g.id) || Date.now() - new Date(g.created_at) > 20 * 60000 || !$("#game").hidden) return;
   DU.shown.add(g.id);
-  openSheet(`<div class="duel-invite"><div class="game-ico big">${ico(g.kind === "miniera" ? "pick" : "pin", 36)}</div>
+  openSheet(`<div class="duel-invite"><div class="game-ico big">${ico(DICO[g.kind], 36)}</div>
     <div class="serif" style="font-size:28px">${esc(mname(g.created_by))} ti sfida a ${DKIND[g.kind]}</div>
-    <div class="small muted" style="margin:6px 0 18px">${g.kind === "miniera" ? "Si scava a turno: vince chi trova più tesori." : "Cinque foto, stesso mondo: vince chi ci va più vicino."}</div>
+    <div class="small muted" style="margin:6px 0 18px">${DDESC[g.kind][0]}</div>
     <div class="actions"><button class="btn" data-act="du-answer" data-id="${g.id}" data-ok="0">No grazie</button><button class="btn primary" data-act="du-answer" data-id="${g.id}" data-ok="1">Accetto</button></div></div>`);
   navigator.vibrate?.([30, 50, 30]);
 }
@@ -40,27 +46,29 @@ function duCard(kind) {
   const fresh = g => Date.now() - new Date(g.created_at) < 20 * 60000;
   const row = (g, right) => `<div class="li"><div class="cb-vs">${g.players.map(id => avatar(member(id), "sm")).join("")}</div><div class="grow"><div class="t">contro ${esc(mname(g.players.find(p => p !== ME)))}</div><div class="tiny faint">${g.status === "invited" ? "in attesa" : "in corso"}</div></div>${right}</div>`;
   return `<section class="card game-card" id="du-card-${kind}">
-    <div class="row top"><div class="game-ico">${ico(kind === "miniera" ? "pick" : "pin", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">${DKIND[kind]}</div>
-      <div class="small muted" style="margin-top:6px">${kind === "miniera" ? "Blocchi da scavare a turno: carbone, ferro, oro, diamanti. Occhio a TNT e lava. Una lanterna a testa per sbirciare." : "Una foto vera, un mappamondo, 45 secondi. Cinque round, vince chi sbaglia di meno."}</div></div></div>
+    <div class="row top"><div class="game-ico">${ico(DICO[kind], 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">${DKIND[kind]}</div>
+      <div class="small muted" style="margin-top:6px">${DDESC[kind][1]}</div></div></div>
     ${mine.filter(g => g.status === "invited" && fresh(g) && g.players[1] === ME).map(g => row(g, `<button class="btn sm" data-act="du-answer" data-id="${g.id}" data-ok="0">No</button><button class="btn sm primary" data-act="du-answer" data-id="${g.id}" data-ok="1">Gioca</button>`)).join("")}
     ${mine.filter(g => g.status === "invited" && fresh(g) && g.created_by === ME).map(g => row(g, `<button class="btn sm" data-act="du-cancel" data-id="${g.id}">Annulla</button>`)).join("")}
     ${mine.filter(g => g.status === "active").map(g => row(g, `<button class="btn sm primary" data-act="du-open" data-id="${g.id}">Riprendi</button>`)).join("")}
-    <div class="grid2" style="margin-top:14px;gap:8px"><button class="btn pearl block" data-act="du-challenge" data-k="${kind}">${ico("swap", 17)}Sfida</button><button class="btn block" data-act="du-solo" data-k="${kind}">${ico("device", 17)}${kind === "miniera" ? "Contro il telefono" : "Allenamento"}</button></div>
+    <div class="grid2" style="margin-top:14px;gap:8px"><button class="btn pearl block" data-act="du-challenge" data-k="${kind}">${ico("swap", 17)}Sfida</button><button class="btn block" data-act="du-solo" data-k="${kind}">${ico("device", 17)}${kind === "geo" ? "Allenamento" : "Contro il telefono"}</button></div>
   </section>`;
 }
 window.mineCard = () => duCard("miniera");
 window.geoCard = () => duCard("geo");
+window.onoCard = () => { loadPolFaces(); return duCard("onorevoli"); };
 function duRank(kind, label) {
   const W = new Map();
   for (const g of DU.games.filter(g => g.kind === kind && g.status === "over" && g.result)) g.players.forEach((id, s) => { const r = W.get(id) || { id, w: 0, p: 0 }; r.p++; if (g.result.winner === s) r.w++; W.set(id, r); });
   const lb = [...W.values()].filter(r => member(r.id)).sort((a, b) => b.w - a.w || a.p - b.p).slice(0, 10);
   const solo = kind === "geo" ? leaderboard("geo").slice(0, 5) : [];
-  return `<section class="card"><div class="row" style="gap:10px;margin-bottom:${lb.length || solo.length ? 12 : 0}px">${ico(kind === "miniera" ? "pick" : "pin", 18)}<div class="t grow">${label}</div>${lb.length || solo.length ? "" : `<span class="small faint">ancora nessuno</span>`}</div>
+  return `<section class="card"><div class="row" style="gap:10px;margin-bottom:${lb.length || solo.length ? 12 : 0}px">${ico(DICO[kind], 18)}<div class="t grow">${label}</div>${lb.length || solo.length ? "" : `<span class="small faint">ancora nessuno</span>`}</div>
     ${lb.map((r, i) => `<div class="li rank ${r.id === ME ? "me" : ""}"><span class="pos p${i + 1}">${i + 1}</span>${avatar(member(r.id), "sm")}<span class="grow t ellipsis">${esc(mname(r.id))}</span><span class="tiny faint">${r.p} sfide</span><b class="num">${r.w} vinte</b></div>`).join("")}
     ${solo.length ? `<div class="tiny faint" style="margin:8px 0 4px">Record in allenamento</div>${solo.map((s, i) => `<div class="li rank"><span class="pos">${i + 1}</span>${avatar(member(s.member_id), "sm")}<span class="grow t">${esc(mname(s.member_id))}</span><b class="num">${s.score}</b></div>`).join("")}` : ""}</section>`;
 }
 window.mineRankCard = () => duRank("miniera", "Miniera");
 window.geoRankCard = () => duRank("geo", "GeoScatto");
+window.onoRankCard = () => duRank("onorevoli", "Onorevoli · sfide");
 GAMES.geo = { label: "GeoScatto", icon: "pin", kind: "points" };
 
 function duChallenge(kind) {
@@ -79,7 +87,7 @@ async function duInvite(kind, opp) {
     gameCleanup = () => { if (DU.waiting === g.id) DU.waiting = null; };
   } catch (e) { toast(/duel_create/.test(e.message) ? "Serve aggiornamento-4.sql su Supabase" : e.message, "alert"); }
 }
-const openDuel = g => (g.kind === "miniera" ? playMine({ online: true, game: g }) : playGeo({ online: true, game: g }));
+const openDuel = g => (g.kind === "miniera" ? playMine({ online: true, game: g }) : g.kind === "onorevoli" ? playOnoDuel(g) : playGeo({ online: true, game: g }));
 
 // ───────────────────────── Miniera ─────────────────────────
 
@@ -347,10 +355,159 @@ function playGeo(opts) {
   gameCleanup = () => { clearInterval(timer); DU.view = null; if (map) map.remove(); };
 }
 
+// ───────────────────────── Onorevoli 1 contro 1 ─────────────────────────
+// Ognuno sceglie tre onorevoli (le prime due mosse), poi si gioca a turno: una frase celebre o un cambio.
+// Il caso (precisione, danni, «zittito») nasce dal seme della partita: i due telefoni vedono la stessa cosa.
+function onoHitDet(att, def, mv, rnd, ev, dSide) {
+  const [name, pow, acc, eff] = mv;
+  ev.push({ say: `${att.n}: «${name}»` });
+  if (att.stun) { att.stun = false; ev.push({ log: `${att.n} è stato zittito e non riesce a parlare.` }); return; }
+  if (rnd() * 100 > acc) { ev.push({ log: "Nessuno se n'è accorto. Mossa a vuoto." }); return; }
+  if (eff === "heal") { const h = Math.round(att.max * 0.3); att.cur = Math.min(att.max, att.cur + h); ev.push({ log: `${att.n} recupera ${h} di consenso.` }); return; }
+  if (eff === "atk+" || eff === "def+") { att[eff === "atk+" ? "atkB" : "defB"] += 1; ev.push({ log: `${att.n} ${eff === "atk+" ? "si carica" : "si blinda"}.` }); return; }
+  if (eff === "def-" || eff === "atk-") { def[eff === "def-" ? "defB" : "atkB"] -= 1; ev.push({ log: `${def.n} ${eff === "def-" ? "abbassa la guardia" : "perde mordente"}.` }); return; }
+  const mult = BEATS[att.t] === def.t ? 1.5 : BEATS[def.t] === att.t ? 0.67 : 1;
+  let tot = 0;
+  for (let k = 0; k < (eff === "multi" ? 3 : 1); k++) {
+    const atk = att.atk * (1 + 0.25 * att.atkB), dfn = def.def * (1 + 0.25 * def.defB);
+    const dmg = Math.max(1, Math.round(pow * atk / dfn * mult * (0.85 + rnd() * 0.3) * 0.55));
+    def.cur -= dmg; tot += dmg; ev.push({ dmg, side: dSide });
+  }
+  if (eff === "stun" && rnd() < 0.35) def.stun = true;
+  ev.push({ log: `${mult > 1 ? "Colpo superefficace! " : mult < 1 ? "Poco efficace. " : ""}${def.n} perde ${tot} di consenso${def.stun ? " ed è zittito" : ""}.` });
+}
+function onoState(game) {
+  const st = { team: [null, null], act: [0, 0], ev: [], over: false, winner: null, by: null };
+  game.actions.forEach((a, k) => {
+    st.ev = []; st.by = a.s;
+    if (a.pick) { if (!st.team[a.s]) st.team[a.s] = a.pick.map(id => POLS.find(p => p.id === id)).filter(Boolean).map(p => fighter(p)); return; }
+    if (st.over || !st.team[0] || !st.team[1]) return;
+    if (a.quit) { st.over = true; st.winner = 1 - a.s; st.ev.push({ log: `${mname(game.players[a.s])} abbandona l'aula.` }); return; }
+    const rnd = seededRand(((Number(game.seed) || 1) + k * 7919) >>> 0);
+    const s = a.s, o = 1 - s, att = st.team[s][st.act[s]];
+    if (a.sw != null) { const f = st.team[s][a.sw]; if (f && f.cur > 0) { st.act[s] = a.sw; st.ev.push({ log: `Entra in aula ${f.n}.` }); } }
+    else if (att.m[a.mv]) onoHitDet(att, st.team[o][st.act[o]], att.m[a.mv], rnd, st.ev, o);
+    const foe = st.team[o][st.act[o]];
+    if (foe.cur <= 0) {
+      st.ev.push({ log: `${foe.n} lascia l'aula.` });
+      const nb = st.team[o].findIndex(f => f.cur > 0);
+      if (nb < 0) { st.over = true; st.winner = s; } else { st.act[o] = nb; st.ev.push({ log: `Entra in aula ${st.team[o][nb].n}.` }); }
+    }
+  });
+  st.ready = !!(st.team[0] && st.team[1]);
+  st.turn = game.actions.length % 2;
+  if (!st.over && game.status === "over" && game.result?.winner != null) { st.over = true; st.winner = game.result.winner; st.ev = [{ log: game.result.quit ? `${mname(game.players[1 - game.result.winner])} ha lasciato l'aula.` : "Seduta chiusa." }]; }
+  return st;
+}
+function playOnoDuel(g0) {
+  loadPolFaces();
+  let game = g0, pending = false, shown = game.actions.length, playing = false;
+  const mySeat = game.players.indexOf(ME), opp = game.players[1 - mySeat];
+  const send = async (action, ply) => {
+    pending = true; paint();
+    try { const row = await duRpc("duel_act", { p_id: game.id, p_ply: ply, p_action: action }); duUpsert(row); pending = false; update(row); }
+    catch (e) { pending = false; toast(e.message, "alert"); const { data } = await api.sb.from("duels").select("*").eq("id", game.id).maybeSingle(); if (data) update(data); else paint(); }
+  };
+  openGame(`
+    <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
+      <div class="grow" style="text-align:center"><div class="eyebrow">Onorevoli</div><div class="tiny faint">contro ${esc(mname(opp))}</div></div>
+      <button class="btn icon sm" id="ono-quit" aria-label="Abbandona">${ico("logout", 16)}</button></div>
+    <div id="ono-body"></div>`);
+  const body = $("#ono-body");
+  const hpBar = f => `<div class="hp"><i style="width:${Math.max(0, 100 * f.cur / f.max)}%;background:${f.cur / f.max > 0.5 ? "#7ee2b8" : f.cur / f.max > 0.2 ? "#ffc978" : "#ff8f8f"}"></i></div>`;
+  const side = (f, team, isFoe, who) => `${polCard(f, isFoe ? "foe" : "")}<div class="side-info"><div class="tiny faint">${esc(who)}</div><div class="t">${esc(f.n)}</div>${hpBar(f)}<div class="tiny faint">Consenso ${Math.max(0, f.cur)}/${f.max}${f.stun ? " · zittito" : ""}</div>
+    <div class="dots">${team.map(x => `<i class="${x.cur > 0 ? "" : "out"}"></i>`).join("")}</div></div>`;
+  let team = [];
+  const paint = () => {
+    const st = onoState(game);
+    if (!st.team[mySeat]) {
+      if (!body.querySelector("#ono-pick")) {
+        body.innerHTML = `<p class="small muted" style="text-align:center;margin:8px auto 0;max-width:420px">Scegli i tuoi tre onorevoli. La Satira batte il Carisma, il Carisma il Populismo, il Populismo la Tecnocrazia, la Tecnocrazia la Satira.</p>
+          <div class="pol-grid" id="ono-pick">${POLS.map(p => `<button data-id="${p.id}">${polCard(p)}</button>`).join("")}</div>
+          <button class="btn pearl block" id="ono-go" disabled style="position:sticky;bottom:calc(var(--sab) + 8px)">Scegli tre onorevoli (0/3)</button>`;
+        $("#ono-pick").addEventListener("click", e => {
+          const b = e.target.closest("button"); if (!b) return;
+          const id = b.dataset.id;
+          team = team.includes(id) ? team.filter(x => x !== id) : team.length < 3 ? [...team, id] : team;
+          $$("#ono-pick button").forEach(x => x.classList.toggle("on", team.includes(x.dataset.id)));
+          $("#ono-go").disabled = team.length !== 3;
+          $("#ono-go").textContent = team.length === 3 ? "In aula!" : `Scegli tre onorevoli (${team.length}/3)`;
+        });
+        $("#ono-go").addEventListener("click", () => { if (team.length === 3 && !pending) send({ pick: team }, null); });
+      }
+      $("#ono-go").disabled = team.length !== 3 || pending;
+      return;
+    }
+    if (!st.ready) {
+      body.innerHTML = `<div class="duel-wait">${avatar(member(opp), "lg")}<div class="serif" style="font-size:28px;margin-top:16px">${esc(mname(opp))} sceglie la squadra…</div>
+        <div class="pol-grid" style="grid-template-columns:repeat(3,1fr)">${st.team[mySeat].map(f => polCard(f)).join("")}</div></div>`;
+      return;
+    }
+    const me1 = st.team[mySeat][st.act[mySeat]], foe = st.team[1 - mySeat][st.act[1 - mySeat]];
+    const myTurn = !st.over && st.turn === mySeat && !pending && !playing;
+    if (!body.querySelector(".arena")) body.innerHTML = `<div class="arena"><div class="side foe" id="ar-foe"></div><div class="ar-log" id="ar-log">Si apre la seduta.</div><div class="side me" id="ar-me"></div></div>
+      <div class="ono-turn" id="ono-turn"></div><div class="ar-moves" id="ar-moves"></div><div class="ar-bench" id="ar-bench"></div><div id="ono-end"></div>`;
+    $("#ar-foe").innerHTML = side(foe, st.team[1 - mySeat], true, mname(opp));
+    $("#ar-me").innerHTML = side(me1, st.team[mySeat], false, "Tu");
+    $("#ono-turn").textContent = st.over ? "" : myTurn ? "Tocca a te" : playing ? "" : `Tocca a ${mname(opp)}…`;
+    $("#ono-turn").classList.toggle("on", myTurn);
+    $("#ar-moves").innerHTML = st.over ? "" : me1.m.map((m, i) => `<button data-i="${i}" ${myTurn ? "" : "disabled"} style="--c:${TYPES[me1.t].c}"><b>${esc(m[0])}</b><span>${m[1] ? `${m[3] === "multi" ? "3 × " : ""}potenza ${m[1]}` : { heal: "recupera consenso", "atk+": "più forza", "def+": "più difesa", "def-": "abbassa la difesa", "atk-": "abbassa la forza" }[m[3]]}${m[3] === "stun" ? " · può zittire" : ""} · ${m[2]}%</span></button>`).join("");
+    $("#ar-bench").innerHTML = st.over ? "" : st.team[mySeat].map((f, i) => i === st.act[mySeat] ? "" : `<button data-sw="${i}" ${f.cur <= 0 || !myTurn ? "disabled" : ""}>${polFace(f, "mini")}<span>${Math.max(0, f.cur)}</span></button>`).join("");
+    if (st.over && !$("#ono-end").innerHTML) {
+      const won = st.winner === mySeat;
+      $("#ono-end").innerHTML = `<div class="glass win"><div class="serif" style="font-size:34px">${won ? "Hai vinto" : `Vince ${esc(mname(opp))}`}</div><div class="small muted">${won ? "Il gruppo parlamentare è tuo." : "Si torna all'opposizione."}</div>
+        <div class="actions"><button class="btn" data-act="close-game">Chiudi</button><button class="btn primary" data-act="du-invite" data-k="onorevoli" data-id="${opp}">Rivincita</button></div></div>`;
+      if (won) confettiBurst();
+      if (game.status === "active") duRpc("duel_finish", { p_id: game.id, p_result: { winner: st.winner } }).then(duUpsert).catch(() => {});
+    }
+  };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  // Racconta le mosse nuove una alla volta: frase, colpo, esito.
+  const playNew = async () => {
+    if (playing) return; playing = true;
+    while (shown < game.actions.length) {
+      const upto = shown + 1, st = onoState({ ...game, actions: game.actions.slice(0, upto) });
+      shown = upto;
+      const g2 = game; game = { ...game, actions: game.actions.slice(0, upto) }; paint(); game = g2;
+      for (const e of st.ev) {
+        const log = $("#ar-log"); if (!log) break;
+        if (e.say || e.log) { log.textContent = e.say || e.log; log.classList.remove("pop"); void log.offsetWidth; log.classList.add("pop"); await wait(e.say ? 700 : 900); }
+        else if (e.dmg) { const el = $(e.side === mySeat ? "#ar-me" : "#ar-foe"); if (el) { el.classList.remove("hit"); void el.offsetWidth; el.classList.add("hit"); const fl = document.createElement("div"); fl.className = "dmg"; fl.textContent = `−${e.dmg}`; el.appendChild(fl); setTimeout(() => fl.remove(), 900); } navigator.vibrate?.(12); await wait(380); }
+      }
+    }
+    playing = false; paint();
+  };
+  const update = row => {
+    if (row.id !== game.id) return;
+    if (row.actions.length < game.actions.length) return;
+    game = row;
+    const st = onoState(game);
+    if (st.over && game.result?.quit && !playing) { const log = $("#ar-log"); if (log) log.textContent = st.ev[0]?.log || ""; }
+    if (st.ready && shown < game.actions.length) { const firstPlay = game.actions.slice(0, shown).filter(a => !a.pick).length === 0 && game.actions.slice(shown).every(a => a.pick); if (firstPlay) shown = game.actions.length; }
+    if (shown < game.actions.length && st.ready) playNew(); else { shown = game.actions.length; paint(); }
+  };
+  body.addEventListener("click", e => {
+    const st = onoState(game);
+    if (!st.ready || st.over || st.turn !== mySeat || pending || playing) return;
+    const mv = e.target.closest("#ar-moves button[data-i]"), sw = e.target.closest("#ar-bench button[data-sw]");
+    if (mv) send({ mv: Number(mv.dataset.i) }, game.actions.length);
+    else if (sw) send({ sw: Number(sw.dataset.sw) }, game.actions.length);
+  });
+  $("#ono-quit").addEventListener("click", () => {
+    const st = onoState(game);
+    if (st.over) return closeGame();
+    if (!st.ready) return ACTIONS["du-cancel"]?.({ dataset: { id: game.id } }), closeGame();
+    if (confirm("Abbandoni la sfida? Vince l'altro.")) duRpc("duel_finish", { p_id: game.id, p_result: { winner: 1 - mySeat, quit: true } }).then(r => { duUpsert(r); closeGame(); toast("Hai lasciato l'aula"); }).catch(e => toast(e.message, "alert"));
+  });
+  DU.view = { id: game.id, update };
+  gameCleanup = () => { DU.view = null; };
+  paint();
+}
+
 Object.assign(ACTIONS, {
   "du-challenge": el => duChallenge(el.dataset.k),
   "du-invite": el => duInvite(el.dataset.k, el.dataset.id),
-  "du-solo": el => (el.dataset.k === "miniera" ? playMine({}) : playGeo({})),
+  "du-solo": el => { closeSheet(); return el.dataset.k === "miniera" ? playMine({}) : el.dataset.k === "onorevoli" ? playOnorevoli() : playGeo({}); },
   "du-open": el => { const g = DU.games.find(x => x.id === el.dataset.id); if (g) { closeSheet(); openDuel(g); } },
   async "du-answer"(el) {
     closeSheet();

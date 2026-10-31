@@ -130,6 +130,14 @@ const ICONS = {
   chart: '<path d="M4 20V11M10 20V5M16 20v-6M21 20H3"/>',
   split: '<circle cx="5.5" cy="12" r="2.5"/><path d="M8 12h4l4-5h4.5M12 12l4 5h4.5"/>',
 };
+// Icone usate anche dai moduli aggiuntivi: definite qui così ci sono già al primo disegno.
+Object.assign(ICONS, {
+  camera: '<path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10.5H4Z"/><circle cx="12" cy="13.5" r="3.6"/>',
+  image: '<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 17 5-4.5 3.5 3 3-2.5 4.5 4"/>',
+  news: '<rect x="3.5" y="4.5" width="14" height="15" rx="2.5"/><path d="M17.5 8.5h3v8.5a2.5 2.5 0 0 1-2.5 2.5M7 8.5h7M7 12h7M7 15.5h4"/>',
+  pin: '<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/>',
+  pick: '<path d="M4 20 14 10M12.5 4.5c3.5-.8 6.3.5 7 3-2.4-.7-4.6-.4-6.6.8M9.5 7.5c.8-3.5-.5-6.3-3-7 .7 2.4.4 4.6-.8 6.6"/><path d="m11 6 7 7"/>',
+});
 const ico = (n, s = 20, extra = "") => `<svg class="i" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${ICONS[n] || ""}</svg>`;
 // Il logo: una C spessa con un bagliore nell'apertura.
 const LOGO = (s = 64) => `<svg width="${s}" height="${s}" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg-p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dfe8ff"/><stop offset=".5" stop-color="#e6d4ff"/><stop offset="1" stop-color="#c9f3ee"/></linearGradient></defs><path d="M352.4 141.1A150 150 0 1 0 352.4 370.9" fill="none" stroke="url(#lg-p)" stroke-width="70"/><path d="M320.3 179.4A100 100 0 1 0 320.3 332.6" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="3"/><path d="M398 214c3 28 11 36 40 42-29 6-37 14-40 42-3-28-11-36-40-42 29-6 37-14 40-42Z" fill="#ffffff"/></svg>`;
@@ -449,6 +457,8 @@ async function reload() {
     console.warn(e);
     OFFLINE = !navigator.onLine;
   }
+  // Sulla mappa non si ricostruisce la pagina (si interromperebbe lo zoom): si aggiornano solo marker e voti.
+  if (UI.tab === "mappa" && window.m3Refresh?.()) return;
   render();
 }
 
@@ -525,7 +535,7 @@ function pollData(p) {
   const voterIds = new Set(S.votes.filter(v => v.poll_id === p.id).map(v => v.member_id));
   return { opts, max, voterIds, voted: voterIds.has(ME) };
 }
-const openPollsToVote = () => S.polls.filter(p => p.status === "open" && !pollData(p).voted);
+const openPollsToVote = () => S.polls.filter(p => p.status === "open" && !pollData(p).voted).sort(byCreated).reverse();
 function requestStatus(r) {
   const paid = new Set(S.expenses.filter(e => e.request_id === r.id).flatMap(e => Object.keys(e.payers || {})));
   const debtors = (r.debtors || []).filter(id => id !== r.pay_to && member(id));
@@ -561,7 +571,7 @@ function render() {
   const views = { home: viewHome, vota: viewVota, piano: viewPiano, spese: viewSpese, chat: viewChat, gruppo: viewGruppo, giochi: () => window.viewGiochi(), ...Object.fromEntries(Object.entries(EX).map(([k, v]) => [k, v.view])) };
   const titles = { home: trip().name || "Capodanno", vota: "Sondaggi", piano: "Piano", spese: "Splitwise", chat: "Chat", gruppo: "Il gruppo", giochi: "Giochi" };
   const subs = {
-    home: `Ciao ${esc(me()?.name || "")}`,
+    home: esc(new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })),
     vota: "Decidiamo insieme",
     piano: "Prenotazioni, programma e cose da fare",
     spese: "Chi ha pagato, chi deve, quanto",
@@ -571,6 +581,7 @@ function render() {
     ...Object.fromEntries(Object.entries(EX).map(([k, v]) => [k, v.sub || ""])),
   };
   Object.entries(EX).forEach(([k, v]) => { titles[k] = v.title; });
+  document.body.dataset.tab = UI.tab;
   root.innerHTML = `<div id="app">
     ${OFFLINE ? `<div class="offline">Sei offline: vedi l'ultima copia salvata</div>` : ""}
     <header class="topbar">
@@ -654,22 +665,43 @@ function viewHome() {
   const unread = unreadChat();
   const lastGroup = msgs("gruppo").at(-1);
 
+  const days = target ? Math.max(0, Math.floor((target - now) / 864e5)) : null;
+  const hour = new Date().getHours();
+  const hello = hour < 6 ? "Notte fonda" : hour < 13 ? "Buongiorno" : hour < 18 ? "Buon pomeriggio" : "Buonasera";
+
   return `
-  <section class="card hero">
+  <div class="h3-hello"><span>${hello}, <b>${esc(m?.name || "")}</b></span><span class="h3-online" id="h3-online">${window.onlineStrip ? onlineStrip() : ""}</span></div>
+  <section class="card hero hero3">
     <canvas id="fireworks"></canvas>
-    <div class="eyebrow">${target ? `Capodanno ${target.getFullYear()}` : "Buon anno"}</div>
-    <div class="dest">${dest}</div>
-    <div class="meta">
-      <span>${ico("calendar", 15)}${t.start_date ? `${esc(fmtDate(t.start_date, { day: "numeric", month: "long" }))} – ${esc(fmtDate(t.end_date, { day: "numeric", month: "long" }))}` : "Date da decidere"}</span>
-      <span>${ico("users", 15)}${S.members.length} ${S.members.length === 1 ? "persona" : "persone"}</span>
+    <div class="h3-pass">
+      <div class="h3-col"><div class="eyebrow">${target ? `Capodanno ${target.getFullYear()}` : "Buon anno"}</div><div class="dest">${dest}</div></div>
+      ${days != null ? `<div class="h3-days"><b>${days}</b><span>${days === 1 ? "giorno" : "giorni"}</span></div>` : ""}
+    </div>
+    <div class="h3-perf"></div>
+    <div class="h3-meta">
+      <div><span>Date</span><b>${t.start_date ? `${esc(fmtDate(t.start_date, { day: "numeric", month: "short" }))} – ${esc(fmtDate(t.end_date, { day: "numeric", month: "short" }))}` : "da decidere"}</b></div>
+      <div><span>Gruppo</span><b>${S.members.length} ${S.members.length === 1 ? "persona" : "persone"}</b></div>
+      <div><span>A testa</span><b>${eur(plannedPerHead())}</b></div>
     </div>
     ${target ? `<div class="count" id="countdown">${["giorni", "ore", "min", "sec"].map(l => `<div><b data-u="${l}">–</b><span>${l}</span></div>`).join("")}</div>` : ""}
   </section>
 
-  ${aiCard()}
+  <div class="h3-bento">
+    <button class="h3-tile wide" data-act="chat-go" data-v="gruppo">
+      <span class="h3-k">${ico("chat", 16)}Chat${unread ? `<i class="h3-badge">${unread}</i>` : ""}</span>
+      ${lastGroup ? `<span class="h3-last">${avatar(member(lastGroup.member_id), "sm")}<span class="grow ellipsis"><b>${esc(mname(lastGroup.member_id))}</b> ${esc(lastGroup.content || (lastGroup.kind === "voice" ? "Messaggio vocale" : "Foto"))}</span></span>` : `<span class="small muted">Scrivi il primo messaggio</span>`}
+    </button>
+    <button class="h3-tile" data-act="tab" data-tab="spese"><span class="h3-k">${ico("wallet", 16)}Saldo</span><b class="h3-v ${bal > 0.009 ? "pos" : bal < -0.009 ? "neg" : ""}">${eur(Math.abs(bal))}</b><span class="tiny muted">${bal > 0.009 ? "da ricevere" : bal < -0.009 ? "da dare" : "in pari"}</span></button>
+    <button class="h3-tile" data-act="tab" data-tab="vota"><span class="h3-k">${ico("vote", 16)}Da votare</span><b class="h3-v">${toVote.length}</b><span class="tiny muted">${toVote.length ? "sondaggi aperti" : "tutto votato"}</span></button>
+    <button class="h3-tile" data-act="tab" data-tab="piano"><span class="h3-k">${ico("list", 16)}Da fare</span><b class="h3-v">${todo.length + myTasks.length}</b><span class="tiny muted">${myTasks.length} tue</span></button>
+    <button class="h3-tile" data-act="tab" data-tab="giochi"><span class="h3-k">${ico("game", 16)}Giochi</span><b class="h3-v">${ico("trophy", 26)}</b><span class="tiny muted">sfide del giorno</span></button>
+  </div>
 
-  ${window.home2Top ? home2Top() : ""}
   ${window.homeExtras ? homeExtras() : ""}
+
+  <div class="h3-sec">Per te, oggi</div>
+  ${aiCard()}
+  ${window.home2Top ? home2Top() : ""}
 
   ${t.notes ? `<section class="card"><div class="row top">${ico("bell", 20)}<div class="grow"><div class="label" style="margin-bottom:6px">Avviso dell'organizzatore</div><div>${esc(t.notes).replace(/\n/g, "<br>")}</div></div></div></section>` : ""}
 
@@ -701,30 +733,7 @@ function viewHome() {
     ${toVote.slice(0, 3).map(p => `<div class="li"><div class="ib">${ico("vote")}</div><div class="grow t ellipsis">${esc(p.question)}</div><span class="chev">${ico("chev", 18)}</span></div>`).join("")}
   </section>` : ""}
 
-  <div class="grid3" style="margin-bottom:12px">
-    <section class="card tap" data-act="tab" data-tab="spese" style="margin:0;padding:16px 14px">
-      <div class="eyebrow">Saldo</div>
-      <div class="stat ${bal > 0.009 ? "pos" : bal < -0.009 ? "neg" : ""}" style="font-size:20px;margin-top:8px">${eur(Math.abs(bal))}</div>
-      <div class="tiny muted">${bal > 0.009 ? "da ricevere" : bal < -0.009 ? "da dare" : "in pari"}</div>
-    </section>
-    <section class="card tap" data-act="tab" data-tab="piano" style="margin:0;padding:16px 14px">
-      <div class="eyebrow">Da fare</div>
-      <div class="stat" style="font-size:20px;margin-top:8px">${todo.length + myTasks.length}</div>
-      <div class="tiny muted">${todo.length} prenot. · ${myTasks.length} tue</div>
-    </section>
-    <section class="card tap" data-act="tab" data-tab="piano" style="margin:0;padding:16px 14px">
-      <div class="eyebrow">A testa</div>
-      <div class="stat" style="font-size:20px;margin-top:8px">${eur(plannedPerHead())}</div>
-      <div class="tiny muted">previsto</div>
-    </section>
-  </div>
-
-
-  <section class="card tap" data-act="chat-go" data-v="gruppo">
-    <div class="row between" style="margin-bottom:${lastGroup ? 12 : 0}px"><div class="label" style="margin:0">Chat del gruppo</div>${unread ? `<span class="pill plain num">${unread} nuovi</span>` : `<span class="chev">${ico("chev", 18)}</span>`}</div>
-    ${lastGroup ? `<div class="row">${avatar(member(lastGroup.member_id), "sm")}<div class="grow small ellipsis"><b>${esc(mname(lastGroup.member_id))}</b> <span class="muted">${esc(lastGroup.content)}</span></div><span class="tiny faint">${fmtTime(lastGroup.created_at)}</span></div>` : ""}
-  </section>
-
+  <div class="h3-sec">Il viaggio</div>
   ${t.destination ? `<section class="card" id="weather-card"><div class="label">Meteo a ${esc(t.destination)}</div><div class="small faint">Carico le previsioni…</div></section>` : ""}
 
   ${deadlines.length ? `
@@ -747,7 +756,7 @@ function viewHome() {
       ${isAdmin() ? `<button class="btn sm" data-act="invite">${ico("share", 16)}Invita</button>` : ""}
     </div>
   </section>
-  ${window.home2Bottom ? home2Bottom() : ""}
+  ${window.home2Bottom ? `<div class="h3-sec">Dal mondo</div>${home2Bottom()}` : ""}
   `;
 }
 
@@ -861,7 +870,7 @@ function fireworks(canvas) {
 // ───────────────────────── Sondaggi ─────────────────────────
 
 function viewVota() {
-  const open = S.polls.filter(p => p.status === "open").sort(byCreated);
+  const open = S.polls.filter(p => p.status === "open").sort(byCreated).reverse(); // i più nuovi in cima
   const closed = S.polls.filter(p => p.status !== "open").sort(byCreated).reverse();
   return `
   <button class="btn primary block" data-act="new-poll" style="margin-bottom:12px">${ico("plus", 18)}Nuovo sondaggio</button>
@@ -1614,7 +1623,7 @@ function md(src) {
 // Testo semplice con link cliccabili, per la chat di gruppo.
 const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" data-stop>$1</a>').replace(/\n/g, "<br>");
 
-const CHAT_SEGS = () => [["gruppo", "Gruppo"], ["ai", AI()], ["ascolto", "Ascolto"]];
+const CHAT_SEGS = () => [["gruppo", "Gruppo"], ["ai", AI()], ["ascolto", "Psicologo"]];
 const chatChannel = () => ({ gruppo: "gruppo", ai: "assistente", ascolto: "privato" }[UI.chatSeg] || "gruppo");
 
 // Riquadro con le proposte dell'assistente: si creano solo con un tocco.
@@ -1661,7 +1670,7 @@ function viewChat() {
     ascolto: `<div class="empty">${ico("user", 30)}<div class="serif">Come stai, davvero?</div><div class="small">Scrivi quello che ti passa per la testa: qui c'è chi ascolta, senza giudicare.</div></div>`,
   }[seg];
   return `
-  <div style="margin-bottom:16px">${segmented("chatSeg", CHAT_SEGS(), "chat-seg")}</div>
+  <div class="chat-seg-bar">${segmented("chatSeg", CHAT_SEGS(), "chat-seg")}</div>
   <div class="chat">
     ${intro}
     ${!list.length ? empty : ""}
@@ -1672,7 +1681,7 @@ function viewChat() {
       const cont = !sep && who === lastWho;
       lastDay = day; lastWho = who;
       const time = fmtTime(m.created_at);
-      if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Ascolto" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
+      if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Psicologo" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
       const mine = m.member_id === ME; const w = member(m.member_id);
       const fx = effectsOf(m.member_id);
       const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");

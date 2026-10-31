@@ -823,7 +823,9 @@ body.gaming #root,body.gaming .dock,body.gaming .fab,body.gaming .composer,body.
 .m3k{display:flex;align-items:center;gap:6px;pointer-events:auto}
 .m3k span{padding:4px 9px;border-radius:8px;background:rgba(8,8,30,.82);color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(230,212,255,.25),0 6px 18px rgba(0,0,0,.5)}
 .m3k.dest{flex-direction:column}
-.m3k.dest i{width:16px;height:16px;border-radius:50%;background:#e6d4ff;box-shadow:0 0 0 0 rgba(230,212,255,.8),0 0 20px #e6d4ff;animation:mkpulse 2s infinite}
+.m3k.dest i{position:relative;width:16px;height:16px;border-radius:50%;background:#e6d4ff;box-shadow:0 0 20px #e6d4ff}
+.m3k.dest i::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid #e6d4ff;animation:m3ring 2s ease-out infinite}
+@keyframes m3ring{from{transform:scale(1);opacity:.9}to{transform:scale(3.2);opacity:0}}
 .m3k.car{width:24px;height:24px;border-radius:50%;justify-content:center;background:#fff;color:#0a0a0c;box-shadow:0 0 16px rgba(201,243,238,.9)}
 .m3k.cand{flex-direction:column}.m3k.cand b{display:grid;place-items:center;min-width:28px;height:28px;padding:0 8px;border-radius:99px;background:var(--pearl);color:#0a0a0c}
 .m3k.me .av{box-shadow:0 0 0 2px #7ee2b8,0 0 14px #7ee2b8}
@@ -863,3 +865,94 @@ button.mn-b:active{transform:scale(.9)}
 .sc-last{display:block;font-size:12.5px;color:#c9f3ee;margin-bottom:3px}
 .sc-card{background:#fff}
 .sc-splash{font-size:34px;text-align:center;padding:0 12px;line-height:1.1}
+
+/* mappa: niente sfocature sopra il WebGL (su iPhone rallentano ogni fotogramma) */
+.m3-hud,.m3-ctrl button{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:rgba(8,8,30,.9)!important}
+#m3{position:absolute;inset:0;touch-action:none}
+.m3k{will-change:transform}
+.m3k.cand{cursor:pointer}
+.m3k.cand em{display:flex;margin-top:3px}.m3k.cand em .av{width:18px;height:18px;font-size:8px;margin-left:-5px;box-shadow:0 0 0 1.5px #05041a}
+.m3k.cand.lead b{background:linear-gradient(120deg,#dfe8ff,#e6d4ff,#c9f3ee);box-shadow:0 0 18px rgba(230,212,255,.75);min-width:34px;height:34px;font-size:15px}
+.m3k.cand.bump b{animation:m3bump .6s ease-out}
+@keyframes m3bump{40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.m3-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#9aa0b8);margin-bottom:6px}
+.m3-bar{height:4px;border-radius:4px;background:rgba(255,255,255,.08);margin:6px 0 4px;overflow:hidden}.m3-bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#dfe8ff,#e6d4ff,#c9f3ee);transition:width .5s}
+.m3-lead{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(230,212,255,.16);color:#e6d4ff;margin-left:4px;vertical-align:1px}
+/* Onorevoli: facce vere */
+.pol-face{position:relative;overflow:hidden}
+.pol-face>span{position:relative;z-index:0}
+.pol-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%;z-index:1;filter:saturate(.9) contrast(1.05)}
+.pol-face::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 2px var(--c);z-index:2;pointer-events:none}
+.pol-face.mini{width:34px;height:34px;font-size:13px;margin-bottom:3px}
+.ono-turn{text-align:center;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#9aa0b8);min-height:18px;margin:10px 0 2px}
+.ono-turn.on{color:#ffb4b4}
+/* Chat: i tre bottoni restano sempre in alto mentre si scorre */
+.chat-seg-bar{position:sticky;top:calc(var(--sat) + 6px);z-index:30;margin:0 -6px 16px;padding:6px;border-radius:999px;background:rgba(8,8,24,.78);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 10px 30px -12px rgba(0,0,0,.8)}
+.chat-seg-bar .seg{background:rgba(255,255,255,.05)}
+/* ───────── Home nuova ───────── */
+.h3-hello{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-6px 2px 12px;font-size:15px;color:var(--t2)}
+.h3-hello b{color:var(--t1);font-weight:600}
+.h3-online{display:flex;align-items:center;gap:6px;font-size:12px;color:#9ff0cf;min-height:24px}
+.h3-online .av{width:22px;height:22px;font-size:9px;margin-left:-8px;box-shadow:0 0 0 2px #07061a}
+.h3-online .av:first-of-type{margin-left:0}
+.h3-dot{width:7px;height:7px;border-radius:50%;background:#7ee2b8;box-shadow:0 0 10px #7ee2b8;animation:recblink 1.8s infinite}
+.hero3{min-height:0;padding:22px 20px 18px}
+.h3-pass{display:flex;align-items:flex-start;gap:12px}
+.h3-col{flex:1;min-width:0}
+.hero3 .dest{font-size:44px;margin:8px 0 4px}
+.h3-days{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;width:84px;height:84px;border-radius:24px;background:var(--pearl);color:#0a0a0c;box-shadow:0 14px 40px -14px rgba(230,212,255,.7)}
+.h3-days b{font-family:var(--serif);font-size:40px;line-height:.9;font-weight:400}
+.h3-days span{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
+.h3-perf{position:relative;height:1px;margin:18px -20px 14px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 6px,transparent 6px 12px)}
+.h3-perf::before,.h3-perf::after{content:"";position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:#07061a}
+.h3-perf::before{left:-11px}.h3-perf::after{right:-11px}
+.h3-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.h3-meta div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.h3-meta span{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3)}
+.h3-meta b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero3 .count{margin-top:16px}
+.h3-bento{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 12px}
+.h3-tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 14px 13px;border-radius:22px;text-align:left;color:var(--t1);
+  background:linear-gradient(160deg,rgba(255,255,255,.085),rgba(255,255,255,.025));box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 0 rgba(255,255,255,.08);transition:transform .15s var(--ease)}
+.h3-tile:active{transform:scale(.97)}
+.h3-tile.wide{grid-column:1/-1}
+.h3-k{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2)}
+.h3-v{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1;margin-top:4px}
+.h3-v.pos{color:var(--green)}.h3-v.neg{color:var(--red)}
+.h3-v svg{color:#ff9d9d}
+.h3-badge{font-style:normal;margin-left:4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff6b6b;color:#fff;font-size:10.5px;display:inline-grid;place-items:center;letter-spacing:0}
+.h3-last{display:flex;align-items:center;gap:8px;width:100%;font-size:14px;margin-top:4px;min-width:0}
+.h3-last .grow{min-width:0}
+.h3-rail{display:flex;gap:8px;overflow-x:auto;margin:0 -16px 14px;padding:2px 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.h3-rail::-webkit-scrollbar{display:none}
+.h3-rail button{flex:none;display:inline-flex;align-items:center;gap:7px;padding:10px 15px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--t1);background:var(--fill-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.h3-rail button svg{color:#e6d4ff}
+.h3-sec{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin:22px 4px 10px;display:flex;align-items:center;gap:10px}
+.h3-sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* Popup «è online» */
+.presence-pop{position:fixed;left:50%;top:calc(var(--sat) + 10px);z-index:120;display:flex;align-items:center;gap:9px;padding:6px 14px 6px 6px;border-radius:999px;
+  background:rgba(14,14,34,.92);color:var(--t1);font-size:14px;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 0 0 1px rgba(126,226,184,.35),0 14px 40px -10px rgba(0,0,0,.8);
+  transform:translate(-50%,-140%);opacity:0;transition:transform .45s var(--ease),opacity .3s}
+.presence-pop.show{transform:translate(-50%,0);opacity:1}
+.presence-pop .av{width:28px;height:28px;font-size:11px}
+.presence-pop i{width:8px;height:8px;border-radius:50%;background:#7ee2b8;box-shadow:0 0 10px #7ee2b8}
+
+/* ───────── Giochi in rosso ───────── */
+body[data-tab=giochi],body.gaming{--pearl:linear-gradient(115deg,#ffe1dc 0%,#ffb1b1 50%,#ff8a8a 100%);--violet:#ff9d9d;--blue:#ffb3a8}
+body[data-tab=giochi] .aura,body[data-tab=giochi] ~ .aura{background:radial-gradient(130% 55% at 50% 100%,#4a0d18 0%,transparent 72%),radial-gradient(90% 45% at 100% 70%,#5c0f1f 0%,transparent 70%),radial-gradient(90% 50% at 0% 50%,#2a0710 0%,transparent 70%),linear-gradient(180deg,#120307,#1a050b 55%,#22060e)}
+body[data-tab=giochi] .aura b:nth-child(1){background:radial-gradient(circle,#8a1426,transparent 65%)}
+body[data-tab=giochi] .aura b:nth-child(2){background:radial-gradient(circle,#6b0f22,transparent 65%)}
+body[data-tab=giochi] .aura b:nth-child(3){background:radial-gradient(circle,#5a1a12,transparent 65%)}
+body[data-tab=giochi] .aura b:nth-child(4){background:radial-gradient(circle,#7a1030,transparent 65%)}
+body[data-tab=giochi] .topbar h1{background:linear-gradient(115deg,#fff,#ffb1b1);-webkit-background-clip:text;background-clip:text;color:transparent}
+body[data-tab=giochi] .gl-dot{background:#ff6b6b;box-shadow:0 0 10px #ff6b6b}
+body[data-tab=giochi] .card,body[data-tab=giochi] .gl-list{box-shadow:inset 0 0 0 1px rgba(255,120,120,.14)}
+body[data-tab=giochi] .label.gl-sec{color:#ff9d9d}
+#game{background:radial-gradient(90% 45% at 0% 0%,#5c0f1f 0%,transparent 70%),radial-gradient(80% 45% at 100% 40%,#3a0a18 0%,transparent 70%),radial-gradient(90% 45% at 20% 100%,#4a1210 0%,transparent 70%),linear-gradient(180deg,#120307,#1a050b 60%,#200610)}
+body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
+.tr-sign{flex:none;width:42px;height:42px;border-radius:14px;font-size:22px;font-weight:600;color:var(--t1);background:var(--fill-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.tr-sign.on{background:var(--pearl);color:#0a0a0c}
+.rd-slots{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:14px 0 6px}
+.rd-slots i{width:22px;height:30px;border-radius:7px;background:var(--fill-2);box-shadow:inset 0 -2px 0 rgba(255,177,177,.6)}
+.rd-slots i.sp{width:10px;background:none;box-shadow:none}

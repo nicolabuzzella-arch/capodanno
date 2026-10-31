@@ -23,7 +23,7 @@ function syncComposerButtons() {
   $("#composer-send").hidden = empty;
   $("#composer-mic").hidden = !empty;
   $("#composer-mic").disabled = !!UI.waiting;
-  const cam = $("#composer-cam"); if (cam) { cam.hidden = !empty || UI.chatSeg !== "gruppo"; if (!cam.innerHTML) cam.innerHTML = ico("camera", 20); }
+  const cam = $("#composer-cam"); if (cam) { cam.hidden = !empty || UI.chatSeg !== "gruppo"; if (!cam.querySelector("path")) cam.innerHTML = ico("camera", 20); }
 }
 
 function recBar(html) {
