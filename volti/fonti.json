@@ -3,108 +3,406 @@
   "nome": "Silvio Berlusconi",
   "file": "https://commons.wikimedia.org/wiki/File:Silvio_Berlusconi_%282010%29_cropped.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "meloni": {
   "nome": "Giorgia Meloni",
   "file": "https://commons.wikimedia.org/wiki/File:Giorgia_Meloni_Official_2024_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "salvini": {
   "nome": "Matteo Salvini",
   "file": "https://commons.wikimedia.org/wiki/File:Matteo_Salvini_in_2026.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "renzi": {
   "nome": "Matteo Renzi",
   "file": "https://commons.wikimedia.org/wiki/File:Matteo_Renzi_2015.jpeg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "conte": {
   "nome": "Giuseppe Conte",
   "file": "https://commons.wikimedia.org/wiki/File:Giuseppe_Conte_September_2019.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "schlein": {
   "nome": "Elly Schlein",
   "file": "https://commons.wikimedia.org/wiki/File:Elly_Schlein_in_2023_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "grillo": {
   "nome": "Beppe Grillo",
   "file": "https://commons.wikimedia.org/wiki/File:Beppe_Grillo_3.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "dimaio": {
   "nome": "Luigi Di Maio",
   "file": "https://commons.wikimedia.org/wiki/File:Visit_of_Luigi_Di_Maio%2C_EU_Special_Representative_for_the_Gulf_region%2C_to_the_European_Commission_%2806%29_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "bersani": {
   "nome": "Pier Luigi Bersani",
   "file": "https://commons.wikimedia.org/wiki/File:Pier_Luigi_Bersani_-_Cesena_-_23_luglio_2023_%28crop%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "andreotti": {
   "nome": "Giulio Andreotti",
   "file": "https://commons.wikimedia.org/wiki/File:Giulio_Andreotti.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "sgarbi": {
   "nome": "Vittorio Sgarbi",
   "file": "https://commons.wikimedia.org/wiki/File:Vittorio_Sgarbi_2022_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "draghi": {
   "nome": "Mario Draghi",
   "file": "https://commons.wikimedia.org/wiki/File:Draghi_to_MEPs-_%E2%80%9CEurope_faces_a_choice_between_exit%2C_paralysis%2C_or_integration%E2%80%9D_-_54008603750_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "mentana": {
   "nome": "Enrico Mentana",
   "file": "https://commons.wikimedia.org/wiki/File:Enrico_Mentana_2016.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "vespa": {
   "nome": "Bruno Vespa",
   "file": "https://commons.wikimedia.org/wiki/File:Bruno_Vespa_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "travaglio": {
   "nome": "Marco Travaglio",
   "file": "https://commons.wikimedia.org/wiki/File:Marco_Travaglio.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "dipietro": {
   "nome": "Antonio Di Pietro",
   "file": "https://commons.wikimedia.org/wiki/File:Antonio_Di_Pietro_Siena_2010.JPG%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "prodi": {
   "nome": "Romano Prodi",
   "file": "https://commons.wikimedia.org/wiki/File:Romano_Prodi_2024_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
  },
  "fornero": {
   "nome": "Elsa Fornero",
   "file": "https://commons.wikimedia.org/wiki/File:Elsa_Fornero_-_Festival_Economia_2018.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
   "autore": "",
-  "licenza": ""
+  "licenza": "",
+  "tentato": true
+ },
+ "trota": {
+  "nome": "Renzo Bossi",
+  "file": "https://commons.wikimedia.org/wiki/File:Umberto_e_Renzo_Bossi.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "giannino": {
+  "nome": "Oscar Giannino",
+  "file": "https://commons.wikimedia.org/wiki/File:Oscar_Giannino%2C_primo_piano.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "craxi": {
+  "nome": "Bettino Craxi",
+  "file": "https://commons.wikimedia.org/wiki/File:Bettino_Craxi_MEP_Portrait.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "bossi": {
+  "nome": "Umberto Bossi",
+  "file": "https://commons.wikimedia.org/wiki/File:MEP_Umberto_Bossi%2C_1994_%2803%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "razzi": {
+  "nome": "Antonio Razzi",
+  "file": "https://commons.wikimedia.org/wiki/File:Antonio_Razzi_datisenato_2013.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "monti": {
+  "nome": "Mario Monti",
+  "file": "https://commons.wikimedia.org/wiki/File:Mario_Monti_portrait_november_2011.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "dalema": {
+  "nome": "Massimo D'Alema",
+  "file": "https://commons.wikimedia.org/wiki/File:Massimo_D%E2%80%99Alema_%288812707342%29_cropped.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "mastella": {
+  "nome": "Clemente Mastella",
+  "file": "https://commons.wikimedia.org/wiki/File:Clemente_Mastella_2020.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "toninelli": {
+  "nome": "Danilo Toninelli",
+  "file": "https://commons.wikimedia.org/wiki/File:Danilo_Toninelli_datisenato_2018.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "dibattista": {
+  "nome": "Alessandro Di Battista",
+  "file": "https://commons.wikimedia.org/wiki/File:Alessandro_Di_Battista_2018_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "calenda": {
+  "nome": "Carlo Calenda",
+  "file": "https://commons.wikimedia.org/wiki/File:Carlo_Calenda_2022_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "moro": {
+  "nome": "Aldo Moro",
+  "file": "https://commons.wikimedia.org/wiki/File:Aldo_Moro_1976_%28cropped%29.png%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "berlinguer": {
+  "nome": "Enrico Berlinguer",
+  "file": "https://commons.wikimedia.org/wiki/File:Enrico_Berlinguer.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "pertini": {
+  "nome": "Sandro Pertini",
+  "file": "https://commons.wikimedia.org/wiki/File:Sandro_Pertini_Official.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "garibaldi": {
+  "nome": "Giuseppe Garibaldi",
+  "file": "https://commons.wikimedia.org/wiki/File:Giuseppe_Garibaldi_1861.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "cavour": {
+  "nome": "Camillo Benso di Cavour",
+  "file": "https://commons.wikimedia.org/wiki/File:Camillo_Benso_Cavour_di_Ciseri.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "stalin": {
+  "nome": "Iosif Stalin",
+  "file": "https://commons.wikimedia.org/wiki/File:Joseph_Stalin_in_1932_%28cropped%29%28b%29%282%29.png%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "che": {
+  "nome": "Che Guevara",
+  "file": "https://commons.wikimedia.org/wiki/File:Che_Guevara_-_Guerrillero_Heroico_by_Alberto_Korda.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "castro": {
+  "nome": "Fidel Castro",
+  "file": "https://commons.wikimedia.org/wiki/File:Fidel_Castro_1950s.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "napoleone": {
+  "nome": "Napoleone Bonaparte",
+  "file": "https://commons.wikimedia.org/wiki/File:Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project_2.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "cesare": {
+  "nome": "Gaio Giulio Cesare",
+  "file": "https://commons.wikimedia.org/wiki/File:Gaius_Iulius_Caesar_%28Vatican_Museum%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "churchill": {
+  "nome": "Winston Churchill",
+  "file": "https://commons.wikimedia.org/wiki/File:3840px-Sir_Winston_Churchill_-_19086236948_%2528restored%2529.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "lenin": {
+  "nome": "Vladimir Lenin",
+  "file": "https://commons.wikimedia.org/wiki/File:Lenin_in_1920_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "kennedy": {
+  "nome": "John Fitzgerald Kennedy",
+  "file": "https://commons.wikimedia.org/wiki/File:John_F._Kennedy%2C_White_House_color_photo_portrait.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "obama": {
+  "nome": "Barack Obama",
+  "file": "https://commons.wikimedia.org/wiki/File:President_Barack_Obama.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "trump": {
+  "nome": "Donald Trump",
+  "file": "https://commons.wikimedia.org/wiki/File:Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "thatcher": {
+  "nome": "Margaret Thatcher",
+  "file": "https://commons.wikimedia.org/wiki/File:Margaret_Thatcher_stock_portrait_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "merkel": {
+  "nome": "Angela Merkel",
+  "file": "https://commons.wikimedia.org/wiki/File:Re-publica_26_-_Tag_1_-_55278240455_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "degaulle": {
+  "nome": "Charles de Gaulle",
+  "file": "https://commons.wikimedia.org/wiki/File:General_Charles_de_Gaulle_in_1945_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "gandhi": {
+  "nome": "Mahatma Gandhi",
+  "file": "https://commons.wikimedia.org/wiki/File:Mahatma-Gandhi%2C_studio%2C_1931.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "lincoln": {
+  "nome": "Abraham Lincoln",
+  "file": "https://commons.wikimedia.org/wiki/File:Abraham_Lincoln_O-77_matte_collodion_print.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "malgioglio": {
+  "nome": "Cristiano Malgioglio",
+  "file": "https://commons.wikimedia.org/wiki/File:1974_Cristiano_Malgioglio_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "durso": {
+  "nome": "Barbara D'Urso",
+  "file": "https://commons.wikimedia.org/wiki/File:Barbara_D%27Urso_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "corona": {
+  "nome": "Fabrizio Corona",
+  "file": "https://commons.wikimedia.org/wiki/File:Fabrizio_Corona_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "marini": {
+  "nome": "Valeria Marini",
+  "file": "https://commons.wikimedia.org/wiki/File:Valeria_Marini_at_the_83_Venice_International_Film_Festival_%283%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "lamborghini": {
+  "nome": "Elettra Lamborghini",
+  "file": "https://commons.wikimedia.org/wiki/File:Elettra_Miura_Lamborghini_at_82nd_Venice_International_Film_Festival-2_%28cropped%29.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "casella": {
+  "nome": "Giucas Casella",
+  "file": "https://commons.wikimedia.org/wiki/File:Giucas_Casella.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "tina": {
+  "nome": "Tina Cipollari",
+  "file": "https://commons.wikimedia.org/wiki/File:Tina_cipollari%2C_2012%2C_02.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "gemma": {
+  "nome": "Gemma Galgani",
+  "file": "https://commons.wikimedia.org/wiki/File:Gemma_Galgani_-_Originalfoto_%28Detail%29_2.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
+ },
+ "signorini": {
+  "nome": "Alfonso Signorini",
+  "file": "https://commons.wikimedia.org/wiki/File:Alfonso_Signorini_2017_%28cropped%29_3.jpg%3Futm_source%3Dit.wikipedia.org%26utm_campaign%3Dapi%26utm_content%3Dthumbnail_unscaled",
+  "autore": "",
+  "licenza": "",
+  "tentato": true
  }
 }
