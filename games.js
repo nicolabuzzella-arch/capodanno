@@ -240,16 +240,28 @@ function playSudoku(mode) {
       <div class="grow" style="text-align:center"><div class="eyebrow">${label} del giorno</div><div class="tiny faint">${official ? "Partita valida per la classifica" : "Allenamento: hai già giocato oggi"}</div></div>
       <span style="width:36px"></span>
     </div>
-    <div class="row between" style="max-width:440px;margin:16px auto 10px;width:100%">
-      <span class="num" id="sd-time" style="font-size:28px">0:00</span>
-      <span class="small muted" id="sd-err"></span>
+    <div class="sd-head">
+      <span class="sd-chip time" id="sd-time">0:00</span>
+      <span class="grow"></span>
+      <span class="sd-chip" id="sd-err"></span>
     </div>
-    <div class="sudoku n9 ${cages ? "killer" : ""}" id="sd-grid"></div>
-    <div class="pad-tools"><button id="sd-pencil">${ico("edit", 17)}Matita <span class="small" id="sd-pencil-state">no</span></button><button data-v="0">${ico("close", 16)}Cancella</button></div>
+    <div class="sd-frame"><div class="sudoku ${cages ? "killer" : ""}" id="sd-grid"></div></div>
+    <div class="pad-tools"><button id="sd-undo">${ico("undo", 17)}Annulla</button><button id="sd-pencil">${ico("edit", 17)}Matita</button><button data-v="0">${ico("close", 16)}Cancella</button></div>
     <div class="pad9" id="sd-pad">${[...Array(9).keys()].map(i => `<button data-v="${i + 1}"><b>${i + 1}</b><span class="rem"></span></button>`).join("")}</div>
     <div id="sd-win"></div>`);
 
   const gridEl = $("#sd-grid");
+  // Colori delle gabbie: due gabbie che si toccano non hanno mai lo stesso colore.
+  const cageColor = [];
+  if (cages) {
+    const n = Math.max(...cages.cageOf) + 1, near = Array.from({ length: n }, () => new Set());
+    for (let i = 0; i < 81; i++) for (const j of [i % 9 < 8 ? i + 1 : -1, i < 72 ? i + 9 : -1]) {
+      if (j >= 0 && cages.cageOf[i] !== cages.cageOf[j]) { near[cages.cageOf[i]].add(cages.cageOf[j]); near[cages.cageOf[j]].add(cages.cageOf[i]); }
+    }
+    for (let k = 0; k < n; k++) { let c = 0; while ([...near[k]].some(o => cageColor[o] === c)) c++; cageColor[k] = c % 5; }
+  }
+  const undo = [];
+  let popAt = -1, flashCells = [];
   const draw = () => {
     const v = sel >= 0 ? st.grid[sel] : 0;
     const sr = Math.floor(sel / 9), sc = sel % 9;
@@ -259,7 +271,8 @@ function playSudoku(mode) {
       const wrong = x && x !== solution[i];
       const peer = sel >= 0 && (r === sr || c === sc || BOXOF(i) === BOXOF(sel));
       const cls = [given ? "given" : "", wrong ? "wrong" : "", i === sel ? "sel" : peer ? "peer" : "", v && x === v && i !== sel ? "same" : "",
-        c % 3 === 2 && c < 8 ? "br" : "", r % 3 === 2 && r < 8 ? "bb" : ""].join(" ");
+        c % 3 === 2 && c < 8 ? "br" : "", r % 3 === 2 && r < 8 ? "bb" : "", cages ? `cg${cageColor[cages.cageOf[i]]}` : BOXOF(i) % 2 === 0 ? "bx" : "",
+        flashCells.includes(i) ? "flash" : ""].join(" ");
       let extra = "";
       if (cages) {
         const k = cages.cageOf[i];
@@ -269,16 +282,19 @@ function playSudoku(mode) {
           + (cages.head[k] === i ? `<span class="csum">${cages.sums[k]}</span>` : "");
       }
       const notes = !x && st.notes[i] ? `<span class="notes">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<i>${st.notes[i] & (1 << d) ? d : ""}</i>`).join("")}</span>` : "";
-      return `<button class="cell ${cls}" data-i="${i}">${extra}${x ? `<span class="v">${x}</span>` : notes}</button>`;
+      return `<button class="cell ${cls}" data-i="${i}">${extra}${x ? `<span class="v${i === popAt ? " pop" : ""}">${x}</span>` : notes}</button>`;
     }).join("");
+    popAt = -1; flashCells = [];
     $("#sd-err").textContent = st.mistakes ? `${st.mistakes} ${st.mistakes === 1 ? "errore" : "errori"} · +${st.mistakes * PENALTY}s` : "Nessun errore";
+    $("#sd-err").classList.toggle("bad", !!st.mistakes);
     // Quante volte manca ogni cifra: quando sono tutte al loro posto il tasto si spegne.
     $$("#sd-pad button").forEach(b => {
       const d = Number(b.dataset.v), left = 9 - st.grid.filter((x, i) => x === d && x === solution[i]).length;
       b.querySelector(".rem").textContent = left || ""; b.classList.toggle("spent", !left);
+      b.classList.toggle("cur", !!v && d === v);
     });
-    $("#sd-pencil-state").textContent = pencil ? "sì" : "no";
     $("#sd-pencil").classList.toggle("on", pencil);
+    $("#sd-undo").disabled = !undo.length;
   };
   const tick = () => { const el = $("#sd-time"); if (el) el.textContent = mmss(elapsed() + st.mistakes * PENALTY); };
   const finishPanel = (title, html) => {
@@ -299,16 +315,23 @@ function playSudoku(mode) {
   };
   const put = v => {
     if (sel < 0 || puzzle[sel] || st.done) return;
+    // Annulla ripristina cifra e note di tutte le celle toccate (una cifra giusta pulisce le note dei vicini).
+    undo.push({ sel, grid: st.grid[sel], notes: st.notes.slice() });
+    if (undo.length > 200) undo.shift();
     if (pencil && v) {
-      if (st.grid[sel]) return;
+      if (st.grid[sel]) { undo.pop(); return; }
       st.notes[sel] ^= 1 << v; save(); draw(); return;
     }
     if (v && v !== solution[sel] && st.grid[sel] !== v) { st.mistakes++; navigator.vibrate?.(30); }
     st.grid[sel] = v;
+    if (v) popAt = sel;
     if (v && v === solution[sel]) {
       // La cifra giusta toglie le note uguali da riga, colonna e riquadro.
       st.notes[sel] = 0;
       for (let i = 0; i < 81; i++) if (Math.floor(i / 9) === Math.floor(sel / 9) || i % 9 === sel % 9 || BOXOF(i) === BOXOF(sel)) st.notes[i] &= ~(1 << v);
+      // Riga, colonna o riquadro completati: un lampo.
+      const units = [[...Array(9).keys()].map(k => Math.floor(sel / 9) * 9 + k), [...Array(9).keys()].map(k => k * 9 + sel % 9), [...Array(81).keys()].filter(k => BOXOF(k) === BOXOF(sel))];
+      for (const u of units) if (u.every(k => st.grid[k] === solution[k])) flashCells.push(...u);
     }
     save(); draw();
     if (st.grid.every((x, i) => x === solution[i])) win();
@@ -317,7 +340,11 @@ function playSudoku(mode) {
   $("#sd-pad").addEventListener("click", e => { const b = e.target.closest("button"); if (b) put(Number(b.dataset.v)); });
   $(".pad-tools").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.id === "sd-pencil") { pencil = !pencil; draw(); } else put(0);
+    if (b.id === "sd-pencil") { pencil = !pencil; draw(); }
+    else if (b.id === "sd-undo") {
+      const u = undo.pop(); if (!u || st.done) return;
+      st.grid[u.sel] = u.grid; st.notes = u.notes; sel = u.sel; save(); draw();
+    } else put(0);
   });
   const onKey = e => { if (/^[1-9]$/.test(e.key)) put(Number(e.key)); if (e.key === "Backspace" || e.key === "0") put(0); if (e.key === "n") { pencil = !pencil; draw(); } };
   addEventListener("keydown", onKey);
