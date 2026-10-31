@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["tools/volti.py", ".github/workflows/volti.yml"]
+    paths: ["tools/volti.py", ".github/workflows/volti.yml", "volti/elenco.json"]
 permissions:
   contents: write
 jobs:

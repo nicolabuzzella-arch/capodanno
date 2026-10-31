@@ -12,6 +12,14 @@ const SPECIAL = {
   dimaio: ["Dallo stadio alla Farnesina", 84], bersani: ["La mucca nel corridoio", 86], andreotti: ["Belzebù", 88],
   sgarbi: ["La rissa in studio", 88], draghi: ["Il bazooka", 90], mentana: ["La maratona elettorale", 86], vespa: ["Il plastico definitivo", 84],
   travaglio: ["L'intercettazione", 88], dipietro: ["Il tintinnar di manette", 86], prodi: ["La Commissione Europea", 84], fornero: ["Lacrime e sangue", 86],
+  trota: ["La pesca miracolosa", 84], giannino: ["Il mantello da Zorro", 86], craxi: ["Il discorso alla Camera", 86], bossi: ["La Padania libera", 86],
+  razzi: ["Il vitalizio", 84], monti: ["L'IMU", 88], dalema: ["Dì una cosa di sinistra", 84], mastella: ["La caduta del governo", 88],
+  toninelli: ["Il tunnel che non c'è", 84], dibattista: ["Il Dibba Tour", 84], calenda: ["Il blocco dei follower", 86],
+  moro: ["Solidarietà nazionale", 84], berlinguer: ["Il sorpasso", 86], pertini: ["Il Mundial dell'82", 88], garibaldi: ["La spedizione dei Mille", 88],
+  cavour: ["L'Unità d'Italia", 88], stalin: ["Il culto della personalità", 90], che: ["La maglietta su ogni muro", 86], castro: ["La Storia mi assolverà", 88],
+  napoleone: ["Il ritorno dall'Elba", 88], cesare: ["Il trionfo", 88], churchill: ["Combatteremo sulle spiagge", 88], lenin: ["Tutto il potere ai soviet", 88],
+  kennedy: ["Sulla Luna entro il decennio", 86], obama: ["Change", 86], trump: ["Make America Great Again", 88], thatcher: ["There is no alternative", 88],
+  merkel: ["Sedici anni di cancelleria", 86], degaulle: ["La Quinta Repubblica", 86], gandhi: ["L'indipendenza", 86], lincoln: ["Il Proclama di emancipazione", 88],
 };
 const EFF_TXT = { heal: "Recupera consenso", "atk+": "Aumenta la forza", "def+": "Aumenta la difesa", "def-": "Abbassa la difesa avversaria", "atk-": "Abbassa la forza avversaria" };
 const LOSES = Object.fromEntries(Object.entries(BEATS).map(([a, b]) => [b, a])); // chi batte me
@@ -125,7 +133,7 @@ function playOno(opts) {
   const names = online ? game.players.map(id => mname(id)) : ["Tu", "Il telefono"];
   names[mySeat] = "Tu";
   const round = opts.round || 1, lvFoe = 1 + (round - 1) * 0.12;
-  let shown = 0, playing = false, pending = false, team = opts.team ? [...opts.team] : [], benchOpen = false, skip = null, cpuT = null, finished = false;
+  let pickFilter = "tutti", shown = 0, playing = false, pending = false, team = opts.team ? [...opts.team] : [], benchOpen = false, skip = null, cpuT = null, finished = false;
   if (!online && opts.team) game.actions.push({ pick: opts.team, s: 0 });
 
   openGame(`
@@ -152,8 +160,10 @@ function playOno(opts) {
     body.innerHTML = `<div class="on-pick-head">
         <div class="on-slots">${[0, 1, 2].map(i => { const p = POLS.find(x => x.id === team[i]); return p ? `<button class="on-slot full" data-sheet="${p.id}">${polFace(p)}<span>${esc(p.n.split(" ").slice(-1)[0])}</span></button>` : `<div class="on-slot"><span>${i + 1}</span></div>`; }).join("")}</div>
         <div class="tiny faint" style="text-align:center;margin-top:8px">Tocca un onorevole per la sua scheda. Mischia i tipi: ognuno ne batte uno.</div></div>
-      <div class="pol-grid" id="ono-pick">${POLS.map(p => `<button data-sheet="${p.id}" class="${team.includes(p.id) ? "on" : ""}">${polCard(p)}</button>`).join("")}</div>
+      <div class="on-filter" data-noswipe>${[["tutti", `Tutti · ${POLS.length}`], ["oggi", "Italia di oggi"], ["storia-it", "Prima Repubblica e Risorgimento"], ["mondo", "Il mondo e la storia"]].map(([k, l]) => `<button data-flt="${k}" class="${pickFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="pol-grid" id="ono-pick">${POLS.filter(p => pickFilter === "tutti" || POL_GROUP(p.id) === pickFilter).map(p => `<button data-sheet="${p.id}" class="${team.includes(p.id) ? "on" : ""}">${polCard(p)}</button>`).join("")}</div>
       <div class="on-pick-bar"><button class="btn" id="on-rand">${ico("swap", 16)}A caso</button><button class="btn pearl grow" id="ono-go" ${team.length === 3 && !pending ? "" : "disabled"}>${team.length === 3 ? "In aula!" : `Scegli tre onorevoli (${team.length}/3)`}</button></div>`;
+    body.querySelectorAll("[data-flt]").forEach(b => b.addEventListener("click", () => { pickFilter = b.dataset.flt; paintPick(); }));
     body.querySelectorAll("[data-sheet]").forEach(b => b.addEventListener("click", () => { const p = POLS.find(x => x.id === b.dataset.sheet); openSheetIn(polSheetHtml(p, team.includes(p.id), team.length < 3)); }));
     $("#on-rand").addEventListener("click", () => { const pool = [...POLS].sort(() => Math.random() - 0.5); const out = []; for (const t of ["S", "C", "P", "T"].sort(() => Math.random() - 0.5)) { if (out.length < 3) out.push(pool.find(p => p.t === t).id); } team = out; paintPick(); });
     $("#ono-go").addEventListener("click", () => { if (team.length === 3 && !pending) commit({ pick: team }); });

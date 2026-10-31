@@ -174,38 +174,38 @@ const ENIGMI = [
 ];
 // Indovinelli del giorno: una parola sola da indovinare. a = risposte accettate (senza articolo), h = indizio.
 const INDOVINELLI = [
+  { q: "Una scatola senza cardini, senza chiave e senza coperchio, eppure dentro custodisce un tesoro d'oro.", a: ["uovo"], h: "La apre il pulcino." },
+  { q: "Vive senza respirare, è fredda come la morte; non ha mai sete eppure beve sempre; porta una cotta di maglia che non tintinna.", a: ["pesce"], h: "Le squame." },
+  { q: "Trenta cavalli bianchi su una collina rossa: prima mordono, poi pestano, poi stanno fermi.", a: ["denti", "dente", "dentatura"], h: "Sono in bocca." },
+  { q: "Ha radici che nessuno vede, è più alta degli alberi, sale e sale ma non cresce mai.", a: ["montagna", "monte"], h: "Ci si scia sopra." },
+  { q: "Al mattino cammina con quattro zampe, a mezzogiorno con due, la sera con tre.", a: ["uomo", "essere umano", "persona"], h: "Lo chiese la Sfinge a Edipo; la terza zampa è un bastone." },
+  { q: "Campo bianco, seme nero: cinque buoi lo tirano e tre lo tengono.", a: ["scrittura", "scrivere", "penna", "mano"], h: "Il campo è un foglio, i buoi sono le dita." },
+  { q: "Il povero ce l'ha, al ricco manca, e se lo mangi muori.", a: ["niente", "nulla"], h: "Pensa a cosa non c'è." },
+  { q: "Ha un occhio solo e una lunga coda: più corre, più la coda si accorcia.", a: ["ago"], h: "La coda è un filo." },
+  { q: "Chi la fa non la dice, chi la prende non lo sa, chi lo sa non la prende.", a: ["moneta falsa", "banconota falsa", "soldi falsi", "denaro falso"], h: "Si spaccia." },
+  { q: "Ti rispondo senza che tu mi chiami, ripeto soltanto le tue ultime parole, abito nelle valli e nelle grotte.", a: ["eco"], h: "Grida in montagna." },
+  { q: "Sale senza gambe, scende senza scale, e quando è alta ti mette a letto.", a: ["febbre", "temperatura"], h: "Si misura sotto il braccio." },
+  { q: "Gira tutta la casa e poi si mette in un angolo.", a: ["scopa"], h: "Pulisce, ma è anche un gioco di carte." },
+  { q: "Cammina sulla testa tutto il giorno, e nessuno se ne accorge.", a: ["chiodo", "chiodo della scarpa", "chiodi"], h: "Sta sotto la suola." },
+  { q: "Lo puoi prendere ma non lo puoi tenere a lungo.", a: ["respiro", "fiato"], h: "Trattienilo e capisci." },
+  { q: "Si getta quando serve e si ritira quando non serve più.", a: ["ancora"], h: "In porto." },
+  { q: "Cammina senza piedi, parla senza bocca e gira il mondo chiusa dentro una busta.", a: ["lettera"], h: "Il postino." },
+  { q: "Ha la lingua ma non parla, ha i lacci ma non è una trappola, e ogni giorno la calpesti.", a: ["scarpa", "scarpe"], h: "Si allaccia." },
   { q: "Chi lo fabbrica lo vende, chi lo compra non lo usa, chi lo usa non lo vede.", a: ["bara", "cassa da morto", "feretro"], h: "Riguarda l'ultimo viaggio." },
   { q: "Ho città ma nessuna casa, foreste ma nessun albero, mari ma nessun pesce.", a: ["mappa", "cartina", "carta geografica", "atlante"], h: "La apri prima di partire." },
-  { q: "Se mi condividi, non mi hai più.", a: ["segreto"], h: "Acqua in bocca." },
-  { q: "Nasco alta e muoio bassa; più vivo, più mi consumo.", a: ["candela", "matita"], h: "Brucia piano piano." },
   { q: "Divora tutto: uccelli, bestie, fiori; rode il ferro e sbriciola la pietra. Nessuno lo ferma.", a: ["tempo"], h: "Scorre." },
   { q: "Grida senza voce, morde senza denti, sussurra senza bocca.", a: ["vento"], h: "Muove gli alberi." },
-  { q: "Non ha inizio né fine, eppure lo porti al dito.", a: ["anello", "fede"], h: "Si scambia all'altare." },
-  { q: "Si compra per mangiare, ma non si mangia mai.", a: ["piatto", "posate", "forchetta", "coltello", "cucchiaio"], h: "Sta in tavola, sotto il cibo." },
-  { q: "Ha tante vesti una sopra l'altra, e chi la spoglia piange.", a: ["cipolla"], h: "Si usa nel soffritto." },
-  { q: "Sale e scende senza mai muoversi.", a: ["scala", "scale"], h: "Gradini." },
-  { q: "Più ne fai, più ne lasci dietro di te.", a: ["passi", "passo", "orme", "impronte"], h: "Camminando." },
   { q: "Mi trovi una volta in un minuto, due volte in un momento, mai in cento anni.", a: ["m", "emme", "lettera m"], h: "Guarda le parole, non il tempo." },
-  { q: "Ha quattro dita e un pollice, ma non è viva.", a: ["guanto", "guanti"], h: "D'inverno." },
-  { q: "Ha una testa e una croce, ma nessun corpo.", a: ["moneta", "monetina"], h: "Si lancia per decidere." },
   { q: "Più è sporca, più è bianca.", a: ["lavagna"], h: "A scuola." },
-  { q: "Ha la testa ma nessun cervello, ed è fatta di spicchi pur non essendo un'arancia.", a: ["aglio"], h: "Odore forte." },
-  { q: "Ha il collo ma non la testa, le braccia ma non le mani.", a: ["camicia", "maglia", "maglietta", "giacca", "maglione"], h: "Si indossa." },
-  { q: "Ha mille occhi ma non vede niente; trattiene senza stringere.", a: ["rete"], h: "La usa il pescatore." },
   { q: "Fa il giro del mondo restando sempre nello stesso angolo.", a: ["francobollo"], h: "Sta su una busta." },
-  { q: "Indica il nord senza sapere dov'è.", a: ["bussola"], h: "Ha un ago." },
-  { q: "Nasce dall'acqua, nell'acqua muore, e sulla tavola non manca mai.", a: ["sale"], h: "Si estrae dal mare." },
-  { q: "Più la tiri, più si accorcia.", a: ["sigaretta", "sigaro"], h: "Si accende." },
   { q: "Se mi dai da mangiare vivo, se mi dai da bere muoio.", a: ["fuoco", "fiamma"], h: "Si spegne con l'acqua." },
-  { q: "Ha un cuore che non batte e foglie che non volano.", a: ["carciofo", "lattuga", "insalata"], h: "Si mangia." },
-  { q: "Più ce n'è, meno pesa la stanza; più è grande, meno resta.", a: ["buco", "vuoto"], h: "È fatto di niente." },
-  { q: "Ti precede quando cammini verso la luce sbagliata, e sparisce a mezzogiorno senza andarsene.", a: ["ombra"], h: "Dipende dal sole." },
-  { q: "Lo hai prima di nascere, lo perdi quando muori, ma non lo puoi mai toccare.", a: ["battito", "cuore", "respiro"], h: "Il medico lo ascolta." },
-  { q: "Più è vecchio, più vale, eppure tutti lo vogliono giovane... in bottiglia.", a: ["vino"], h: "Si brinda." },
-  { q: "Corre senza gambe, ha la bocca ma non parla, il letto ma non dorme mai.", a: ["fiume"], h: "Sfocia." },
-  { q: "Si dà senza perderla, si prende senza rubarla, e a Capodanno si spera migliore.", a: ["parola", "fortuna", "mano"], h: "Si stringe tra amici." },
-  { q: "Ha dodici figli, ognuno con circa trenta figli, metà bianchi e metà neri.", a: ["anno"], h: "Il 31 dicembre finisce." },
-  { q: "Tutti lo attraversano ma nessuno lo calpesta; si apre a mezzanotte.", a: ["anno nuovo", "capodanno", "anno"], h: "Si festeggia con il conto alla rovescia." },
+  { q: "Ha mille occhi ma non vede niente; trattiene senza stringere.", a: ["rete"], h: "La usa il pescatore." },
+  { q: "Ha una testa e una croce, ma nessun corpo.", a: ["moneta", "monetina"], h: "Si lancia per decidere." },
+  { q: "Più ne togli, più divento grande.", a: ["buco", "buca", "fossa"], h: "Lo fai con una pala." },
+  { q: "Più ne hai, meno ne vedi.", a: ["buio", "oscurità", "oscurita"], h: "Spegni la luce." },
+  { q: "Ha dodici figli, ognuno con circa trenta figli, metà bianchi e metà neri.", a: ["anno"], h: "I figli neri sono le notti." },
+  { q: "Lo hai davanti ma non lo vedi mai: quando arriva, è già diventato un'altra cosa.", a: ["domani", "futuro"], h: "Quando lo raggiungi si chiama oggi." },
+  { q: "Più è vecchio più vale, eppure ogni anno lo vogliamo nuovo... in bottiglia.", a: ["vino"], h: "Si brinda." },
 ];
 function riddleOfDay(day = today()) { return INDOVINELLI[((dayNum(day) * 5) % INDOVINELLI.length + INDOVINELLI.length) % INDOVINELLI.length]; }
 const stripArt = s => norm(s).replace(/^(il|lo|la|i|gli|le|un|uno|una|l)\s+|^l'/, "").replace(/^l\s/, "").trim();
@@ -230,6 +230,8 @@ function playEnigma(idx) {
   let st; try { st = JSON.parse(storage.get(key)) || {}; } catch { st = {}; }
   st.tries ||= 0;
   const official = daily && !playedToday("enigma");
+  // Tentativo già fatto (anche da un altro telefono): niente secondo tentativo, si vede l'esito e la parola.
+  if (daily && !st.done && playedToday("enigma")) { const mine = S.scores.find(s => s.game === "enigma" && s.member_id === ME && s.day === today()); st.done = true; st.won = !!(mine?.meta?.ok || mine?.score > 0); st.tries = 1; storage.set(key, JSON.stringify(st)); }
   const maxT = daily ? 1 : 3;
   openGame(`
     <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
@@ -240,7 +242,7 @@ function playEnigma(idx) {
       ${daily ? `<div class="rd-slots" aria-label="${e.a[0].length} lettere">${[...e.a[0]].map(ch => (ch === " " ? `<i class="sp"></i>` : `<i></i>`)).join("")}</div><div class="tiny faint" style="text-align:center">Una parola${/ /.test(e.a[0]) ? "" : `, ${e.a[0].length} lettere`}</div>` : ""}
       <div id="en-hint" class="enigma-hint" ${st.hint ? "" : "hidden"}>${ico("key", 15)}${esc(e.h)}</div>
       <form id="en-form" class="row" style="gap:8px;margin-top:16px"><input name="a" placeholder="${daily ? "La parola" : "La tua risposta"}" autocomplete="off" style="flex:1" ${st.done ? "disabled" : ""}><button class="btn pearl" ${st.done ? "disabled" : ""}>Prova</button></form>
-      <div class="row between" style="margin-top:10px"><span class="tiny faint" id="en-tries">${daily ? "" : `${maxT - st.tries} tentativi`}</span>${st.hint || st.done ? "" : `<button class="link tiny" id="en-hint-btn">Indizio</button>`}</div>
+      <div class="row between" style="margin-top:10px"><span class="tiny faint" id="en-tries">${daily ? "" : `${maxT - st.tries} tentativi`}</span>${st.hint || st.done ? "" : `<button class="link tiny" id="en-hint-btn">${daily ? "Indizio (vale un punto in meno)" : "Indizio"}</button>`}</div>
       <div id="en-out"></div>
       ${daily ? "" : `<button class="btn block" style="margin-top:14px" data-act="enigma-next">Un altro enigma</button>`}
     </div>`);
@@ -262,7 +264,7 @@ function playEnigma(idx) {
     st.tries++;
     if (isRight(v)) {
       st.done = st.won = true; save();
-      const pts = daily ? 3 : Math.max(1, 4 - st.tries - (st.hint ? 1 : 0));
+      const pts = daily ? (st.hint ? 2 : 3) : Math.max(1, 4 - st.tries - (st.hint ? 1 : 0));
       out(`<div class="enigma-ok">Esatto! ${official ? `+${pts} punti` : ""}</div>`);
       navigator.vibrate?.([30, 40, 30]); confettiBurst();
       if (official) { await saveScore("enigma", pts, { ok: true, answer: String(v).slice(0, 60) }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
@@ -401,7 +403,44 @@ const POLS = [
   { id: "dipietro", n: "Antonio Di Pietro", t: "P", hp: 106, atk: 58, def: 50, spd: 48, m: [["Che c'azzecca?", 26, 95, "stun"], ["Mani pulite", 58, 85], ["La toga", 0, 100, "def+"], ["Italia dei Valori", 0, 100, "heal"]] },
   { id: "prodi", n: "Romano Prodi", t: "T", hp: 108, atk: 52, def: 56, spd: 44, m: [["Mortadella", 0, 100, "heal"], ["L'Ulivo", 0, 100, "def+"], ["L'euro", 52, 95], ["In bicicletta", 42, 100]] },
   { id: "fornero", n: "Elsa Fornero", t: "T", hp: 100, atk: 56, def: 50, spd: 50, m: [["Choosy", 24, 100, "atk-"], ["Le lacrime", 0, 100, "heal"], ["Gli esodati", 54, 90], ["La riforma", 44, 100]] },
+  // ── Altri italiani ──
+  { id: "trota", n: "Renzo Bossi", w: "Renzo Bossi", t: "P", hp: 98, atk: 52, def: 46, spd: 58, m: [["Il Trota", 42, 100], ["La laurea in Albania", 0, 100, "heal"], ["Figlio d'arte", 52, 90], ["Consigliere regionale", 0, 100, "def+"]] },
+  { id: "giannino", n: "Oscar Giannino", t: "T", hp: 100, atk: 56, def: 50, spd: 52, m: [["Fermare il declino", 52, 90], ["Il master a Chicago", 0, 100, "atk+"], ["Il papillon", 0, 100, "def+"], ["Lezione di economia", 42, 100]] },
+  { id: "craxi", n: "Bettino Craxi", t: "C", hp: 108, atk: 60, def: 50, spd: 48, m: [["Sigonella", 56, 90], ["Il garofano", 0, 100, "atk+"], ["Decisionismo", 46, 100], ["Hammamet", 0, 100, "heal"]] },
+  { id: "bossi", n: "Umberto Bossi", t: "P", hp: 106, atk: 60, def: 46, spd: 50, m: [["Roma ladrona", 50, 95], ["La canottiera", 0, 100, "def+"], ["Il dito medio", 28, 95, "stun"], ["Pontida", 0, 100, "atk+"]] },
+  { id: "razzi", n: "Antonio Razzi", t: "S", hp: 102, atk: 54, def: 48, spd: 54, m: [["Amico di Kim", 28, 95, "stun"], ["L'italiano creativo", 44, 100], ["Gita a Pyongyang", 0, 100, "atk+"], ["La pensione", 0, 100, "heal"]] },
+  { id: "monti", n: "Mario Monti", t: "T", hp: 106, atk: 56, def: 56, spd: 44, m: [["Salva Italia", 50, 95], ["Lo spread a 500", 0, 100, "def-"], ["Il loden", 0, 100, "def+"], ["Sobrietà", 42, 100]] },
+  { id: "dalema", n: "Massimo D'Alema", t: "T", hp: 102, atk: 58, def: 52, spd: 48, m: [["Spocchia", 52, 90], ["La barca", 0, 100, "def+"], ["La Bicamerale", 0, 100, "atk-"], ["Il baffino", 44, 100]] },
+  { id: "mastella", n: "Clemente Mastella", t: "P", hp: 104, atk: 52, def: 54, spd: 50, m: [["Ceppaloni", 42, 100], ["Cambio di maggioranza", 0, 100, "heal"], ["Il ponte per tutti", 0, 100, "def+"], ["Udeur", 50, 90]] },
+  { id: "toninelli", n: "Danilo Toninelli", t: "S", hp: 98, atk: 54, def: 46, spd: 58, m: [["Il tunnel del Brennero", 28, 95, "stun"], ["Analisi costi-benefici", 0, 100, "def-"], ["Il gilet", 0, 100, "def+"], ["Gaffe in diretta", 46, 100]] },
+  { id: "dibattista", n: "Alessandro Di Battista", t: "P", hp: 100, atk: 58, def: 46, spd: 60, m: [["Onestà!", 52, 95], ["Il viaggio in Sudamerica", 0, 100, "heal"], ["Il reportage", 42, 100], ["Il ritorno", 0, 100, "atk+"]] },
+  { id: "calenda", n: "Carlo Calenda", t: "T", hp: 100, atk: 58, def: 50, spd: 54, m: [["Il thread su Twitter", 46, 100], ["Competenza", 50, 90], ["Litigio social", 28, 95, "stun"], ["Fronte repubblicano", 0, 100, "def+"]] },
+  // ── Prima Repubblica e Risorgimento ──
+  { id: "moro", n: "Aldo Moro", t: "T", hp: 106, atk: 54, def: 58, spd: 44, m: [["Le convergenze parallele", 48, 95], ["La pazienza democristiana", 0, 100, "heal"], ["La mediazione", 0, 100, "atk-"], ["Strategia dell'attenzione", 42, 100]] },
+  { id: "berlinguer", n: "Enrico Berlinguer", t: "C", hp: 104, atk: 56, def: 54, spd: 48, m: [["La questione morale", 54, 90], ["L'austerità", 0, 100, "def+"], ["Eurocomunismo", 44, 100], ["Il compromesso storico", 0, 100, "heal"]] },
+  { id: "pertini", n: "Sandro Pertini", t: "C", hp: 108, atk: 58, def: 50, spd: 50, m: [["Non ci prendono più!", 48, 95], ["La pipa", 0, 100, "heal"], ["Il partigiano", 54, 90], ["Il Presidente più amato", 0, 100, "atk+"]] },
+  { id: "garibaldi", n: "Giuseppe Garibaldi", t: "P", hp: 110, atk: 62, def: 48, spd: 56, m: [["Qui si fa l'Italia o si muore", 56, 90], ["Obbedisco", 0, 100, "heal"], ["La camicia rossa", 0, 100, "atk+"], ["Teano", 44, 100]] },
+  { id: "cavour", n: "Camillo Benso di Cavour", t: "T", hp: 102, atk: 56, def: 54, spd: 50, m: [["Libera Chiesa in libero Stato", 48, 95], ["La diplomazia", 0, 100, "atk-"], ["Il Connubio", 0, 100, "def+"], ["La Crimea", 50, 90]] },
+  // ── Il mondo e la storia ──
+  { id: "stalin", n: "Iosif Stalin", t: "P", hp: 114, atk: 62, def: 54, spd: 42, m: [["Piano quinquennale", 0, 100, "atk+"], ["I baffi d'acciaio", 50, 95], ["La cortina di ferro", 0, 100, "def+"], ["Collettivizzazione", 58, 85]] },
+  { id: "che", n: "Che Guevara", t: "C", hp: 100, atk: 62, def: 44, spd: 62, m: [["Hasta la victoria siempre", 54, 90], ["Guerriglia", 20, 95, "multi"], ["La motocicletta", 0, 100, "heal"], ["Il basco", 0, 100, "def+"]] },
+  { id: "castro", n: "Fidel Castro", t: "P", hp: 110, atk: 56, def: 54, spd: 44, m: [["Il discorso di sette ore", 26, 100, "stun"], ["La Rivoluzione", 52, 90], ["Il sigaro", 0, 100, "heal"], ["La barba", 0, 100, "def+"]] },
+  { id: "napoleone", n: "Napoleone Bonaparte", t: "C", hp: 104, atk: 64, def: 48, spd: 56, m: [["Austerlitz", 58, 85], ["Il Codice civile", 44, 100], ["Il bicorno", 0, 100, "def+"], ["I cento giorni", 0, 100, "heal"]] },
+  { id: "cesare", n: "Giulio Cesare", w: "Gaio Giulio Cesare", t: "C", hp: 106, atk: 62, def: 50, spd: 54, m: [["Veni, vidi, vici", 52, 95], ["Alea iacta est", 0, 100, "atk+"], ["Il Rubicone", 46, 100], ["Le legioni", 0, 100, "def+"]] },
+  { id: "churchill", n: "Winston Churchill", t: "T", hp: 112, atk: 58, def: 56, spd: 40, m: [["Sangue, fatica, lacrime e sudore", 56, 90], ["Whisky alle undici", 0, 100, "heal"], ["Mai arrendersi", 0, 100, "def+"], ["La V di vittoria", 44, 100]] },
+  { id: "lenin", n: "Vladimir Lenin", t: "T", hp: 102, atk: 58, def: 50, spd: 52, m: [["Le tesi di aprile", 48, 95], ["Che fare?", 0, 100, "atk-"], ["Il treno piombato", 44, 100], ["Il mausoleo", 0, 100, "heal"]] },
+  { id: "kennedy", n: "John Fitzgerald Kennedy", t: "C", hp: 100, atk: 58, def: 48, spd: 60, m: [["Non chiederti cosa può fare il tuo paese", 54, 90], ["Ich bin ein Berliner", 46, 100], ["Il sorriso", 0, 100, "heal"], ["La Nuova Frontiera", 0, 100, "atk+"]] },
+  { id: "obama", n: "Barack Obama", t: "C", hp: 102, atk: 56, def: 52, spd: 58, m: [["Yes we can", 46, 100], ["Il microfono che cade", 56, 85], ["Obamacare", 0, 100, "heal"], ["Il discorso", 0, 100, "atk+"]] },
+  { id: "trump", n: "Donald Trump", t: "P", hp: 108, atk: 62, def: 46, spd: 50, m: [["You're fired!", 56, 85], ["Fake news!", 28, 95, "stun"], ["Il muro", 0, 100, "def+"], ["Covfefe", 0, 100, "atk-"]] },
+  { id: "thatcher", n: "Margaret Thatcher", t: "T", hp: 106, atk: 58, def: 58, spd: 44, m: [["La Lady di ferro", 54, 90], ["No, no, no!", 28, 95, "stun"], ["Privatizzazioni", 46, 100], ["The lady's not for turning", 0, 100, "def+"]] },
+  { id: "merkel", n: "Angela Merkel", t: "T", hp: 110, atk: 54, def: 60, spd: 42, m: [["Il rigore dei conti", 50, 95], ["Wir schaffen das", 0, 100, "heal"], ["Le mani a rombo", 0, 100, "def+"], ["Lo sguardo di sbieco", 28, 95, "stun"]] },
+  { id: "degaulle", n: "Charles de Gaulle", t: "C", hp: 106, atk: 58, def: 52, spd: 46, m: [["L'appello del 18 giugno", 54, 90], ["Vive le Québec libre!", 46, 100], ["La grandeur", 0, 100, "atk+"], ["Je vous ai compris", 0, 100, "heal"]] },
+  { id: "gandhi", n: "Mahatma Gandhi", t: "S", hp: 104, atk: 50, def: 60, spd: 50, m: [["La marcia del sale", 50, 95], ["Resistenza passiva", 0, 100, "def+"], ["Il digiuno", 0, 100, "heal"], ["Sii il cambiamento", 44, 100]] },
+  { id: "lincoln", n: "Abraham Lincoln", t: "T", hp: 108, atk: 58, def: 54, spd: 46, m: [["Governo del popolo, dal popolo, per il popolo", 54, 90], ["Gettysburg", 46, 100], ["Il cilindro", 0, 100, "def+"], ["La barba", 0, 100, "heal"]] },
 ];
+// Gruppi per il filtro nella scelta della squadra.
+const POL_GROUP = id => (["moro", "berlinguer", "pertini", "garibaldi", "cavour", "andreotti", "craxi"].includes(id) ? "storia-it"
+  : ["stalin", "che", "castro", "napoleone", "cesare", "churchill", "lenin", "kennedy", "obama", "trump", "thatcher", "merkel", "degaulle", "gandhi", "lincoln"].includes(id) ? "mondo" : "oggi");
 const polInitials = n => n.split(" ").map(w => w[0]).join("").slice(0, 2);
 // Le facce: le foto di Wikipedia (licenze libere), scaricate una volta e ricordate sul telefono.
 const POL_FACES_KEY = "capodanno-volti-2";
@@ -427,7 +466,7 @@ async function loadPolFaces() {
   $$(".pol-face[data-pol]").forEach(el => { const u = polFaces[el.dataset.pol]; if (u && !el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(u)}" alt="" referrerpolicy="no-referrer" onerror="polFaceErr(this)">`); });
 }
 // Prima la foto salvata nell'app (cartella volti/), se manca quella presa da Wikipedia, se manca anche quella le iniziali.
-const LOCAL_FACE = new Set(["berlusconi", "meloni", "salvini", "renzi", "conte", "schlein", "grillo", "dimaio", "bersani", "andreotti", "sgarbi", "draghi", "mentana", "vespa", "travaglio", "dipietro", "prodi", "fornero"]);
+const LOCAL_FACE = new Set(POLS.map(p => p.id));
 const LOCAL_FAIL = new Set();
 window.polFaceErr = img => {
   const box = img.closest(".pol-face"), id = box?.dataset.pol; img.remove();

@@ -219,8 +219,24 @@ async function loadContext(memberId: string): Promise<Ctx> {
 // ───────────────────────── Strumenti ─────────────────────────
 
 const tools = [
-  { type: "web_search_20260209", name: "web_search", max_uses: 12, user_location: { type: "approximate", country: "IT", timezone: "Europe/Rome" } },
-  { type: "web_fetch_20260209", name: "web_fetch", max_uses: 8 },
+  { type: "web_search_20260209", name: "web_search", max_uses: 16, user_location: { type: "approximate", country: "IT", timezone: "Europe/Rome" } },
+  { type: "web_fetch_20260209", name: "web_fetch", max_uses: 12 },
+  {
+    name: "link_alloggi",
+    description: "Prepara i link di ricerca GIÀ COMPILATI con città, date e numero di persone per Booking (hotel e appartamenti), Airbnb e Google Hotels. Usalo sempre quando si cercano alloggi: i link vanno nella risposta insieme alle strutture concrete che trovi.",
+    input_schema: {
+      type: "object",
+      properties: {
+        citta: { type: "string", description: "Città o zona, es. «Vienna» o «Praga, Città Vecchia»" },
+        checkin: { type: "string", description: "AAAA-MM-GG; se manca uso le date del viaggio" },
+        checkout: { type: "string", description: "AAAA-MM-GG; se manca uso le date del viaggio" },
+        adulti: { type: "integer", description: "Persone; se manca uso quante sono nel gruppo" },
+        camere: { type: "integer" },
+        prezzo_max_notte: { type: "integer", description: "Budget massimo per notte per l'intera struttura, in euro (facoltativo)" },
+      },
+      required: ["citta"],
+    },
+  },
   {
     name: "crea_sondaggio",
     description: "Crea SUBITO un sondaggio nella sezione Vota e avvisa il gruppo. Usalo quando qualcuno lo chiede o quando dalla conversazione emerge una decisione da prendere tra opzioni concrete. Prima controlla nello stato del gruppo che non esista già un sondaggio aperto sullo stesso tema: in quel caso aggiungi opzioni a quello (aggiungi_opzione) invece di crearne un altro.",
@@ -431,6 +447,25 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
   };
 
   switch (name) {
+    case "link_alloggi": {
+      const { data: tr } = await db.from("trip").select("start_date,end_date").eq("id", 1).single();
+      const city = String(input.citta ?? "").trim();
+      const ci = String(input.checkin ?? tr?.start_date ?? ""), co = String(input.checkout ?? tr?.end_date ?? "");
+      const ad = Math.max(1, Number(input.adulti ?? ctx.members.length ?? 2));
+      const rooms = Math.max(1, Number(input.camere ?? 1));
+      const max = Number(input.prezzo_max_notte ?? 0);
+      const q = encodeURIComponent(city);
+      const dates = ci && co ? `&checkin=${ci}&checkout=${co}` : "";
+      const price = max > 0 ? `&nflt=${encodeURIComponent(`price=EUR-min-${max}-1`)}` : "";
+      const out = {
+        booking_hotel: `https://www.booking.com/searchresults.it.html?ss=${q}${dates}&group_adults=${ad}&no_rooms=${rooms}&group_children=0&order=review_score_and_price${price}`,
+        booking_appartamenti: `https://www.booking.com/searchresults.it.html?ss=${q}${dates}&group_adults=${ad}&no_rooms=${rooms}&group_children=0&nflt=${encodeURIComponent("ht_id=201")}`,
+        airbnb: `https://www.airbnb.it/s/${encodeURIComponent(city.replace(/\s+/g, "-"))}/homes?${ci && co ? `checkin=${ci}&checkout=${co}&` : ""}adults=${ad}${max > 0 ? `&price_max=${max}` : ""}`,
+        google_hotels: `https://www.google.com/travel/hotels/${q}?hl=it&q=${encodeURIComponent(`hotel ${city} ${ci} ${co} ${ad} persone`)}`,
+        date: ci && co ? `${ci} → ${co}` : "date non ancora decise", persone: ad,
+      };
+      return JSON.stringify(out);
+    }
     // Sondaggi e opzioni li propone soltanto: li crea la persona con un tocco nell'app.
     case "crea_sondaggio": {
       const question = String(input.domanda ?? "").slice(0, 140);
@@ -590,6 +625,12 @@ Cosa sai fare:
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
 
+Ricerche di alloggi (Booking, Airbnb, hotel, appartamenti): è il tuo lavoro principale e lo fai fino in fondo.
+- Chiama subito link_alloggi per avere le ricerche già compilate con città, date del viaggio e numero di persone.
+- Poi trova strutture CONCRETE: fai più ricerche mirate (es. «site:booking.com/hotel <città> appartamento <N> persone», «site:airbnb.it/rooms <città> <zona>», «<città> appartamento <N> posti letto centro capodanno») e apri con web_fetch le pagine delle singole strutture per leggere posti letto, camere, bagni, prezzo per le date, cancellazione, voto e zona.
+- Nella risposta dai 4-6 strutture, ognuna con: nome, link DIRETTO alla pagina della camera o dell'appartamento (non alla ricerca), posti letto e camere, prezzo totale e a testa per le notti del viaggio, cancellazione, voto, zona e distanza dal centro, una riga su perché va bene o cosa non va. Poi la tua raccomandazione e, se serve, il sondaggio.
+- Non chiudere mai con «non sono riuscito a verificare»: se un sito non mostra il prezzo aggiornato, riporta il prezzo che hai trovato con la data in cui l'hai visto, scrivi «da confermare al link (le tariffe cambiano)» e dai comunque il link diretto e quello di ricerca già compilato. Continua a cercare finché hai opzioni concrete. Non inventare mai una struttura, un prezzo o un link: usa solo quello che hai trovato davvero.
+
 Come fai le ricerche (sei il miglior organizzatore di viaggi che esista):
 - Per domande che richiedono una ricerca, fai più ricerche mirate, apri le pagine ufficiali (siti degli hotel, dei locali, di Trenitalia, delle compagnie aeree, degli eventi) e confronta più fonti prima di concludere.
 - Verifica date, orari e prezzi per le date del viaggio; segnala quando un prezzo è solo indicativo o una disponibilità va confermata.
@@ -693,7 +734,7 @@ async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boole
   if (messages.at(-1)?.role === "user") messages[messages.length - 1].content += `\n\n${turn}`;
   else messages.push({ role: "user", content: turn });
   const system = [{ type: "text", text: systemPrompt(ctx), cache_control: { type: "ephemeral" } }];
-  const deep = opts.readOnly || question.length > 180 || /cerca|trova|prezz|cost|volo|voli|treno|hotel|alberg|apparta|ristor|locale|event|discotec|biglietti|propon|organizz|pianifi|confront|programma|itinerar|quanto|dove|meteo|verifica|link/i.test(question);
+  const deep = opts.readOnly || question.length > 180 || /cerca|trova|prezz|cost|volo|voli|treno|hotel|alberg|apparta|ristor|locale|event|discotec|biglietti|propon|organizz|pianifi|confront|programma|itinerar|quanto|dove|meteo|verifica|link|booking|airbnb|allogg|camer|casa|dormi|notte|b&b|ostello|struttur/i.test(question);
   const effort = deep ? "high" : "low";
   const started = Date.now();
   // In sola lettura (resoconto automatico) restano ricerca e proposte, niente scritture nel database.
