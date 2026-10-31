@@ -247,6 +247,13 @@ const Cloud = {
     const data = this.ok(await this.sb.storage.from(BUCKET).createSignedUrls(paths, 3600));
     return Object.fromEntries(data.map(d => [d.path, d.signedUrl]));
   },
+  async uploadVoice(blob, ext) {
+    const path = `${uuid()}.${ext}`;
+    this.ok(await this.sb.storage.from("vocali").upload(path, blob, { contentType: blob.type || "audio/mp4" }));
+    return path;
+  },
+  voiceUrl(path) { return this.sb.storage.from("vocali").getPublicUrl(path).data.publicUrl; },
+  async removeVoice(path) { await this.sb.storage.from("vocali").remove([path]); },
   async uploadAvatar(blob) {
     const path = `${uuid()}.jpg`;
     this.ok(await this.sb.storage.from("avatar").upload(path, blob, { contentType: "image/jpeg" }));
@@ -310,6 +317,10 @@ const Local = {
   notify() {},
   pushEnabled: false,
   async uploadAvatar(blob) { return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); },
+  // In prova i vocali restano solo finché l'app è aperta.
+  async uploadVoice(blob) { return URL.createObjectURL(blob); },
+  voiceUrl(path) { return path; },
+  async removeVoice() {},
   async leave() { storage.del(this.ME); },
   async loadAll() { const c = JSON.parse(JSON.stringify(this.db)); delete c.secrets; return c; },
   defaults(t, row) {
@@ -544,6 +555,11 @@ function render() {
   composer.classList.toggle("show", UI.tab === "chat");
   $("#composer-input").placeholder = { gruppo: "Scrivi al gruppo…", ai: `Chiedi a ${AI()}…`, ascolto: "Scrivi quello che senti…" }[UI.chatSeg];
   renderReplyBar();
+  if (typeof syncComposerButtons === "function") {
+    // Un vocale o una dettatura in corso si annulla se si cambia scheda.
+    if (V.mode && (UI.tab !== "chat" || V.seg !== UI.chatSeg)) stopVoice(false);
+    syncComposerButtons();
+  }
   if (UI.tab === "home") mountHome();
   if (UI.tab === "chat") {
     if (UI.chatSeg === "gruppo") { const last = msgs("gruppo").at(-1); if (last) storage.set(SEEN_KEY, last.created_at); renderDock(); }
@@ -1619,7 +1635,7 @@ function viewChat() {
       const time = fmtTime(m.created_at);
       if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Ascolto" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
       const mine = m.member_id === ME; const w = member(m.member_id);
-      const body = seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");
+      const body = m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");
       const tap = seg === "gruppo" && m.id !== "tmp" ? `data-act="msg-menu" data-id="${m.id}"` : "";
       return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(w?.name || "—")}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
     }).join("")}
@@ -2283,14 +2299,15 @@ const ACTIONS = {
     const m = S.messages.find(x => x.id === el.dataset.id); if (!m) return;
     openSheet(`<div class="bubble" style="margin-bottom:16px">${linkify(m.content)}</div><div class="stack">
       <button class="btn block" data-act="msg-reply" data-id="${m.id}">${ico("arrow", 17)}Rispondi</button>
-      <button class="btn block" data-act="copy" data-text="${esc(m.content)}">${ico("copy", 17)}Copia</button>
+      ${m.meta?.voice ? "" : `<button class="btn block" data-act="copy" data-text="${esc(m.content)}">${ico("copy", 17)}Copia</button>`}
       ${m.member_id === ME || isAdmin() ? `<button class="btn block danger" data-act="msg-delete" data-id="${m.id}">${ico("trash", 17)}Elimina</button>` : ""}
       <button class="btn block" data-act="close-sheet">Annulla</button></div>`);
   },
   "msg-reply": el => { closeSheet(); startReply(el.dataset.id); },
   async "msg-delete"(el) {
     if (!confirm("Eliminare il messaggio per tutti?")) return;
-    try { await api.remove("messages", { id: el.dataset.id }); closeSheet(); await reload(); } catch (e) { toast(e.message); }
+    const voice = S.messages.find(x => x.id === el.dataset.id)?.meta?.voice;
+    try { await api.remove("messages", { id: el.dataset.id }); if (voice) api.removeVoice(voice.path).catch(() => {}); closeSheet(); await reload(); } catch (e) { toast(e.message); }
   },
   async "clear-private"() {
     if (!confirm("Cancellare per sempre questa conversazione?")) return;
@@ -2682,7 +2699,7 @@ $("#composer-form").addEventListener("submit", e => {
   e.preventDefault();
   e.stopPropagation();
   const text = composer.value;
-  composer.value = ""; composer.style.height = "auto";
+  composer.value = ""; composer.style.height = "auto"; syncComposerButtons();
   if (UI.chatSeg === "gruppo") sendGroup(text); else ask(text, UI.chatSeg);
 });
 $("#composer-send").innerHTML = ico("send", 20);

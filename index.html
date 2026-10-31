@@ -28,7 +28,9 @@
   <form class="inner glass" id="composer-form">
     <textarea id="composer-input" rows="1" placeholder="Chiedi all'assistente…" enterkeyhint="send"></textarea>
     <button class="send" id="composer-send" type="submit" aria-label="Invia">↑</button>
+    <button class="send mic" id="composer-mic" type="button" data-act="voice-start" aria-label="Messaggio vocale" hidden></button>
   </form>
+  <div class="rec-bar glass" id="rec-bar" hidden></div>
 </div>
 <nav class="dock glass" id="dock" hidden></nav>
 <button class="fab" id="fab" hidden data-act="chat-go" data-v="ai" aria-label="Chiedi a Zampone"></button>
@@ -38,6 +40,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
+<script src="voice.js"></script>
 <script src="killer-lib.js"></script>
 <script src="games.js"></script>
 </body>
