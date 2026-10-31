@@ -1,8 +1,8 @@
 /* Capodanno - cache offline.
    Prima la rete (così un aggiornamento si vede subito); la cache serve solo senza connessione.
    I dati del gruppo restano anche offline perché l'app ne tiene una copia sul telefono. */
-const V = "capodanno-v13";
-const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./voice.js", "./games.js", "./killer-lib.js", "./chess-engine.js", "./chess.js",
+const V = "capodanno-v14";
+const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./voice.js", "./games.js", "./killer-lib.js", "./chess-engine.js", "./chess.js", "./sezioni.js", "./giochi2.js", "./scopa.js", "./home2.js", "./duelli.js", "./mappa3d.js",
   ...["K", "Q", "R", "B", "N", "P"].flatMap(p => [`./pezzi/w${p}.svg`, `./pezzi/b${p}.svg`]), "./icon.svg"];
 
 self.addEventListener("install", e => {
@@ -43,6 +43,8 @@ self.addEventListener("push", e => {
 // Tocco sulla notifica: se l'app è aperta la porta alla sezione giusta, altrimenti la apre.
 self.addEventListener("notificationclick", e => {
   e.notification.close();
+  // Aperta una notifica, via anche le altre dalla tendina.
+  e.waitUntil(self.registration.getNotifications().then(l => l.forEach(n => n.close())).catch(() => {}));
   const url = (e.notification.data && e.notification.data.url) || self.registration.scope;
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
     for (const c of list) if (c.url.startsWith(self.registration.scope)) { c.postMessage({ url }); return c.focus(); }

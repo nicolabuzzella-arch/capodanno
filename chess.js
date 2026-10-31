@@ -133,7 +133,7 @@ window.chessCard = function () {
   const row = (g, right) => `<div class="li"><div class="cb-vs">${avatar(member(g.white), "sm")}${avatar(member(g.black), "sm")}</div>
     <div class="grow"><div class="t ellipsis">${esc(mname(g.white))} – ${esc(mname(g.black))}</div><div class="tiny faint">${tcLabel(g.tc)} · ${g.moves.length ? `${Math.ceil(g.moves.length / 2)}ª mossa` : "inizio"}</div></div>${right}</div>`;
   return `<section class="card game-card chess-card" id="chess-card">
-    <div class="row top"><img class="game-logo" src="loghi/scacchi.png" alt="">
+    <div class="row top"><div class="game-ico">${ico("chess", 30)}</div>
       <div class="grow"><div class="serif" style="font-size:28px;line-height:1">Scacchi</div>
         <div class="small muted" style="margin-top:6px">Sfide dal vivo con l'orologio: 3+2, 5+5 o 10 minuti. ${me ? `Il tuo Elo: <b>${me.score}</b>.` : "Classifica Elo del gruppo."}</div></div></div>
     ${incoming.map(g => `<div class="li cb-inv"><div class="cb-vs">${avatar(member(g.created_by), "sm")}</div><div class="grow"><div class="t">${esc(mname(g.created_by))} ti sfida</div><div class="tiny faint">${tcLabel(g.tc)} · giochi ${myColorIn(g) === "w" ? "con il bianco" : "con il nero"}</div></div>

@@ -7,9 +7,9 @@
 
 const CFG = window.CAPODANNO_CONFIG || {};
 const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase);
-const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects"];
+const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news"];
 // Tabelle degli aggiornamenti più recenti: se il database non le ha ancora, l'app funziona lo stesso.
-const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects"]);
+const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news"]);
 const CACHE_KEY = "capodanno-cache-v3";
 const CODE_KEY = "capodanno-code";
 const SEEN_KEY = "capodanno-chat-seen";
@@ -427,6 +427,7 @@ function scheduleReload(payload) {
   // Le mosse degli scacchi vanno dritte alla scacchiera, senza ricaricare tutta l'app.
   if (payload?.table === "chess_games") { window.onChessChange?.(payload); return; }
   if (payload?.table === "card_games") { window.onScopaChange?.(payload); return; }
+  if (payload?.table === "duels") { window.onDuelChange?.(payload); return; }
   clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250);
 }
 async function reload() {
@@ -537,12 +538,19 @@ const TABS = [
   { id: "piano", label: "Piano", ico: "calendar" },
   { id: "spese", label: "Splitwise", ico: "wallet" },
   { id: "chat", label: "Chat", ico: "chat" },
+  { id: "giochi", label: "Giochi", ico: "game" },
 ];
 
 function render() {
   if (!ME || !me()) return;
   const root = $("#root");
   const y = window.scrollY;
+  // Senza foto profilo non si entra: una schermata sola, poi tutto il resto.
+  const gate = window.gateView?.();
+  if (gate) {
+    root.innerHTML = gate; $("#dock").hidden = true; $("#fab").hidden = true; $("#composer").classList.remove("show");
+    window.gateMount?.(); return;
+  }
   const EX = window.EXTRA_VIEWS || {};
   if (!["home", "vota", "piano", "spese", "chat", "gruppo", "giochi"].includes(UI.tab) && !EX[UI.tab]) UI.tab = "home";
   const views = { home: viewHome, vota: viewVota, piano: viewPiano, spese: viewSpese, chat: viewChat, gruppo: viewGruppo, giochi: () => window.viewGiochi(), ...Object.fromEntries(Object.entries(EX).map(([k, v]) => [k, v.view])) };
@@ -563,7 +571,6 @@ function render() {
     <header class="topbar">
       ${EX[UI.tab] ? `<button class="btn icon glass-btn" data-act="tab" data-tab="${EX[UI.tab].back || "home"}" aria-label="Indietro">${ico("chev", 20, 'style="transform:rotate(180deg)"')}</button>` : ""}
       <div class="grow"><h1>${esc(titles[UI.tab])}</h1><div class="sub">${subs[UI.tab]}</div></div>
-      <button class="btn icon glass-btn" data-act="tab" data-tab="giochi" aria-label="Giochi">${ico("game", 21)}</button>
       <button class="tap" data-act="tab" data-tab="gruppo" aria-label="Il gruppo">${avatar(me())}</button>
     </header>
     <main id="view">${views[UI.tab]()}</main>
@@ -581,7 +588,7 @@ function render() {
     if (V.mode && (UI.tab !== "chat" || V.seg !== UI.chatSeg)) stopVoice(false);
     syncComposerButtons();
   }
-  if (UI.tab === "home") mountHome();
+  if (UI.tab === "home") { mountHome(); window.home2Mount?.(); }
   EX[UI.tab]?.mount?.();
   if (UI.tab === "chat") {
     if (UI.chatSeg === "gruppo") { const last = msgs("gruppo").at(-1); if (last) storage.set(SEEN_KEY, last.created_at); renderDock(); }
@@ -654,6 +661,7 @@ function viewHome() {
 
   ${aiCard()}
 
+  ${window.home2Top ? home2Top() : ""}
   ${window.homeExtras ? homeExtras() : ""}
 
   ${t.notes ? `<section class="card"><div class="row top">${ico("bell", 20)}<div class="grow"><div class="label" style="margin-bottom:6px">Avviso dell'organizzatore</div><div>${esc(t.notes).replace(/\n/g, "<br>")}</div></div></div></section>` : ""}
@@ -704,7 +712,6 @@ function viewHome() {
     </section>
   </div>
 
-  ${window.homeGamesCard ? window.homeGamesCard() : ""}
 
   <section class="card tap" data-act="chat-go" data-v="gruppo">
     <div class="row between" style="margin-bottom:${lastGroup ? 12 : 0}px"><div class="label" style="margin:0">Chat del gruppo</div>${unread ? `<span class="pill plain num">${unread} nuovi</span>` : `<span class="chev">${ico("chev", 18)}</span>`}</div>
@@ -733,7 +740,8 @@ function viewHome() {
       ${isAdmin() ? `<button class="btn sm" data-act="invite">${ico("share", 16)}Invita</button>` : ""}
     </div>
   </section>
-`;
+  ${window.home2Bottom ? home2Bottom() : ""}
+  `;
 }
 
 // Il riquadro di Zampone in Home: l'ultima cosa che ha detto e un campo per chiedergli subito qualcosa.
@@ -1660,7 +1668,7 @@ function viewChat() {
       if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Ascolto" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
       const mine = m.member_id === ME; const w = member(m.member_id);
       const fx = effectsOf(m.member_id);
-      const body = m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");
+      const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? linkify(m.content) : esc(m.content).replace(/\n/g, "<br>");
       const tap = seg === "gruppo" && m.id !== "tmp" ? `data-act="msg-menu" data-id="${m.id}"` : "";
       return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(fx.nick || w?.name || "—")}${fx.nick ? ` <span class="fx-nick">alias di ${esc(w?.name || "")}</span>` : ""}${fx.title ? ` <span class="fx-title">${esc(fx.title)}</span>` : ""}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
     }).join("")}
@@ -1815,7 +1823,7 @@ function pushCard() {
 }
 function applyDeepLink(q) {
   const tab = q.get("tab");
-  if (!tab || ![...TABS.map(t => t.id), "giochi", "gruppo"].includes(tab)) return false;
+  if (!tab || ![...TABS.map(t => t.id), "giochi", "gruppo", ...Object.keys(window.EXTRA_VIEWS || {})].includes(tab)) return false;
   UI.tab = tab;
   if (tab === "spese" && q.get("seg")) UI.moneySeg = q.get("seg");
   if (tab === "chat") UI.chatSeg = "gruppo";

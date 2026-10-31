@@ -458,7 +458,7 @@ window.homeExtras = function () {
     <button data-act="tab" data-tab="mappa"><span class="qi">${ico("globe", 22)}</span>Mappa</button>
     <button data-act="tab" data-tab="meteo"><span class="qi">${ico("sun", 22)}</span>Meteo</button>
     <button data-act="tab" data-tab="passaggi"><span class="qi">${ico("car", 22)}</span>Passaggi</button>
-    <button data-act="tab" data-tab="giochi"><span class="qi">${ico("game", 22)}</span>Giochi</button>
+    <button data-act="tab" data-tab="foto"><span class="qi">${ico("image", 22)}</span>Foto</button>
   </div>
   ${miss ? `<section class="card tap pf-nudge" data-act="tab" data-tab="profilo">
     <div class="row" style="gap:14px"><div class="pf-ring sm" style="--p:${score}"><b>${score}%</b></div>

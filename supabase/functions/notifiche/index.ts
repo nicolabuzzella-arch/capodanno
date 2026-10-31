@@ -75,6 +75,25 @@ async function send(memberIds: string[], note: Note): Promise<number> {
   return sent;
 }
 
+// Alle 14:30: a chi manca ancora qualcosa nel profilo, un promemoria gentile con il conto di cosa manca.
+async function profileReminder(): Promise<number> {
+  const { data: ms } = await db.from("members").select("id,name,phone,diet,allergies,departure_city,avatar_url,paypal,iban,satispay,emergency_phone");
+  const { data: priv } = await db.from("member_private").select("member_id,doc_number,fiscal_code");
+  let sent = 0;
+  for (const m of ms ?? []) {
+    const p: { doc_number?: string } = (priv ?? []).find((x) => x.member_id === m.id) ?? {};
+    const miss = [!m.avatar_url && "foto", !m.phone && "numero", !m.diet && "dieta", !m.allergies && "allergie", !m.departure_city && "città di partenza",
+      !(m.paypal || m.iban || m.satispay) && "come ricevere i soldi", !m.emergency_phone && "contatto di emergenza", !p.doc_number && "documento"].filter(Boolean) as string[];
+    if (!miss.length) continue;
+    sent += await send([m.id], {
+      title: `${m.name}, ti mancano ${miss.length} ${miss.length === 1 ? "cosa" : "cose"}`,
+      body: `${miss.slice(0, 3).join(", ")}${miss.length > 3 ? "…" : ""}. Due minuti, una domanda alla volta: così prenotare è veloce per tutti.`,
+      url: "?tab=profilo", tag: "profilo",
+    });
+  }
+  return sent;
+}
+
 const euro = (n: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(n) || 0);
 const cut = (s: string, n = 140) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
@@ -147,6 +166,13 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       const { data: g } = await db.from("card_games").select("*").eq("id", id).single();
       if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
       return send((g.players as string[]).filter((p) => p !== actor), { title: `${name(actor)} ti chiama a scopa d'assi`, body: `Si gioca in quattro, a ${g.settings?.target ?? 21} punti: apri l'app e rispondi.`, url: "?tab=giochi", tag: "scopa-" + g.id, cat: "giochi" });
+    }
+    case "sfida": {
+      // Duelli generici (Miniera, GeoScatto): id = la sfida appena creata.
+      const { data: g } = await db.from("duels").select("*").eq("id", id).maybeSingle();
+      if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
+      const nome = g.kind === "miniera" ? "Miniera" : "GeoScatto";
+      return send([g.players[1]], { title: `${name(actor)} ti sfida a ${nome}`, body: "Apri l'app e accetta, se hai il coraggio.", url: "?tab=giochi", tag: "duel-" + g.id, cat: "giochi" });
     }
     case "booking": {
       const { data: b } = await db.from("bookings").select("*").eq("id", id).single();
@@ -259,10 +285,10 @@ Deno.serve(async (req) => {
 
     if (body.type === "vapid") return json({ publicKey: (await server()).publicKey });
 
-    if (body.type === "daily") {
+    if (body.type === "daily" || body.type === "profili") {
       const { data } = await db.from("app_secrets").select("value").eq("key", "cron").maybeSingle();
       if (!data || req.headers.get("x-cron") !== data.value) return json({ error: "Non autorizzato" }, 401);
-      return json({ sent: await daily() });
+      return json({ sent: body.type === "daily" ? await daily() : await profileReminder() });
     }
 
     // Chi chiama: l'assistente (chiave di servizio) oppure un membro dell'app.

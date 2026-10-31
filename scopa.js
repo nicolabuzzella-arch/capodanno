@@ -218,7 +218,7 @@ function scPrompt(g) {
   if (!$("#game").hidden) return;
   SC.shown.add(g.id);
   const me_ = g.players.indexOf(ME), partner = g.players[(me_ + 2) % 4];
-  openSheet(`<div class="duel-invite"><img class="game-logo big" src="loghi/scopa.png" alt="">
+  openSheet(`<div class="duel-invite"><div class="game-ico big">${ico("star", 36)}</div>
     <div class="serif" style="font-size:28px">${esc(mname(g.created_by))} ti chiama a scopa d'assi</div>
     <div class="small muted" style="margin:6px 0 18px">In coppia con <b>${esc(mname(partner))}</b> · si arriva a ${g.settings?.target || 21}</div>
     <div class="actions"><button class="btn" data-act="sc-answer" data-id="${g.id}" data-ok="0">Non posso</button><button class="btn primary" data-act="sc-answer" data-id="${g.id}" data-ok="1">Ci sono</button></div></div>`);
@@ -235,7 +235,7 @@ window.scopaCard = function () {
   const playing = mine.filter(g => g.status === "active");
   const row = (g, right) => `<div class="li"><div class="cb-vs">${g.players.map(id => avatar(member(id), "sm")).join("")}</div><div class="grow"><div class="t ellipsis">${esc(mname(g.players[0]))} e ${esc(mname(g.players[2]))} contro ${esc(mname(g.players[1]))} e ${esc(mname(g.players[3]))}</div><div class="tiny faint">a ${g.settings?.target || 21} punti${g.status === "invited" ? ` · ${g.accepted.filter(Boolean).length}/4 pronti` : ""}</div></div>${right}</div>`;
   return `<section class="card game-card" id="scopa-card">
-    <div class="row top"><img class="game-logo" src="loghi/scopa.png" alt=""><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Scopa d'assi</div>
+    <div class="row top"><div class="game-ico">${ico("star", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Scopa d'assi</div>
       <div class="small muted" style="margin-top:6px">In quattro, due contro due, con le carte milanesi. L'asso piglia tutto. Chi invita sceglie coppie, punti e varianti.</div></div></div>
     ${invites.map(g => row(g, `<button class="btn sm" data-act="sc-answer" data-id="${g.id}" data-ok="0">No</button><button class="btn sm primary" data-act="sc-answer" data-id="${g.id}" data-ok="1">Ci sono</button>`)).join("")}
     ${waiting.map(g => row(g, g.created_by === ME ? `<button class="btn sm" data-act="sc-cancel" data-id="${g.id}">Annulla</button>` : `<span class="tiny faint">attesa</span>`)).join("")}
@@ -282,7 +282,7 @@ async function createScopa() {
     const g = await scRpc("card_create", { p_players: [ME, SCN.opp[0], SCN.partner, SCN.opp[1]], p_settings: { target: Number(SCN.target), assoScopa: SCN.assoScopa, napola: SCN.napola } });
     scUpsert(g); SC.waiting = g.id;
     api.notify("scopa", g.id);
-    openGame(`<div class="duel-wait"><img class="game-logo big" src="loghi/scopa.png" alt=""><div class="serif" style="font-size:30px">Aspetto il tavolo…</div>
+    openGame(`<div class="duel-wait"><div class="game-ico big">${ico("star", 36)}</div><div class="serif" style="font-size:30px">Aspetto il tavolo…</div>
       <div id="sc-wait" class="sc-wait"></div>
       <button class="btn" style="margin-top:22px" data-act="sc-cancel" data-id="${g.id}">Annulla</button></div>`);
     refreshWaiting(g);
@@ -458,7 +458,7 @@ Object.assign(ACTIONS, {
       const g = await scRpc("card_answer", { p_id: el.dataset.id, p_ok: el.dataset.ok === "1" });
       scUpsert(g); refreshScopaCard();
       if (g.status === "active") openScopa({ online: true, game: g });
-      else if (el.dataset.ok === "1") { SC.waiting = g.id; openGame(`<div class="duel-wait"><img class="game-logo big" src="loghi/scopa.png" alt=""><div class="serif" style="font-size:30px">Aspetto gli altri…</div><div id="sc-wait" class="sc-wait"></div></div>`); refreshWaiting(g); gameCleanup = () => { if (SC.waiting === g.id) SC.waiting = null; }; }
+      else if (el.dataset.ok === "1") { SC.waiting = g.id; openGame(`<div class="duel-wait"><div class="game-ico big">${ico("star", 36)}</div><div class="serif" style="font-size:30px">Aspetto gli altri…</div><div id="sc-wait" class="sc-wait"></div></div>`); refreshWaiting(g); gameCleanup = () => { if (SC.waiting === g.id) SC.waiting = null; }; }
     } catch (e) { toast(e.message, "alert"); }
   },
   async "sc-cancel"(el) {

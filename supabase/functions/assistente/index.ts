@@ -129,7 +129,7 @@ interface Ctx {
 }
 
 async function loadContext(memberId: string): Promise<Ctx> {
-  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat, vibes] = await Promise.all([
+  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat, vibes, daily, photos, news, effects] = await Promise.all([
     db.from("trip").select("name,destination,start_date,end_date,notes,group_notes,ai_name").eq("id", 1).single(),
     db.from("members").select("id,name,rsvp,phone,diet,allergies,preferences,notes,car_seats,departure_city,ride_with,paypal,iban,satispay,is_admin").order("created_at"),
     db.from("member_private").select("*"),
@@ -145,6 +145,10 @@ async function loadContext(memberId: string): Promise<Ctx> {
     db.from("scores").select("member_id,game,score,day").order("created_at", { ascending: false }).limit(200),
     db.from("messages").select("member_id,content,created_at").eq("channel", "gruppo").order("created_at", { ascending: false }).limit(120),
     db.from("vibe_answers").select("member_id,question,answer").order("created_at"),
+    db.from("daily_answers").select("member_id,question,answer,day").order("created_at", { ascending: false }).limit(120),
+    db.from("photos").select("member_id,caption,created_at").order("created_at", { ascending: false }).limit(40),
+    db.from("news").select("items,updated_at").eq("id", 1).maybeSingle(),
+    db.from("effects").select("kind,target,value,until").gt("until", new Date().toISOString()),
   ]);
 
   const m: Row[] = members.data ?? [];
@@ -188,6 +192,10 @@ async function loadContext(memberId: string): Promise<Ctx> {
     `SALDI (positivo = deve ricevere):\n${[...balances].map(([id, v]) => `- ${name(id)}: ${v.toFixed(2)}€`).join("\n")}`,
     `GIOCHI (ultimi punteggi; sudoku = secondi, meno è meglio; fuochi = punti):\n${(scores.data ?? []).slice(0, 40).map((x) => `- ${x.day} ${name(x.member_id)} ${x.game}: ${x.score}`).join("\n") || "(nessuno)"}`,
     `CHAT DI GRUPPO (ultimi 120 messaggi: leggili tutti, ci sono decisioni, preferenze, cose dette e da salvare):\n${(groupChat.data ?? []).slice().reverse().map((x) => `- ${name(x.member_id)}: ${String(x.content).slice(0, 300)}`).join("\n") || "(vuota)"}`,
+    `RISPOSTE ALLE DOMANDE DEL GIORNO (preferenze dichiarate da ognuno: usale per proporre e decidere):\n${(daily.data ?? []).map((d) => `- ${name(d.member_id)} · ${d.question} → ${d.answer}`).join("\n") || "(nessuna)"}`,
+    `FOTO CARICATE: ${(photos.data ?? []).length}${(photos.data ?? []).filter((x) => x.caption).slice(0, 10).map((x) => ` · ${name(x.member_id)}: «${x.caption}»`).join("")}`,
+    `EFFETTI DELLA RUOTA ATTIVI: ${(effects.data ?? []).map((e) => `${name(e.target)} ${e.kind === "mute" ? "silenziato" : e.kind === "nick" ? `si chiama «${e.value}»` : e.kind === "title" ? `ha il titolo «${e.value}»` : "ha lo scudo"} fino alle ${new Date(e.until).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })}`).join("; ") || "nessuno"}`,
+    `NOTIZIE DEL GIORNO (sezione Home, da testate affidabili):\n${((news.data?.items ?? []) as Row[]).map((n) => `- ${n.titolo}`).join("\n") || "(nessuna)"}`,
     `CHI È CHI (note dell'organizzatore sul gruppo, riservate: usale per capire e personalizzare, non citarle mai alla lettera):\n${(vibes.data ?? []).map((v) => `- ${v.member_id ? name(v.member_id) : "Gruppo"} · ${v.question} → ${v.answer}`).join("\n") || "(ancora nessuna)"}`,
     `CHECKLIST:\n${(checklist.data ?? []).map((c) => `- [${c.done ? "x" : " "}] ${c.text}${c.assignee ? ` → ${name(c.assignee)}` : ""}`).join("\n") || "(vuota)"}`,
   ].join("\n\n");
@@ -685,6 +693,8 @@ async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boole
   if (messages.at(-1)?.role === "user") messages[messages.length - 1].content += `\n\n${turn}`;
   else messages.push({ role: "user", content: turn });
   const system = [{ type: "text", text: systemPrompt(ctx), cache_control: { type: "ephemeral" } }];
+  const deep = opts.readOnly || question.length > 180 || /cerca|trova|prezz|cost|volo|voli|treno|hotel|alberg|apparta|ristor|locale|event|discotec|biglietti|propon|organizz|pianifi|confront|programma|itinerar|quanto|dove|meteo|verifica|link/i.test(question);
+  const effort = deep ? "high" : "low";
   const started = Date.now();
   // In sola lettura (resoconto automatico) restano ricerca e proposte, niente scritture nel database.
   const toolset = opts.readOnly ? tools.filter((t: { name: string }) => ["web_search", "web_fetch", "proponi_sondaggio", "proponi_opzione"].includes(t.name)) : tools;
@@ -706,7 +716,7 @@ async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boole
         model: MODEL,
         max_tokens: 16000,
         thinking: { type: "adaptive" },
-        output_config: { effort: "high" },
+        output_config: { effort },
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
         cache_control: { type: "ephemeral" },

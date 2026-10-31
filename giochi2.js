@@ -19,17 +19,17 @@ const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ
 // ───────────────────────── Ruota della fortuna ─────────────────────────
 
 const WHEEL = [
-  { k: "coins10", label: "10", sub: "gettoni", c: "#9cc3ff" },
-  { k: "mute", label: "Silenzia", sub: "1 ora", c: "#ff8f8f" },
-  { k: "coins25", label: "25", sub: "gettoni", c: "#c4b5fd" },
-  { k: "title", label: "Titolo", sub: "del giorno", c: "#7ee2b8" },
-  { k: "nothing", label: "Niente", sub: "ritenta", c: "#5b5f86" },
-  { k: "coins50", label: "50", sub: "gettoni", c: "#9cc3ff" },
-  { k: "nick", label: "Soprannome", sub: "a un amico", c: "#ffc978" },
+  { k: "coins10", label: "10", sub: "gettoni", c: "#e6d4ff" },
+  { k: "mute", label: "Silenzia", sub: "1 ora", c: "#c9f3ee" },
+  { k: "coins25", label: "25", sub: "gettoni", c: "#dfe8ff" },
+  { k: "title", label: "Titolo", sub: "del giorno", c: "#e6d4ff" },
+  { k: "nothing", label: "Niente", sub: "ritenta", c: "#c9f3ee" },
+  { k: "coins50", label: "50", sub: "gettoni", c: "#dfe8ff" },
+  { k: "nick", label: "Soprannome", sub: "a un amico", c: "#e6d4ff" },
   { k: "shield", label: "Scudo", sub: "24 ore", c: "#c9f3ee" },
-  { k: "coins100", label: "100", sub: "gettoni", c: "#c4b5fd" },
-  { k: "again", label: "Rigira", sub: "subito", c: "#7ee2b8" },
-  { k: "jackpot", label: "500", sub: "jackpot", c: "#ffd27a" },
+  { k: "coins100", label: "100", sub: "gettoni", c: "#dfe8ff" },
+  { k: "again", label: "Rigira", sub: "subito", c: "#e6d4ff" },
+  { k: "jackpot", label: "500", sub: "jackpot", c: "#c9f3ee" },
 ];
 const prizeKey = s => (s.prize === "coins" ? (s.amount >= 500 ? "jackpot" : `coins${s.amount}`) : s.prize);
 const PRIZE_TEXT = {
@@ -122,7 +122,7 @@ function wheelCard() {
   const todayFeed = (S.wheel_spins || []).filter(s => s.day === today() && s.member_id !== ME).slice(-5).reverse();
   const top = [...new Set(S.members.map(m => m.id))].map(id => ({ id, c: coinsOf(id) })).filter(x => x.c).sort((a, b) => b.c - a.c).slice(0, 3);
   return `<section class="card game-card wheel-card">
-    <div class="row top"><img class="game-logo" src="loghi/ruota.png" alt=""><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Ruota della fortuna</div>
+    <div class="row top"><div class="game-ico">${ico("star", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Ruota della fortuna</div>
       <div class="small muted" style="margin-top:6px">Un giro al giorno. Si vincono gettoni, titoli, scudi e il premio più ambito: silenziare un amico per un'ora.</div></div></div>
     <div class="wheel-box"><div class="wheel-pin"></div>${wheelSvg()}</div>
     <button class="btn pearl block" id="wheel-go" data-act="wheel-spin" ${canSpin() ? "" : "disabled"}>${canSpin() ? "Gira la ruota" : "Hai già girato: torna domani"}</button>
@@ -186,20 +186,28 @@ function playEnigma(idx) {
   let st; try { st = JSON.parse(storage.get(key)) || {}; } catch { st = {}; }
   st.tries ||= 0;
   const official = daily && !playedToday("enigma");
+  const maxT = daily ? 1 : 3;
   openGame(`
     <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
-      <div class="grow" style="text-align:center"><div class="eyebrow">${daily ? "Enigma del giorno" : `Enigma n. ${idx + 1}`}</div><div class="tiny faint">${official ? "3 tentativi · 3 punti al primo colpo" : "Allenamento"}</div></div><span style="width:36px"></span></div>
+      <div class="grow" style="text-align:center"><div class="eyebrow">${daily ? "Enigma del giorno" : `Enigma n. ${idx + 1}`}</div><div class="tiny faint">${daily ? "Una risposta sola: o la sai o no" : "Allenamento · tre tentativi"}</div></div><span style="width:36px"></span></div>
     <div class="enigma">
-      <img class="game-logo big" src="loghi/enigma.png" alt="">
+      <div class="game-ico big">${ico("key", 36)}</div>
       <p class="enigma-q serif">${esc(e.q)}</p>
       <div id="en-hint" class="enigma-hint" ${st.hint ? "" : "hidden"}>${ico("key", 15)}${esc(e.h)}</div>
       <form id="en-form" class="row" style="gap:8px;margin-top:16px"><input name="a" placeholder="La tua risposta" autocomplete="off" style="flex:1" ${st.done ? "disabled" : ""}><button class="btn pearl" ${st.done ? "disabled" : ""}>Prova</button></form>
-      <div class="row between" style="margin-top:10px"><span class="tiny faint" id="en-tries">${3 - st.tries} tentativi</span>${st.hint || st.done ? "" : `<button class="link tiny" id="en-hint-btn">Indizio (vale un punto)</button>`}</div>
+      <div class="row between" style="margin-top:10px"><span class="tiny faint" id="en-tries">${daily ? "" : `${maxT - st.tries} tentativi`}</span>${daily || st.hint || st.done ? "" : `<button class="link tiny" id="en-hint-btn">Indizio</button>`}</div>
       <div id="en-out"></div>
       ${daily ? "" : `<button class="btn block" style="margin-top:14px" data-act="enigma-next">Un altro enigma</button>`}
     </div>`);
   const save = () => storage.set(key, JSON.stringify(st));
   const out = msg => { $("#en-out").innerHTML = msg; };
+  const whoGot = () => {
+    // Chi ci ha preso oggi, chi no e chi deve ancora rispondere.
+    const rows = (S.scores || []).filter(x => x.game === "enigma" && x.day === today());
+    const by = new Map(rows.map(r => [r.member_id, r]));
+    return `<div class="who-got">${S.members.map(m => { const r = by.get(m.id); return `<div class="${r ? (r.meta?.ok || r.score > 0 ? "yes" : "no") : "wait"}">${avatar(m, "sm")}<span>${esc(m.name)}</span><b>${r ? (r.meta?.ok || r.score > 0 ? "giusto" : "sbagliato") : "non ancora"}</b></div>`; }).join("")}</div>`;
+  };
+  if (daily && st.done) setTimeout(() => { const o = $("#en-out"); if (o) o.insertAdjacentHTML("beforeend", whoGot()); }, 0);
   if (st.done) out(st.won ? `<div class="enigma-ok">Risolto. ${esc(e.a[0])}.</div>` : `<div class="enigma-ko">La risposta era: <b>${esc(e.a[0])}</b>.</div>`);
   $("#en-hint-btn")?.addEventListener("click", () => { st.hint = true; save(); $("#en-hint").hidden = false; $("#en-hint-btn").remove(); });
   $("#en-form").addEventListener("submit", async ev => {
@@ -209,17 +217,17 @@ function playEnigma(idx) {
     st.tries++;
     if (checkAnswer(e, v)) {
       st.done = st.won = true; save();
-      const pts = Math.max(1, 4 - st.tries - (st.hint ? 1 : 0));
+      const pts = daily ? 3 : Math.max(1, 4 - st.tries - (st.hint ? 1 : 0));
       out(`<div class="enigma-ok">Esatto! ${official ? `+${pts} punti` : ""}</div>`);
       navigator.vibrate?.([30, 40, 30]); confettiBurst();
-      if (official) await saveScore("enigma", pts, { tries: st.tries, hint: !!st.hint });
+      if (official) { await saveScore("enigma", pts, { ok: true, answer: String(v).slice(0, 60) }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
       else { const solved = JSON.parse(storage.get(ENIGMA_KEY + "solved") || "[]"); solved.push(idx); storage.set(ENIGMA_KEY + "solved", JSON.stringify([...new Set(solved)])); }
-    } else if (st.tries >= 3) {
+    } else if (st.tries >= maxT) {
       st.done = true; save();
-      out(`<div class="enigma-ko">Niente da fare: era <b>${esc(e.a[0])}</b>.</div>`);
-      if (official) await saveScore("enigma", 0, { tries: 3 });
+      out(`<div class="enigma-ko">${daily ? "Sbagliato" : "Niente da fare"}: era <b>${esc(e.a[0])}</b>.</div>`);
+      if (official) { await saveScore("enigma", 0, { ok: false, answer: String(v).slice(0, 60) }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
     } else { save(); out(`<div class="enigma-ko">No. Ritenta.</div>`); $("#game .enigma").classList.add("shake"); setTimeout(() => $("#game .enigma")?.classList.remove("shake"), 400); }
-    $("#en-tries").textContent = st.done ? "" : `${3 - st.tries} tentativi`;
+    $("#en-tries").textContent = st.done || daily ? "" : `${maxT - st.tries} tentativi`;
     if (st.done) $$("#en-form input, #en-form button").forEach(x => { x.disabled = true; });
   });
 }
@@ -232,8 +240,8 @@ function confettiBurst() {
 // ───────────────────────── Ordine di grandezza (trivia) ─────────────────────────
 // t: "y" anno (20 anni di errore = 0 punti), "l" scala logaritmica, numero = tolleranza lineare.
 const CATS = [
-  { k: "G", name: "Geografia", c: "#5aa9ff" }, { k: "S", name: "Storia", c: "#ffc978" }, { k: "C", name: "Scienza", c: "#7ee2b8" },
-  { k: "P", name: "Sport", c: "#ff9f6b" }, { k: "T", name: "Spettacolo", c: "#e58fff" }, { k: "K", name: "Capodanno e Italia", c: "#ff7b9c" },
+  { k: "G", name: "Geografia", c: "#c9dcff" }, { k: "S", name: "Storia", c: "#e6d4ff" }, { k: "C", name: "Scienza", c: "#c9f3ee" },
+  { k: "P", name: "Sport", c: "#dfe8ff" }, { k: "T", name: "Spettacolo", c: "#d9ccff" }, { k: "K", name: "Capodanno e Italia", c: "#f0e2ff" },
 ];
 const TQ = [
   ["G", "Quanti metri è alto il Monte Bianco?", 4806, "m", 600], ["G", "Quanti km è lungo il Po?", 652, "km", "l"], ["G", "Quanti km² misura l'Italia?", 302068, "km²", "l"],
@@ -324,7 +332,7 @@ function playTrivia(practice) {
 
 // ───────────────────────── Onorevoli ─────────────────────────
 // Tipi: Satira batte Carisma, Carisma batte Populismo, Populismo batte Tecnocrazia, Tecnocrazia batte Satira.
-const TYPES = { C: { n: "Carisma", c: "#ffc978" }, P: { n: "Populismo", c: "#ff8f8f" }, T: { n: "Tecnocrazia", c: "#9cc3ff" }, S: { n: "Satira", c: "#7ee2b8" } };
+const TYPES = { C: { n: "Carisma", c: "#e6d4ff" }, P: { n: "Populismo", c: "#ffd0d0" }, T: { n: "Tecnocrazia", c: "#c9dcff" }, S: { n: "Satira", c: "#c9f3ee" } };
 const BEATS = { S: "C", C: "P", P: "T", T: "S" };
 // Mossa: [nome, potenza, precisione, effetto]. Effetti: heal, atk+, def+, def-, atk-, stun (probabilità), multi (colpi).
 const POLS = [
@@ -355,7 +363,7 @@ function playOnorevoli() {
   openGame(`
     <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
       <div class="grow" style="text-align:center"><div class="eyebrow">Onorevoli</div><div class="tiny faint">Scegli tre combattenti · ${best ? `record ${best.s.score}` : "nessun record"}</div></div><span style="width:36px"></span></div>
-    <div class="ono-intro"><img class="game-logo big" src="loghi/onorevoli.png" alt=""><p class="small muted">Satira, non cronaca: si combatte a colpi di frasi celebri. La Satira batte il Carisma, il Carisma il Populismo, il Populismo la Tecnocrazia, la Tecnocrazia la Satira. Ogni vittoria ti porta alla legislatura successiva, più dura.</p></div>
+    <div class="ono-intro"><div class="game-ico big">${ico("trophy", 36)}</div><p class="small muted">Satira, non cronaca: si combatte a colpi di frasi celebri. La Satira batte il Carisma, il Carisma il Populismo, il Populismo la Tecnocrazia, la Tecnocrazia la Satira. Ogni vittoria ti porta alla legislatura successiva, più dura.</p></div>
     <div class="pol-grid" id="ono-pick">${POLS.map(p => `<button data-id="${p.id}">${polCard(p)}</button>`).join("")}</div>
     <button class="btn pearl block" id="ono-go" disabled style="position:sticky;bottom:calc(var(--sab) + 8px)">Scegli tre onorevoli</button>`);
   $("#ono-pick").addEventListener("click", e => {
@@ -488,21 +496,21 @@ window.games2Cards = function () {
   return `
   ${wheelCard()}
   <section class="card game-card">
-    <div class="row top"><img class="game-logo" src="loghi/enigma.png" alt=""><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Enigma del giorno</div>
+    <div class="row top"><div class="game-ico">${ico("key", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Enigma del giorno</div>
       <div class="small muted" style="margin-top:6px">Uno al giorno, uguale per tutti, volutamente cattivo. Tre tentativi; l'indizio costa un punto.${en ? ` Tu: ${en.s.score} pt, ${en.pos}°.` : ""}</div></div></div>
     <div class="grid2" style="margin-top:14px;gap:8px">
       <button class="btn ${enDone ? "" : "pearl"} block" data-act="play-enigma">${enDone ? "Rivedi l'enigma" : "Risolvi"}</button>
       <button class="btn block" data-act="enigma-next">Archivio</button></div>
   </section>
   <section class="card game-card">
-    <div class="row top"><img class="game-logo" src="loghi/trivia.png" alt=""><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Ordine di grandezza</div>
+    <div class="row top"><div class="game-ico">${ico("chart", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Ordine di grandezza</div>
       <div class="small muted" style="margin-top:6px">Il Trivial al contrario: sei categorie, ma rispondi con un numero. Non serve saperlo, serve andarci vicino. Sei spicchi per la torta.${tr ? ` Record: ${tr.s.score}.` : ""}</div></div></div>
     <div class="grid2" style="margin-top:14px;gap:8px">
       <button class="btn ${trDone ? "" : "pearl"} block" data-act="play-trivia">${trDone ? "Fatta oggi" : "Partita del giorno"}</button>
       <button class="btn block" data-act="trivia-practice">Allenamento</button></div>
   </section>
   <section class="card game-card">
-    <div class="row top"><img class="game-logo" src="loghi/onorevoli.png" alt=""><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Onorevoli</div>
+    <div class="row top"><div class="game-ico">${ico("trophy", 30)}</div><div class="grow"><div class="serif" style="font-size:28px;line-height:1">Onorevoli</div>
       <div class="small muted" style="margin-top:6px">Politici e giornalisti in lotta a turni, con le loro frasi celebri come mosse. Quante legislature reggi?${on ? ` Record: ${on.s.score}.` : ""}</div></div></div>
     <button class="btn pearl block" style="margin-top:14px" data-act="play-onorevoli">In aula</button>
   </section>`;
