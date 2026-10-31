@@ -426,6 +426,7 @@ let reloadTimer = null;
 function scheduleReload(payload) {
   // Le mosse degli scacchi vanno dritte alla scacchiera, senza ricaricare tutta l'app.
   if (payload?.table === "chess_games") { window.onChessChange?.(payload); return; }
+  if (payload?.table === "card_games") { window.onScopaChange?.(payload); return; }
   clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250);
 }
 async function reload() {

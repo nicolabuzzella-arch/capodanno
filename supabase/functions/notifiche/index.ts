@@ -142,6 +142,12 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       const tc = ({ "3+2": "3+2", "5+5": "5+5", "10+0": "10 minuti" } as Record<string, string>)[g.tc] ?? g.tc;
       return send([opp], { title: `${name(actor)} ti sfida a scacchi`, body: `Partita ${tc}: apri l'app per accettare.`, url: `?tab=giochi&chess=${g.id}`, tag: "chess-" + g.id, cat: "giochi" });
     }
+    case "scopa": {
+      // id = il tavolo appena creato: avvisa gli altri tre.
+      const { data: g } = await db.from("card_games").select("*").eq("id", id).single();
+      if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
+      return send((g.players as string[]).filter((p) => p !== actor), { title: `${name(actor)} ti chiama a scopa d'assi`, body: `Si gioca in quattro, a ${g.settings?.target ?? 21} punti: apri l'app e rispondi.`, url: "?tab=giochi", tag: "scopa-" + g.id, cat: "giochi" });
+    }
     case "booking": {
       const { data: b } = await db.from("bookings").select("*").eq("id", id).single();
       if (!b) return 0;
