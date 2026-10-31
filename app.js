@@ -192,8 +192,13 @@ const WEATHER = c => (c === 0 ? ["sun", "Sereno"] : c <= 2 ? ["sun", "Poco nuvol
 
 const Cloud = {
   sb: null,
+  // Il client si crea subito, prima di qualsiasi schermata: nessuna parte dell'app può trovarlo vuoto.
+  client() {
+    if (!this.sb && window.supabase) this.sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
+    return this.sb;
+  },
   async init() {
-    this.sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
+    if (!this.client()) throw new Error("Libreria del database non caricata: controlla la connessione");
     const { data } = await this.sb.auth.getSession();
     if (!data.session) {
       const r = await this.sb.auth.signInAnonymously();
@@ -588,8 +593,10 @@ function render() {
     if (V.mode && (UI.tab !== "chat" || V.seg !== UI.chatSeg)) stopVoice(false);
     syncComposerButtons();
   }
-  if (UI.tab === "home") { mountHome(); window.home2Mount?.(); }
-  EX[UI.tab]?.mount?.();
+  // Le parti aggiuntive non devono mai bloccare il resto dell'app.
+  const safe = fn => { try { const r = fn?.(); if (r?.catch) r.catch(e => console.error(e)); } catch (e) { console.error(e); } };
+  if (UI.tab === "home") { mountHome(); safe(window.home2Mount); }
+  safe(EX[UI.tab]?.mount);
   if (UI.tab === "chat") {
     if (UI.chatSeg === "gruppo") { const last = msgs("gruppo").at(-1); if (last) storage.set(SEEN_KEY, last.created_at); renderDock(); }
     const n = msgs(chatChannel()).length;
@@ -2832,8 +2839,10 @@ async function boot() {
     navigator.serviceWorker.addEventListener("message", e => { if (e.data?.url && applyDeepLink(new URL(e.data.url).searchParams)) { closeSheet(); render(); window.scrollTo(0, 0); } });
   }
   applyDeepLink(new URLSearchParams(location.search));
+  if (CLOUD) Cloud.client();
   const cached = loadCache();
-  if (cached) render();
+  // La copia salvata si mostra subito; se una schermata ha un problema, il collegamento parte lo stesso.
+  if (cached) { try { render(); } catch (e) { console.error(e); } }
   try {
     await api.init();
     const id = await api.whoami();

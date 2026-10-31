@@ -338,7 +338,7 @@ window.home2Bottom = () => newsCard();
 // Notizie: se sono vecchie di più di quattro ore (o mancano), chiede un aggiornamento al server.
 let newsAsked = false;
 function refreshNews() {
-  if (!CLOUD || newsAsked) return;
+  if (!CLOUD || newsAsked || !api.sb || !ME) return;
   const at = S.news?.[0]?.updated_at;
   if (at && Date.now() - new Date(at) < 4 * 3600e3 && S.news[0].items?.length) return;
   newsAsked = true;
