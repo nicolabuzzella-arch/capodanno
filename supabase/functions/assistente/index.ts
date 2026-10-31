@@ -28,6 +28,10 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
 
+// Lavoro in background: la risposta HTTP parte subito, la funzione resta viva finché il lavoro non finisce.
+// deno-lint-ignore no-explicit-any
+const background = (p: Promise<unknown>) => { const rt = (globalThis as any).EdgeRuntime; if (rt?.waitUntil) rt.waitUntil(p); else p.catch(console.error); };
+
 Deno.serve(async (req) => {
   let privateMode = false;
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -57,21 +61,36 @@ Deno.serve(async (req) => {
       privateMode = true;
       const owner = device.member_id;
       await db.from("messages").insert({ member_id: owner, owner, role: "user", channel: "privato", content: text });
-      const reply = await listen(owner, text);
-      await db.from("messages").insert({ member_id: null, owner, role: "assistant", channel: "privato", content: reply });
-      return json({ reply });
+      // Si risponde subito al telefono; il lavoro continua sul server e la risposta arriva in chat da sola,
+      // anche se nel frattempo il telefono si blocca o perde la connessione.
+      background((async () => {
+        try {
+          const reply = await listen(owner, text);
+          await db.from("messages").insert({ member_id: null, owner, role: "assistant", channel: "privato", content: reply });
+        } catch (err) {
+          console.error(err);
+          await db.from("messages").insert({ member_id: null, owner, role: "assistant", channel: "privato", content: "Scusa, mi sono perso un attimo. Riscrivimi tra poco: sono qui.", meta: { error: true } });
+        }
+      })());
+      return json({ accepted: true }, 202);
     }
 
     await db.from("messages").insert({ member_id: device.member_id, role: "user", channel: "assistente", content: text });
 
-    const ctx = await loadContext(device.member_id);
-    const reply = await runAssistant(ctx, text);
-
-    await db.from("messages").insert({
-      member_id: null, role: "assistant", channel: "assistente", content: reply,
-      meta: ctx.proposals.length ? { actions: ctx.proposals } : null,
-    });
-    return json({ reply });
+    background((async () => {
+      try {
+        const ctx = await loadContext(device.member_id);
+        const reply = await runAssistant(ctx, text);
+        await db.from("messages").insert({
+          member_id: null, role: "assistant", channel: "assistente", content: reply,
+          meta: ctx.proposals.length ? { actions: ctx.proposals } : null,
+        });
+      } catch (err) {
+        console.error(err);
+        await db.from("messages").insert({ member_id: null, role: "assistant", channel: "assistente", content: explainError(err), meta: { error: true } });
+      }
+    })());
+    return json({ accepted: true }, 202);
   } catch (err) {
     console.error(err);
     const msg = explainError(err);

@@ -1,7 +1,7 @@
 /* Capodanno - cache offline.
    Prima la rete (così un aggiornamento si vede subito); la cache serve solo senza connessione.
    I dati del gruppo restano anche offline perché l'app ne tiene una copia sul telefono. */
-const V = "capodanno-v11";
+const V = "capodanno-v12";
 const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./voice.js", "./games.js", "./killer-lib.js", "./chess-engine.js", "./chess.js",
   ...["K", "Q", "R", "B", "N", "P"].flatMap(p => [`./pezzi/w${p}.svg`, `./pezzi/b${p}.svg`]), "./icon.svg"];
 
@@ -24,7 +24,8 @@ self.addEventListener("fetch", e => {
     (url.origin === location.origin || url.hostname === "cdn.jsdelivr.net" || url.hostname.endsWith("gstatic.com") || url.hostname === "fonts.googleapis.com");
   if (!cacheable) return;
   e.respondWith(
-    fetch(e.request)
+    // Stessa origine: si chiede sempre al server se il file è cambiato (aggiornamenti immediati per tutti).
+    fetch(e.request, url.origin === location.origin ? { cache: "no-cache" } : undefined)
       .then(r => { const copy = r.clone(); caches.open(V).then(c => c.put(e.request, copy)); return r; })
       .catch(() => caches.match(e.request).then(r => r || caches.match("./index.html")))
   );

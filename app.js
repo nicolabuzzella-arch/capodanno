@@ -426,6 +426,7 @@ async function reload() {
     S = data;
     S.messages.sort(byCreated);
     OFFLINE = false;
+    checkAnswered();
     if (!S.members.some(m => m.id === ME)) { ME = null; storage.del(CACHE_KEY); storage.del(LAST_KEY); return showOnboarding(); }
     saveCache();
     rememberMe();
@@ -1685,17 +1686,30 @@ async function ask(text, mode = "ai") {
   const labels = mode === "ascolto" ? ["Sto leggendo", "Ci penso un attimo"] : ["Sto pensando", "Leggo i dati del gruppo", "Cerco sul web", "Confronto le opzioni", "Ancora un attimo"];
   let i = 0;
   thinkingTimer = setInterval(() => { const el = $("#thinking-label"); if (el) el.textContent = labels[Math.min(++i, labels.length - 1)]; }, 4000);
+  const ch = mode === "ascolto" ? "privato" : "assistente";
+  UI.aiBefore = msgs(ch).filter(m => m.role === "assistant").length;
+  let keepWaiting = CLOUD;
   try {
-    if (CLOUD) S.messages.push({ id: "tmp", member_id: ME, owner: mode === "ascolto" ? ME : null, role: "user", channel: mode === "ascolto" ? "privato" : "assistente", content: text, created_at: new Date().toISOString() });
+    if (CLOUD) S.messages.push({ id: "tmp", member_id: ME, owner: mode === "ascolto" ? ME : null, role: "user", channel: ch, content: text, created_at: new Date().toISOString() });
     render();
     await api.ask(text, mode === "ascolto" ? "ascolto" : undefined);
   } catch (e) {
-    toast((mode === "ascolto" ? "Non riesco a rispondere ora: " : `${AI()} non risponde: `) + e.message, "alert");
-  } finally {
-    clearInterval(thinkingTimer);
-    UI.waiting = false;
-    await reload();
+    // Rete caduta o telefono in pausa: la domanda quasi sempre è arrivata, la risposta comparirà da sola.
+    const network = /raggiungere|fetch|network|load failed|tempo/i.test(e.message);
+    if (!network) { keepWaiting = false; toast((mode === "ascolto" ? "Non riesco a rispondere ora: " : `${AI()} non risponde: `) + e.message, "alert"); }
   }
+  if (!keepWaiting) { stopWaiting(); await reload(); return; }
+  // Zampone lavora sul server: la risposta arriva in tempo reale. Dopo 3 minuti smettiamo di aspettare a vista.
+  clearTimeout(UI.waitTimer);
+  UI.waitTimer = setTimeout(() => { if (UI.waiting) { stopWaiting(); render(); toast(`${AI()} ci sta mettendo tanto: la risposta comparirà qui appena pronta`); } }, 180000);
+  await reload();
+}
+function stopWaiting() { clearInterval(thinkingTimer); clearTimeout(UI.waitTimer); UI.waiting = false; }
+// Chiamata a ogni ricarica: la risposta è arrivata?
+function checkAnswered() {
+  if (!UI.waiting) return;
+  const ch = UI.waiting === "ascolto" ? "privato" : "assistente";
+  if (msgs(ch).filter(m => m.role === "assistant").length > (UI.aiBefore ?? 0)) { stopWaiting(); navigator.vibrate?.(12); }
 }
 
 // Scorri un messaggio verso destra per rispondere, come su WhatsApp.
@@ -1766,11 +1780,11 @@ async function syncPush() {
 }
 function pushCard() {
   const st = pushState();
-  if (!["ask", "install"].includes(st) || storage.get(PUSH_KEY + "-later") === today()) return "";
+  if (!["ask", "install"].includes(st)) return "";
   return `<section class="card">
     <div class="row top">${ico("bell", 22)}<div class="grow"><div class="t">Attiva le notifiche</div>
-      <div class="small muted" style="margin-top:4px">${st === "install" ? "Su iPhone arrivano solo con l'app aggiunta alla schermata Home." : "Ti avvisiamo quando c'è un sondaggio da votare, una quota da versare o un messaggio nel gruppo. E ogni sera, solo se c'è qualcosa in sospeso."}</div></div></div>
-    <div class="row" style="gap:8px;margin-top:14px"><button class="btn primary grow" data-act="push-on">${st === "install" ? "Come fare" : "Attiva"}</button><button class="btn" data-act="push-later">Non ora</button></div>
+      <div class="small muted" style="margin-top:4px">${st === "install" ? "Su iPhone arrivano solo con l'app aggiunta alla schermata Home." : "Servono per sondaggi, quote e prenotazioni: senza, il gruppo resta ad aspettarti. Chat e giochi li puoi silenziare quando vuoi."}</div></div></div>
+    <div class="row" style="gap:8px;margin-top:14px"><button class="btn pearl grow" data-act="push-on">${st === "install" ? "Come fare" : "Attiva le notifiche"}</button></div>
   </section>`;
 }
 function applyDeepLink(q) {
@@ -2207,6 +2221,33 @@ function openSheet(html) {
   el.innerHTML = `<div class="sheet-backdrop" data-act="close-sheet"></div><div class="sheet-panel" role="dialog" aria-modal="true"><div class="grabber"></div>${html}</div>`;
   el.classList.add("open");
   document.body.style.overflow = "hidden";
+  sheetSwipe(el.querySelector(".sheet-panel"), el.querySelector(".sheet-backdrop"));
+}
+// Come su iPhone: trascinando il pannello verso il basso (dall'inizio del contenuto) si chiude.
+function sheetSwipe(panel, backdrop) {
+  let y0 = null, dy = 0, t0 = 0;
+  panel.addEventListener("touchstart", e => {
+    if (panel.scrollTop > 2 || e.target.closest("input,textarea,select,[data-noswipe]")) { y0 = null; return; }
+    y0 = e.touches[0].clientY; dy = 0; t0 = Date.now(); panel.style.transition = "none";
+  }, { passive: true });
+  panel.addEventListener("touchmove", e => {
+    if (y0 == null) return;
+    dy = Math.max(0, e.touches[0].clientY - y0);
+    if (!dy) return;
+    panel.style.transform = `translateY(${dy}px)`;
+    backdrop.style.opacity = String(Math.max(0.2, 1 - dy / 400));
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  const end = () => {
+    if (y0 == null) return;
+    const v = dy / Math.max(1, Date.now() - t0);
+    panel.style.transition = "transform .25s cubic-bezier(.2,.9,.25,1)";
+    if (dy > 110 || (dy > 30 && v > 0.55)) { panel.style.transform = "translateY(105%)"; backdrop.style.opacity = "0"; setTimeout(closeSheet, 200); }
+    else { panel.style.transform = ""; backdrop.style.opacity = ""; }
+    y0 = null;
+  };
+  panel.addEventListener("touchend", end);
+  panel.addEventListener("touchcancel", end);
 }
 function closeSheet() {
   const el = $("#sheet");
@@ -2450,12 +2491,23 @@ const ACTIONS = {
   },
   async "feedback-done"(el) { try { await api.update("feedback", { id: el.dataset.id }, { status: "fatto" }); await reload(); ACTIONS["feedback-list"](); } catch (e) { toast(e.message); } },
   "push-on": () => enablePush(),
+  async "notif-pref"(el) {
+    const notif = { ...(me()?.notif || {}), [el.dataset.k]: el.checked ? "on" : "off" };
+    try { await api.update("members", { id: ME }, { notif }); me().notif = notif; toast(el.checked ? "Attivate" : "Silenziate", "bell"); } catch (e) { toast(e.message, "alert"); el.checked = !el.checked; }
+  },
   "push-later": () => { storage.set(PUSH_KEY + "-later", today()); render(); },
   "push-toggle": () => {
     const st = pushState();
     if (st !== "on") return enablePush();
-    openSheet(`<h2>Notifiche</h2><p class="small muted" style="margin:-6px 0 16px">Sondaggi nuovi, quote da versare, messaggi del gruppo, prenotazioni confermate e un promemoria serale solo se c'è qualcosa in sospeso.</p>
-      <div class="stack"><button class="btn block" data-act="push-test">${ico("bell", 17)}Manda una notifica di prova</button>
+    const prefs = me()?.notif || {};
+    const opt = (k, t, d) => `<label class="li tap"><div class="grow"><div class="t">${t}</div><div class="small muted">${d}</div></div><span class="switch"><input type="checkbox" data-act="notif-pref" data-k="${k}" ${prefs[k] === "off" ? "" : "checked"}><span></span></span></label>`;
+    openSheet(`<h2>Notifiche</h2>
+      <div class="label">Sempre attive</div>
+      <div class="small muted" style="margin:-4px 0 14px">Sondaggi da votare, quote da pagare, prenotazioni confermate e il promemoria della sera (solo se c'è qualcosa in sospeso). Sono quelle che fanno girare il viaggio: non si spengono.</div>
+      <div class="label">A scelta tua</div>
+      ${opt("chat", "Messaggi del gruppo", "Ogni messaggio nella chat")}
+      ${opt("giochi", "Sfide ai giochi", "Inviti a scacchi, scopa, tiro alla fune")}
+      <div class="stack" style="margin-top:16px"><button class="btn block" data-act="push-test">${ico("bell", 17)}Manda una notifica di prova</button>
       <button class="btn block danger" data-act="push-off">Disattiva su questo telefono</button><button class="btn block" data-act="close-sheet">Chiudi</button></div>`);
   },
   async "push-test"() { try { const r = await api.notifyTest(); toast(r?.sent ? "Inviata: arriva tra un attimo" : "Nessun telefono iscritto", "bell"); } catch (e) { toast(e.message, "alert"); } },
@@ -2713,7 +2765,31 @@ $("#fab").innerHTML = ico("spark", 26);
 
 // ───────────────────────── Avvio ─────────────────────────
 
+// ───────────────────────── Aggiornamenti automatici ─────────────────────────
+// Ogni volta che l'app torna in primo piano (e ogni 5 minuti) controlla version.json:
+// se è uscita una versione nuova si ricarica da sola, ma mai nel mezzo di una partita, un vocale o un modulo.
+let APP_V = null, updatePending = false;
+async function checkUpdate() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!r.ok) return;
+    const v = (await r.json()).v;
+    if (APP_V === null) { APP_V = v; return; }
+    if (v !== APP_V) { updatePending = true; navigator.serviceWorker?.getRegistration().then(reg => reg?.update()).catch(() => {}); applyUpdate(); }
+  } catch { /* offline */ }
+}
+function applyUpdate() {
+  if (!updatePending) return;
+  const busy = !$("#game").hidden || (typeof V !== "undefined" && V.mode) || UI.waiting || $("#sheet").classList.contains("open")
+    || (document.activeElement && document.activeElement.matches("input,textarea") && document.activeElement.value);
+  if (busy) return setTimeout(applyUpdate, 4000);
+  location.reload();
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
+setInterval(checkUpdate, 5 * 60000);
+
 async function boot() {
+  checkUpdate();
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});
     // Tocco su una notifica con l'app già aperta: il service worker ci dice dove andare.

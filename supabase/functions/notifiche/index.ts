@@ -23,7 +23,8 @@ const json = (body: unknown, status = 200) =>
 
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
-interface Note { title: string; body: string; url: string; tag?: string }
+// cat: categoria facoltativa (chat, giochi) che ognuno può silenziare; senza cat la notifica arriva sempre.
+interface Note { title: string; body: string; url: string; tag?: string; cat?: string }
 
 // ───────────────────────── Chiavi e invio ─────────────────────────
 
@@ -47,12 +48,17 @@ function server() {
 }
 
 async function send(memberIds: string[], note: Note): Promise<number> {
-  const ids = [...new Set(memberIds)];
+  let ids = [...new Set(memberIds)];
+  if (note.cat && ids.length) {
+    const { data: prefs } = await db.from("members").select("id,notif").in("id", ids);
+    const off = new Set((prefs ?? []).filter((m) => m.notif?.[note.cat!] === "off").map((m) => m.id));
+    ids = ids.filter((id) => !off.has(id));
+  }
   if (!ids.length) return 0;
   const { data: subs } = await db.from("push_subscriptions").select("*").in("member_id", ids);
   if (!subs?.length) return 0;
   const { app } = await server();
-  const payload = JSON.stringify({ ...note, url: APP_URL + note.url });
+  const payload = JSON.stringify({ title: note.title, body: note.body, tag: note.tag, url: APP_URL + note.url });
   let sent = 0;
   await Promise.all(subs.map(async (s) => {
     try {
@@ -115,7 +121,7 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
     case "chat": {
       const { data: m } = await db.from("messages").select("*").eq("id", id).single();
       if (!m || m.channel !== "gruppo") return 0;
-      return send(others.filter((x) => x !== m.member_id), { title: name(m.member_id), body: cut(m.content), url: "?tab=chat", tag: "chat" });
+      return send(others.filter((x) => x !== m.member_id), { title: name(m.member_id), body: cut(m.content), url: "?tab=chat", tag: "chat", cat: "chat" });
     }
     case "feedback": {
       const { data: f } = await db.from("feedback").select("*").eq("id", id).single();
@@ -126,7 +132,7 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
     case "duel": {
       // id = la persona sfidata.
       if (!id || id === actor) return 0;
-      return send([id], { title: `${name(actor)} ti sfida`, body: "Tiro alla fune: apri l'app entro un minuto per accettare.", url: "?tab=giochi", tag: "duel" });
+      return send([id], { title: `${name(actor)} ti sfida`, body: "Tiro alla fune: apri l'app entro un minuto per accettare.", url: "?tab=giochi", tag: "duel", cat: "giochi" });
     }
     case "chess": {
       // id = la partita appena proposta.
@@ -134,7 +140,7 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
       const opp = g.white === actor ? g.black : g.white;
       const tc = ({ "3+2": "3+2", "5+5": "5+5", "10+0": "10 minuti" } as Record<string, string>)[g.tc] ?? g.tc;
-      return send([opp], { title: `${name(actor)} ti sfida a scacchi`, body: `Partita ${tc}: apri l'app per accettare.`, url: `?tab=giochi&chess=${g.id}`, tag: "chess-" + g.id });
+      return send([opp], { title: `${name(actor)} ti sfida a scacchi`, body: `Partita ${tc}: apri l'app per accettare.`, url: `?tab=giochi&chess=${g.id}`, tag: "chess-" + g.id, cat: "giochi" });
     }
     case "booking": {
       const { data: b } = await db.from("bookings").select("*").eq("id", id).single();
