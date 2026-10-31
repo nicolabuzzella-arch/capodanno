@@ -1,7 +1,7 @@
 /* Capodanno - cache offline.
    Prima la rete (così un aggiornamento si vede subito); la cache serve solo senza connessione.
    I dati del gruppo restano anche offline perché l'app ne tiene una copia sul telefono. */
-const V = "capodanno-v17";
+const V = "capodanno-v18";
 const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./voice.js", "./games.js", "./killer-lib.js", "./chess-engine.js", "./chess.js", "./sezioni.js", "./giochi2.js", "./scopa.js", "./home2.js", "./duelli.js", "./onorevoli.js", "./mappa3d.js",
   "./carte/retro.svg", ..."DHSC".split("").flatMap(x => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `./carte/${x}${n}.svg`)),
   ...["K", "Q", "R", "B", "N", "P"].flatMap(p => [`./pezzi/w${p}.svg`, `./pezzi/b${p}.svg`]), "./icon.svg"];
@@ -27,7 +27,7 @@ self.addEventListener("fetch", e => {
   e.respondWith(
     // Stessa origine: si chiede sempre al server se il file è cambiato (aggiornamenti immediati per tutti).
     fetch(e.request, url.origin === location.origin ? { cache: "no-cache" } : undefined)
-      .then(r => { const copy = r.clone(); caches.open(V).then(c => c.put(e.request, copy)); return r; })
+      .then(r => { if (r.ok) { const copy = r.clone(); caches.open(V).then(c => c.put(e.request, copy)); } return r; })
       .catch(() => caches.match(e.request).then(r => r || caches.match("./index.html")))
   );
 });

@@ -488,14 +488,17 @@ async function loadPolFaces() {
 // Prima la foto salvata nell'app (cartella volti/), se manca quella presa da Wikipedia, se manca anche quella le iniziali.
 const LOCAL_FACE = new Set(POLS.map(p => p.id));
 const LOCAL_FAIL = new Set();
+const FACES_V = 3; // si alza quando cambiano le foto in volti/
 window.polFaceErr = img => {
   const box = img.closest(".pol-face"), id = box?.dataset.pol; img.remove();
   if (!id) return;
+  // Prima di arrendersi riprova una volta saltando la cache (la foto può essere arrivata da poco).
+  if (img.dataset.local && !img.dataset.retry) { const n = document.createElement("img"); n.alt = ""; n.dataset.local = "1"; n.dataset.retry = "1"; n.onerror = () => polFaceErr(n); n.src = `volti/${id}.jpg?r=${Date.now()}`; box.appendChild(n); return; }
   if (img.dataset.local) { LOCAL_FAIL.add(id); if (polFaces[id]) $$(`.pol-face[data-pol="${id}"]`).forEach(el => { if (!el.querySelector("img")) el.insertAdjacentHTML("beforeend", `<img src="${esc(polFaces[id])}" alt="" referrerpolicy="no-referrer" onerror="polFaceErr(this)">`); }); else { clearTimeout(window.__pfT); window.__pfT = setTimeout(() => { polFacesAsked = false; loadPolFaces(); }, 300); } }
 };
 const polFace = (p, cls = "") => {
   const local = LOCAL_FACE.has(p.id) && !LOCAL_FAIL.has(p.id);
-  const src = local ? `volti/${p.id}.jpg` : polFaces[p.id];
+  const src = local ? `volti/${p.id}.jpg?v=${FACES_V}` : polFaces[p.id];
   return `<div class="pol-face ${cls}" data-pol="${p.id}" style="--c:${TYPES[p.t].c}"><span>${polInitials(p.n)}</span>${src ? `<img src="${esc(src)}" alt="" ${local ? 'data-local="1"' : 'referrerpolicy="no-referrer"'} onerror="polFaceErr(this)">` : ""}</div>`;
 };
 const polCard = (p, cls = "") => `<div class="pol ${cls}" style="--c:${TYPES[p.t].c}">${polFace(p)}<div class="pol-name">${esc(p.n)}</div><div class="pol-type">${TYPES[p.t].n}</div></div>`;
