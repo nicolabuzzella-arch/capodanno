@@ -119,11 +119,16 @@ async function saveScore(game, score, meta = {}) {
 // ───────────────────────── Overlay di gioco ─────────────────────────
 
 let gameCleanup = null;
+let gameScroll = 0;
 function openGame(html) {
   closeGame();
   const el = $("#game");
   el.innerHTML = html;
   el.hidden = false;
+  // Durante il gioco l'app sotto non viene disegnata: niente vetri sfocati e aurora da ricalcolare,
+  // così iPhone non esaurisce la memoria grafica quando si tocca a raffica.
+  if (!document.body.classList.contains("gaming")) gameScroll = scrollY;
+  document.body.classList.add("gaming");
   document.body.style.overflow = "hidden";
 }
 function closeGame() {
@@ -131,6 +136,7 @@ function closeGame() {
   const el = $("#game");
   el.hidden = true; el.innerHTML = "";
   document.body.style.overflow = "";
+  if (document.body.classList.contains("gaming")) { document.body.classList.remove("gaming"); scrollTo(0, gameScroll); }
 }
 
 // ───────────────────────── Sudoku ─────────────────────────
@@ -518,13 +524,18 @@ function playFune(opts) {
     <div id="fu-end"></div>`);
 
   let mine = 0, opp = 0, startAt = 0, ended = false, raf = 0, sendT = 0, cpuT = 0, ch = null, endTimer = null;
-  const knot = $("#fu-knot");
+  const knot = $("#fu-knot"), meEl = $("#fu-me"), oppEl = $("#fu-opp"), timeEl = $("#fu-time");
+  const ropeW = $(".rope").clientWidth;
   const diff = () => mine - opp;
+  let shown = "";
   const paint = () => {
+    // Si ridisegna solo se qualcosa è cambiato; il nodo si sposta con transform (niente ricalcolo del layout).
+    const key = `${mine}:${opp}`;
+    if (key === shown) return; shown = key;
     // Il nodo va verso chi tira di più: a sinistra ci sei tu.
     const pct = Math.max(-1, Math.min(1, diff() / FUNE_WIN));
-    knot.style.left = `${50 - pct * 42}%`;
-    $("#fu-me").textContent = mine; $("#fu-opp").textContent = opp;
+    knot.style.transform = `translate3d(${(-pct * 0.42 * ropeW).toFixed(1)}px,0,0)`;
+    meEl.textContent = mine; oppEl.textContent = opp;
   };
   const finish = async (winner) => {
     if (ended) return; ended = true;
@@ -540,7 +551,8 @@ function playFune(opts) {
   };
   const loop = () => {
     const t = (Date.now() - startAt) / 1000;
-    $("#fu-time").textContent = Math.max(0, Math.ceil(FUNE_TIME - t));
+    const secs = String(Math.max(0, Math.ceil(FUNE_TIME - t)));
+    if (timeEl.textContent !== secs) timeEl.textContent = secs;
     paint();
     // Arbitro: chi ha lanciato la sfida (o il telefono contro il computer).
     if (cpu || opts.host) {
@@ -558,13 +570,14 @@ function playFune(opts) {
       if (left > 0) { $("#fu-msg").textContent = left; setTimeout(count, 120); return; }
       $("#fu-msg").textContent = "Tira!"; $("#fu-tap").disabled = false;
       startAt = Date.now(); raf = requestAnimationFrame(loop);
-      if (!cpu) sendT = setInterval(() => ch.send({ type: "broadcast", event: "taps", payload: { id: ME, n: mine } }), 90);
+      let sent = -1;
+      if (!cpu) sendT = setInterval(() => { if (mine !== sent) { sent = mine; ch.send({ type: "broadcast", event: "taps", payload: { id: ME, n: mine } }); } }, 90);
       else cpuT = setInterval(() => { const t = (Date.now() - startAt) / 1000; if (Math.random() < 0.55 + Math.min(0.3, t / 40)) opp++; }, 110);
       if (!cpu && !opts.host) endTimer = setTimeout(() => finish(diff() > 0 ? "me" : diff() < 0 ? "opp" : "draw"), (FUNE_TIME + 3) * 1000);
     };
     count();
   };
-  $("#fu-tap").addEventListener("pointerdown", e => { e.preventDefault(); if (ended || !startAt) return; mine++; navigator.vibrate?.(5); paint(); });
+  $("#fu-tap").addEventListener("pointerdown", e => { e.preventDefault(); if (ended || !startAt) return; mine++; });
 
   if (cpu) { setTimeout(() => go(Date.now() + 3000), 600); }
   else {

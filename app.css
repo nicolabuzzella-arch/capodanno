@@ -176,7 +176,7 @@ a{color:inherit}
 .chat{display:flex;flex-direction:column;gap:12px;padding-bottom:100px}
 .msg{display:flex;gap:10px;align-items:flex-end;max-width:90%}
 .msg.mine{align-self:flex-end;flex-direction:row-reverse}
-.bubble{padding:11px 14px;border-radius:22px;font-size:15px;line-height:1.5;overflow-wrap:anywhere;background:var(--fill-2);box-shadow:inset 0 0 0 1px var(--line)}
+.bubble{min-width:0;max-width:100%;padding:11px 14px;border-radius:22px;font-size:15px;line-height:1.5;overflow-wrap:anywhere;background:var(--fill-2);box-shadow:inset 0 0 0 1px var(--line)}
 .msg.mine .bubble{background:linear-gradient(180deg,#fff,#e4e4ea);color:#0a0a0c;box-shadow:none;border-bottom-right-radius:8px}
 .msg:not(.mine) .bubble{border-bottom-left-radius:8px}
 .msg.ai .bubble{background:linear-gradient(150deg,rgba(230,212,255,.12),rgba(201,243,238,.05));box-shadow:inset 0 0 0 1px rgba(230,212,255,.18)}
@@ -361,6 +361,7 @@ input.mini[hidden]{display:none}
 .quote{display:flex;flex-direction:column;gap:1px;margin:-2px -4px 6px;padding:6px 10px;border-radius:12px;background:rgba(0,0,0,.18);border-left:3px solid var(--violet);font-size:13px;max-width:100%;cursor:pointer}
 .msg.mine .quote{background:rgba(0,0,0,.08);border-left-color:#5b4bd6;color:#2a2a33}
 .quote b{font-size:12px}
+.quote span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
 .proposal{margin-top:10px;padding:12px;border-radius:16px;background:rgba(0,0,0,.25);box-shadow:inset 0 0 0 1px var(--line)}
 .proposal ul{margin:4px 0 10px}
 .msg.flash .bubble{box-shadow:0 0 0 2px var(--violet)}
@@ -402,9 +403,9 @@ input.mini[hidden]{display:none}
 .rope-mid{position:absolute;left:50%;top:10px;bottom:10px;width:1px;background:rgba(255,255,255,.25)}
 .rope-goal{position:absolute;top:6px;bottom:6px;width:2px;border-radius:1px;background:var(--violet)}
 .rope-goal.l{left:8%}.rope-goal.r{right:8%}
-.knot{position:absolute;top:50%;left:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--pearl);box-shadow:0 0 24px rgba(230,212,255,.6);transition:left .08s linear}
+.knot{position:absolute;top:50%;left:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--pearl);box-shadow:0 0 24px rgba(230,212,255,.6);transition:transform .08s linear;will-change:transform}
 .fune-msg{text-align:center;font-size:40px;margin:22px 0 6px;min-height:50px}
-.tapzone{display:block;width:100%;max-width:440px;flex:1;min-height:200px;margin:8px auto 0;border-radius:32px;font-family:var(--serif);font-size:56px;letter-spacing:.06em;
+.tapzone{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:block;width:100%;max-width:440px;flex:1;min-height:200px;margin:8px auto 0;border-radius:32px;font-family:var(--serif);font-size:56px;letter-spacing:.06em;
   background:linear-gradient(160deg,rgba(230,212,255,.22),rgba(201,243,238,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.18);
   touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .tapzone:active{transform:scale(.985);background:linear-gradient(160deg,rgba(230,212,255,.32),rgba(201,243,238,.14))}
@@ -424,3 +425,6 @@ input.mini[hidden]{display:none}
   background:var(--pearl);box-shadow:0 14px 34px -8px rgba(160,130,255,.7),inset 0 1px 0 rgba(255,255,255,.9);transition:transform .2s var(--ease)}
 .fab:active{transform:scale(.92)}
 #app.with-fab{padding-bottom:calc(var(--dock) + var(--sab) + 110px)}
+
+/* Gioco aperto: l'app sotto non viene disegnata */
+body.gaming #root,body.gaming .dock,body.gaming .fab,body.gaming .composer,body.gaming .aura,body.gaming .grain{display:none !important}
