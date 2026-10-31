@@ -24,8 +24,8 @@ const SPECIAL = {
   merkel: ["Sedici anni di cancelleria", 86], degaulle: ["La Quinta Repubblica", 86], gandhi: ["L'indipendenza", 86], lincoln: ["Il Proclama di emancipazione", 88],
 };
 const EFF_TXT = { heal: "Recupera consenso", "atk+": "Aumenta la forza", "def+": "Aumenta la difesa", "def-": "Abbassa la difesa avversaria", "atk-": "Abbassa la forza avversaria" };
-const LOSES = Object.fromEntries(Object.entries(BEATS).map(([a, b]) => [b, a])); // chi batte me
-const typeMult = (a, d) => (BEATS[a] === d ? 1.5 : BEATS[d] === a ? 0.67 : 1);
+const LOSES = Object.fromEntries(Object.keys(BEATS).map(t => [t, Object.keys(BEATS).filter(x => BEATS[x].includes(t))])); // chi batte me
+const typeMult = (a, d) => (BEATS[a].includes(d) ? 1.5 : BEATS[d].includes(a) ? 0.67 : 1);
 const onoF = (p, lv = 1) => ({ id: p.id, n: p.n, t: p.t, atk: p.atk, def: p.def, spd: p.spd, m: p.m, max: Math.round(p.hp * lv), cur: Math.round(p.hp * lv), atkB: 0, defB: 0, stun: false, lv, meter: 0, dealt: 0, kos: 0 });
 const ONO_SPEED_KEY = "capodanno-ono-veloce";
 const ONO_TURN = 45; // secondi per mossa nelle sfide online, poi sceglie il telefono
@@ -135,7 +135,7 @@ const typeChip = t => `<span class="on-type" style="--c:${TYPES[t].c}">${TYPES[t
 function polSheetHtml(p, inTeam, canAdd) {
   return `<div class="on-card-big">
     <div class="row" style="gap:16px;align-items:center">${polFace(p, "xl")}<div class="grow"><div class="on-name big">${esc(p.n)}</div>${typeChip(p.t)}
-      <div class="tiny faint" style="margin-top:6px">Forte contro ${TYPES[BEATS[p.t]].n} · debole contro ${TYPES[LOSES[p.t]].n}</div></div></div>
+      <div class="tiny faint" style="margin-top:6px">Forte contro ${BEATS[p.t].map(x => TYPES[x].n).join(" e ")} · debole contro ${LOSES[p.t].map(x => TYPES[x].n).join(" e ")}</div></div></div>
     <div class="on-stats">${statBar("Consenso", p.hp, 115)}${statBar("Forza", p.atk)}${statBar("Difesa", p.def)}${statBar("Rapidità", p.spd)}</div>
     <div class="on-mlist">${p.m.map(m => `<div><b>«${esc(m[0])}»</b><span>${m[1] ? `${m[3] === "multi" ? "3 colpi da " : "Attacco, potenza "}${m[1]}${m[3] === "stun" ? ", può zittire" : ""}` : EFF_TXT[m[3]]} · precisione ${m[2]}%</span></div>`).join("")}
       <div class="sp"><b>Speciale: «${esc(SPECIAL[p.id][0])}»</b><span>Potenza ${SPECIAL[p.id][1]}, non sbaglia mai. Si sblocca col Favore popolare al 100%.</span></div></div>
@@ -143,7 +143,8 @@ function polSheetHtml(p, inTeam, canAdd) {
 }
 const ONO_RULES = `<div class="on-rules"><b>Come si gioca</b>
   <p>Tre onorevoli a testa. A turno scegli una frase celebre (la mossa) oppure cambi onorevole: anche il cambio usa il turno.</p>
-  <p><b>Tipi.</b> La Satira batte il Carisma, il Carisma batte il Populismo, il Populismo batte la Tecnocrazia, la Tecnocrazia batte la Satira: colpi ×1,5 se sei in vantaggio, ×0,67 se sei in svantaggio.</p>
+  <p><b>Categorie.</b> Ognuna ne batte due e perde con le altre due (colpi ×1,5 in vantaggio, ×0,67 in svantaggio):</p>
+  <p>Lo <b>Showman</b> (TV, giornalisti, comici) batte Tecnico e Statista: li trasforma in meme.<br>Il <b>Tecnico</b> batte Tribuno e Rivoluzionario: i numeri smontano slogan e barricate.<br>Il <b>Tribuno</b> batte Statista e Showman: la piazza urla più forte.<br>Lo <b>Statista</b> batte Rivoluzionario e Tecnico: istituzionalizza e guida.<br>Il <b>Rivoluzionario</b> batte Showman e Tribuno: rovescia tutto.</p>
   <p><b>Favore popolare.</b> Sale quando colpisci e quando incassi. Al 100% sblocca la mossa speciale del personaggio: fortissima e infallibile.</p>
   <p><b>Zittito.</b> Alcune mosse possono zittire: chi è zittito salta la prossima frase. Ogni tanto arriva un colpo critico.</p>
   <p>Vince chi resta in aula. Tocca la cronaca per far scorrere più in fretta.</p>
@@ -185,13 +186,13 @@ function playOno(opts) {
   const paintPick = () => {
     body.innerHTML = `<div class="on-pick-head">
         <div class="on-slots">${[0, 1, 2].map(i => { const p = POLS.find(x => x.id === team[i]); return p ? `<button class="on-slot full" data-sheet="${p.id}">${polFace(p)}<span>${esc(p.n.split(" ").slice(-1)[0])}</span></button>` : `<div class="on-slot"><span>${i + 1}</span></div>`; }).join("")}</div>
-        <div class="tiny faint" style="text-align:center;margin-top:8px">Tocca un onorevole per la sua scheda. Mischia i tipi: ognuno ne batte uno.</div></div>
+        <div class="tiny faint" style="text-align:center;margin-top:8px">Tocca un onorevole per la sua scheda. Mischia le categorie: ognuna ne batte due.</div></div>
       <div class="on-filter" data-noswipe>${[["tutti", `Tutti · ${POLS.length}`], ["oggi", "Italia di oggi"], ["storia-it", "Prima Repubblica e Risorgimento"], ["mondo", "Il mondo e la storia"], ["tv", "TV trash"]].map(([k, l]) => `<button data-flt="${k}" class="${pickFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="pol-grid" id="ono-pick">${POLS.filter(p => pickFilter === "tutti" || POL_GROUP(p.id) === pickFilter).map(p => `<button data-sheet="${p.id}" class="${team.includes(p.id) ? "on" : ""}">${polCard(p)}</button>`).join("")}</div>
       <div class="on-pick-bar"><button class="btn" id="on-rand">${ico("swap", 16)}A caso</button><button class="btn pearl grow" id="ono-go" ${team.length === 3 && !pending ? "" : "disabled"}>${team.length === 3 ? "In aula!" : `Scegli tre onorevoli (${team.length}/3)`}</button></div>`;
     body.querySelectorAll("[data-flt]").forEach(b => b.addEventListener("click", () => { pickFilter = b.dataset.flt; paintPick(); }));
     body.querySelectorAll("[data-sheet]").forEach(b => b.addEventListener("click", () => { const p = POLS.find(x => x.id === b.dataset.sheet); openSheetIn(polSheetHtml(p, team.includes(p.id), team.length < 3)); }));
-    $("#on-rand").addEventListener("click", () => { const pool = [...POLS].sort(() => Math.random() - 0.5); const out = []; for (const t of ["S", "C", "P", "T"].sort(() => Math.random() - 0.5)) { if (out.length < 3) out.push(pool.find(p => p.t === t).id); } team = out; paintPick(); });
+    $("#on-rand").addEventListener("click", () => { const pool = [...POLS].sort(() => Math.random() - 0.5); const out = []; for (const t of ["S", "C", "P", "T", "R"].sort(() => Math.random() - 0.5)) { if (out.length < 3) out.push(pool.find(p => p.t === t).id); } team = out; paintPick(); });
     $("#ono-go").addEventListener("click", () => { if (team.length === 3 && !pending) commit({ pick: team }); });
   };
 
@@ -209,8 +210,8 @@ function playOno(opts) {
   };
   const matchup = (me1, foe) => {
     const m = typeMult(me1.t, foe.t);
-    return m > 1 ? `<div class="on-match good">Vantaggio: il tuo ${TYPES[me1.t].n} batte il suo ${TYPES[foe.t].n} · colpi ×1,5</div>`
-      : m < 1 ? `<div class="on-match bad">Svantaggio: il suo ${TYPES[foe.t].n} batte il tuo ${TYPES[me1.t].n} · colpi ×0,67. Valuta un cambio.</div>`
+    return m > 1 ? `<div class="on-match good">Vantaggio: ${TYPES[me1.t].n} batte ${TYPES[foe.t].n} · colpi ×1,5</div>`
+      : m < 1 ? `<div class="on-match bad">Svantaggio: ${TYPES[foe.t].n} batte ${TYPES[me1.t].n} · colpi ×0,67. Valuta un cambio.</div>`
       : `<div class="on-match">Nessun vantaggio di tipo</div>`;
   };
   let history = [];
@@ -352,7 +353,7 @@ function playOno(opts) {
     game.actions.push({ ...a, s: mySeat });
     if (a.pick) {
       const pool = POLS.filter(p => !a.pick.includes(p.id)).sort(() => Math.random() - 0.5);
-      const foeTeam = []; for (const t of ["S", "C", "P", "T"].sort(() => Math.random() - 0.5)) { const p = pool.find(x => x.t === t && !foeTeam.includes(x.id)); if (p && foeTeam.length < 3) foeTeam.push(p.id); }
+      const foeTeam = []; for (const t of ["S", "C", "P", "T", "R"].sort(() => Math.random() - 0.5)) { const p = pool.find(x => x.t === t && !foeTeam.includes(x.id)); if (p && foeTeam.length < 3) foeTeam.push(p.id); }
       game.actions.push({ pick: foeTeam, lv: lvFoe, s: oSeat });
       shown = game.actions.length; history = []; return paint();
     }

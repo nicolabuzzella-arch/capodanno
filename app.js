@@ -615,6 +615,7 @@ function render() {
   safe(EX[UI.tab]?.mount);
   if (UI.tab === "chat") {
     if (UI.chatSeg === "gruppo") { const last = msgs("gruppo").at(-1); if (last) storage.set(SEEN_KEY, last.created_at); renderDock(); }
+    if (UI.chatSeg === "ai") { const last = msgs("assistente").at(-1); if (last) storage.set(SEEN_KEY + "-ai-" + ME, last.created_at); }
     const n = msgs(chatChannel()).length;
     if (n !== UI.lastMsgCount || UI.waiting) { UI.lastMsgCount = n; requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight)); }
     else window.scrollTo(0, y);

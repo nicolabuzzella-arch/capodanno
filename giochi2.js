@@ -226,12 +226,15 @@ function playEnigma(idx) {
   const daily = idx == null;
   const e = daily ? riddleOfDay() : ENIGMI[idx];
   const isRight = v => (daily ? checkRiddle(e, v) : checkAnswer(e, v));
-  const key = ENIGMA_KEY + (daily ? today() : "x" + idx) + "-" + ME;
+  // Ogni indovinello ha la sua impronta: i tentativi contano solo per quello giusto (non per quelli di altre versioni).
+  const rid = daily ? hashStr(e.q) : null;
+  const key = ENIGMA_KEY + (daily ? today() + "-" + rid : "x" + idx) + "-" + ME;
   let st; try { st = JSON.parse(storage.get(key)) || {}; } catch { st = {}; }
   st.tries ||= 0;
-  const official = daily && !playedToday("enigma");
+  const myTry = daily ? (S.scores || []).find(s => s.game === "enigma" && s.member_id === ME && s.day === today() && s.meta?.rid === rid) : null;
+  const official = daily && !myTry;
   // Tentativo già fatto (anche da un altro telefono): niente secondo tentativo, si vede l'esito e la parola.
-  if (daily && !st.done && playedToday("enigma")) { const mine = S.scores.find(s => s.game === "enigma" && s.member_id === ME && s.day === today()); st.done = true; st.won = !!(mine?.meta?.ok || mine?.score > 0); st.tries = 1; storage.set(key, JSON.stringify(st)); }
+  if (daily && !st.done && myTry) { st.done = true; st.won = !!(myTry.meta?.ok || myTry.score > 0); st.tries = 1; storage.set(key, JSON.stringify(st)); }
   const maxT = daily ? 1 : 3;
   openGame(`
     <div class="game-top"><button class="btn icon sm" data-act="close-game" aria-label="Chiudi">${ico("close", 18)}</button>
@@ -250,7 +253,7 @@ function playEnigma(idx) {
   const out = msg => { $("#en-out").innerHTML = msg; };
   const whoGot = () => {
     // Chi ci ha preso oggi, chi no e chi deve ancora rispondere.
-    const rows = (S.scores || []).filter(x => x.game === "enigma" && x.day === today());
+    const rows = (S.scores || []).filter(x => x.game === "enigma" && x.day === today() && x.meta?.rid === rid);
     const by = new Map(rows.map(r => [r.member_id, r]));
     return `<div class="who-got">${S.members.map(m => { const r = by.get(m.id); return `<div class="${r ? (r.meta?.ok || r.score > 0 ? "yes" : "no") : "wait"}">${avatar(m, "sm")}<span>${esc(m.name)}</span><b>${r ? (r.meta?.ok || r.score > 0 ? "giusto" : "sbagliato") : "non ancora"}</b></div>`; }).join("")}</div>`;
   };
@@ -267,12 +270,12 @@ function playEnigma(idx) {
       const pts = daily ? (st.hint ? 2 : 3) : Math.max(1, 4 - st.tries - (st.hint ? 1 : 0));
       out(`<div class="enigma-ok">Esatto! ${official ? `+${pts} punti` : ""}</div>`);
       navigator.vibrate?.([30, 40, 30]); confettiBurst();
-      if (official) { await saveScore("enigma", pts, { ok: true, answer: String(v).slice(0, 60) }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
+      if (official) { await saveScore("enigma", pts, { ok: true, answer: String(v).slice(0, 60), rid }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
       else { const solved = JSON.parse(storage.get(ENIGMA_KEY + "solved") || "[]"); solved.push(idx); storage.set(ENIGMA_KEY + "solved", JSON.stringify([...new Set(solved)])); }
     } else if (st.tries >= maxT) {
       st.done = true; save();
       out(`<div class="enigma-ko">${daily ? "Sbagliato" : "Niente da fare"}: era <b>${esc(e.a[0])}</b>.</div>`);
-      if (official) { await saveScore("enigma", 0, { ok: false, answer: String(v).slice(0, 60) }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
+      if (official) { await saveScore("enigma", 0, { ok: false, answer: String(v).slice(0, 60), rid }); $("#en-out")?.insertAdjacentHTML("beforeend", whoGot()); }
     } else { save(); out(`<div class="enigma-ko">No. Ritenta.</div>`); $("#game .enigma").classList.add("shake"); setTimeout(() => $("#game .enigma")?.classList.remove("shake"), 400); }
     $("#en-tries").textContent = st.done || daily ? "" : `${maxT - st.tries} tentativi`;
     if (st.done) $$("#en-form input, #en-form button").forEach(x => { x.disabled = true; });
@@ -380,21 +383,26 @@ function playTrivia(practice) {
 }
 
 // ───────────────────────── Onorevoli ─────────────────────────
-// Tipi: Satira batte Carisma, Carisma batte Populismo, Populismo batte Tecnocrazia, Tecnocrazia batte Satira.
-const TYPES = { C: { n: "Carisma", c: "#e6d4ff" }, P: { n: "Populismo", c: "#ffd0d0" }, T: { n: "Tecnocrazia", c: "#c9dcff" }, S: { n: "Satira", c: "#c9f3ee" } };
-const BEATS = { S: "C", C: "P", P: "T", T: "S" };
+// Cinque categorie, ognuna ne batte due e perde con le altre due:
+// Showman (TV, giornalisti, comici) batte Tecnico e Statista: li trasforma in meme.
+// Tecnico (economisti, burocrati) batte Tribuno e Rivoluzionario: i numeri smontano slogan e barricate.
+// Tribuno (capipopolo, leader di piazza) batte Statista e Showman: la piazza urla più forte del palazzo e dello studio.
+// Statista (grandi leader di governo) batte Rivoluzionario e Tecnico: istituzionalizza la rivoluzione e guida i tecnici.
+// Rivoluzionario batte Showman e Tribuno: rovescia lo spettacolo e scavalca i capipopolo.
+const TYPES = { S: { n: "Showman", c: "#c9f3ee" }, T: { n: "Tecnico", c: "#c9dcff" }, P: { n: "Tribuno", c: "#ffd0d0" }, C: { n: "Statista", c: "#e6d4ff" }, R: { n: "Rivoluzionario", c: "#ffe0a8" } };
+const BEATS = { S: ["T", "C"], T: ["P", "R"], P: ["C", "S"], C: ["R", "T"], R: ["S", "P"] };
 // Mossa: [nome, potenza, precisione, effetto]. Effetti: heal, atk+, def+, def-, atk-, stun (probabilità), multi (colpi).
 const POLS = [
-  { id: "berlusconi", n: "Silvio Berlusconi", t: "C", hp: 112, atk: 58, def: 48, spd: 50, m: [["Mi consenta", 42, 100], ["Meno male che Silvio c'è", 0, 100, "heal"], ["Il contratto con gli italiani", 0, 100, "atk+"], ["La barzelletta", 26, 95, "stun"]] },
+  { id: "berlusconi", n: "Silvio Berlusconi", t: "S", hp: 112, atk: 58, def: 48, spd: 50, m: [["Mi consenta", 42, 100], ["Meno male che Silvio c'è", 0, 100, "heal"], ["Il contratto con gli italiani", 0, 100, "atk+"], ["La barzelletta", 26, 95, "stun"]] },
   { id: "meloni", n: "Giorgia Meloni", t: "P", hp: 104, atk: 60, def: 50, spd: 58, m: [["Io sono Giorgia", 44, 100], ["È finita la pacchia", 58, 85], ["Pronti", 0, 100, "atk+"], ["Underdog", 0, 100, "heal"]] },
   { id: "salvini", n: "Matteo Salvini", t: "P", hp: 108, atk: 62, def: 44, spd: 52, m: [["Ruspa!", 62, 80], ["Prima gli italiani", 42, 100], ["Un bacione", 0, 100, "heal"], ["Pieni poteri", 0, 100, "atk+"]] },
   { id: "renzi", n: "Matteo Renzi", t: "C", hp: 98, atk: 60, def: 46, spd: 64, m: [["Enrico stai sereno", 30, 95, "stun"], ["First reaction: shock", 46, 100], ["Rottamazione", 58, 85], ["Leopolda", 0, 100, "atk+"]] },
   { id: "conte", n: "Giuseppe Conte", t: "T", hp: 104, atk: 54, def: 56, spd: 50, m: [["Avvocato del popolo", 0, 100, "heal"], ["Potenza di fuoco", 58, 85], ["Il DPCM", 22, 100, "stun"], ["Pochette", 0, 100, "def+"]] },
-  { id: "schlein", n: "Elly Schlein", t: "C", hp: 100, atk: 56, def: 50, spd: 60, m: [["Non ci hanno visto arrivare", 52, 90], ["Armocromia", 0, 100, "def+"], ["Salario minimo", 42, 100], ["Testardamente unitari", 0, 100, "heal"]] },
+  { id: "schlein", n: "Elly Schlein", t: "P", hp: 100, atk: 56, def: 50, spd: 60, m: [["Non ci hanno visto arrivare", 52, 90], ["Armocromia", 0, 100, "def+"], ["Salario minimo", 42, 100], ["Testardamente unitari", 0, 100, "heal"]] },
   { id: "grillo", n: "Beppe Grillo", t: "S", hp: 106, atk: 62, def: 42, spd: 54, m: [["V-Day", 62, 80], ["Uno vale uno", 0, 100, "atk-"], ["Il Parlamento come una scatoletta di tonno", 56, 85], ["Tsunami Tour", 42, 100]] },
   { id: "dimaio", n: "Luigi Di Maio", t: "P", hp: 96, atk: 52, def: 48, spd: 62, m: [["Abbiamo abolito la povertà", 0, 100, "heal"], ["Il balcone", 0, 100, "atk+"], ["Congiuntivo creativo", 24, 95, "stun"], ["Cambio di casacca", 44, 100]] },
-  { id: "bersani", n: "Pier Luigi Bersani", t: "T", hp: 108, atk: 52, def: 54, spd: 44, m: [["Smacchiare il giaguaro", 52, 95], ["Metafora emiliana", 26, 95, "stun"], ["Le lenzuolate", 42, 100], ["La Ditta", 0, 100, "def+"]] },
-  { id: "andreotti", n: "Giulio Andreotti", t: "T", hp: 110, atk: 56, def: 58, spd: 40, m: [["Il potere logora chi non ce l'ha", 56, 90], ["A pensar male si fa peccato", 0, 100, "def-"], ["Divo Giulio", 0, 100, "heal"], ["Sette governi", 0, 100, "atk+"]] },
+  { id: "bersani", n: "Pier Luigi Bersani", t: "C", hp: 108, atk: 52, def: 54, spd: 44, m: [["Smacchiare il giaguaro", 52, 95], ["Metafora emiliana", 26, 95, "stun"], ["Le lenzuolate", 42, 100], ["La Ditta", 0, 100, "def+"]] },
+  { id: "andreotti", n: "Giulio Andreotti", t: "C", hp: 110, atk: 56, def: 58, spd: 40, m: [["Il potere logora chi non ce l'ha", 56, 90], ["A pensar male si fa peccato", 0, 100, "def-"], ["Divo Giulio", 0, 100, "heal"], ["Sette governi", 0, 100, "atk+"]] },
   { id: "sgarbi", n: "Vittorio Sgarbi", t: "S", hp: 98, atk: 64, def: 40, spd: 60, m: [["Capra! Capra! Capra!", 20, 95, "multi"], ["Ignorante!", 44, 100], ["Critica d'arte", 0, 100, "atk-"], ["Lite in diretta", 24, 95, "stun"]] },
   { id: "draghi", n: "Mario Draghi", t: "T", hp: 106, atk: 60, def: 56, spd: 46, m: [["Whatever it takes", 66, 80], ["Lo spread", 0, 100, "def-"], ["Governo dei migliori", 0, 100, "heal"], ["Silenzio stampa", 0, 100, "def+"]] },
   { id: "mentana", n: "Enrico Mentana", t: "S", hp: 100, atk: 58, def: 48, spd: 58, m: [["Maratona Mentana", 0, 100, "heal"], ["Blastata social", 52, 95], ["Ultim'ora", 40, 100], ["Exit poll", 26, 95, "stun"]] },
@@ -404,50 +412,50 @@ const POLS = [
   { id: "prodi", n: "Romano Prodi", t: "T", hp: 108, atk: 52, def: 56, spd: 44, m: [["Mortadella", 0, 100, "heal"], ["L'Ulivo", 0, 100, "def+"], ["L'euro", 52, 95], ["In bicicletta", 42, 100]] },
   { id: "fornero", n: "Elsa Fornero", t: "T", hp: 100, atk: 56, def: 50, spd: 50, m: [["Choosy", 24, 100, "atk-"], ["Le lacrime", 0, 100, "heal"], ["Gli esodati", 54, 90], ["La riforma", 44, 100]] },
   // ── Altri italiani ──
-  { id: "trota", n: "Renzo Bossi", w: "Renzo Bossi", t: "P", hp: 98, atk: 52, def: 46, spd: 58, m: [["Il Trota", 42, 100], ["La laurea in Albania", 0, 100, "heal"], ["Figlio d'arte", 52, 90], ["Consigliere regionale", 0, 100, "def+"]] },
+  { id: "trota", n: "Renzo Bossi", w: "Renzo Bossi", t: "S", hp: 98, atk: 52, def: 46, spd: 58, m: [["Il Trota", 42, 100], ["La laurea in Albania", 0, 100, "heal"], ["Figlio d'arte", 52, 90], ["Consigliere regionale", 0, 100, "def+"]] },
   { id: "giannino", n: "Oscar Giannino", t: "T", hp: 100, atk: 56, def: 50, spd: 52, m: [["Fermare il declino", 52, 90], ["Il master a Chicago", 0, 100, "atk+"], ["Il papillon", 0, 100, "def+"], ["Lezione di economia", 42, 100]] },
   { id: "craxi", n: "Bettino Craxi", t: "C", hp: 108, atk: 60, def: 50, spd: 48, m: [["Sigonella", 56, 90], ["Il garofano", 0, 100, "atk+"], ["Decisionismo", 46, 100], ["Hammamet", 0, 100, "heal"]] },
   { id: "bossi", n: "Umberto Bossi", t: "P", hp: 106, atk: 60, def: 46, spd: 50, m: [["Roma ladrona", 50, 95], ["La canottiera", 0, 100, "def+"], ["Il dito medio", 28, 95, "stun"], ["Pontida", 0, 100, "atk+"]] },
   { id: "razzi", n: "Antonio Razzi", t: "S", hp: 102, atk: 54, def: 48, spd: 54, m: [["Amico di Kim", 28, 95, "stun"], ["L'italiano creativo", 44, 100], ["Gita a Pyongyang", 0, 100, "atk+"], ["La pensione", 0, 100, "heal"]] },
   { id: "monti", n: "Mario Monti", t: "T", hp: 106, atk: 56, def: 56, spd: 44, m: [["Salva Italia", 50, 95], ["Lo spread a 500", 0, 100, "def-"], ["Il loden", 0, 100, "def+"], ["Sobrietà", 42, 100]] },
-  { id: "dalema", n: "Massimo D'Alema", t: "T", hp: 102, atk: 58, def: 52, spd: 48, m: [["Spocchia", 52, 90], ["La barca", 0, 100, "def+"], ["La Bicamerale", 0, 100, "atk-"], ["Il baffino", 44, 100]] },
+  { id: "dalema", n: "Massimo D'Alema", t: "C", hp: 102, atk: 58, def: 52, spd: 48, m: [["Spocchia", 52, 90], ["La barca", 0, 100, "def+"], ["La Bicamerale", 0, 100, "atk-"], ["Il baffino", 44, 100]] },
   { id: "mastella", n: "Clemente Mastella", t: "P", hp: 104, atk: 52, def: 54, spd: 50, m: [["Ceppaloni", 42, 100], ["Cambio di maggioranza", 0, 100, "heal"], ["Il ponte per tutti", 0, 100, "def+"], ["Udeur", 50, 90]] },
   { id: "toninelli", n: "Danilo Toninelli", t: "S", hp: 98, atk: 54, def: 46, spd: 58, m: [["Il tunnel del Brennero", 28, 95, "stun"], ["Analisi costi-benefici", 0, 100, "def-"], ["Il gilet", 0, 100, "def+"], ["Gaffe in diretta", 46, 100]] },
   { id: "dibattista", n: "Alessandro Di Battista", t: "P", hp: 100, atk: 58, def: 46, spd: 60, m: [["Onestà!", 52, 95], ["Il viaggio in Sudamerica", 0, 100, "heal"], ["Il reportage", 42, 100], ["Il ritorno", 0, 100, "atk+"]] },
   { id: "calenda", n: "Carlo Calenda", t: "T", hp: 100, atk: 58, def: 50, spd: 54, m: [["Il thread su Twitter", 46, 100], ["Competenza", 50, 90], ["Litigio social", 28, 95, "stun"], ["Fronte repubblicano", 0, 100, "def+"]] },
   // ── Prima Repubblica e Risorgimento ──
-  { id: "moro", n: "Aldo Moro", t: "T", hp: 106, atk: 54, def: 58, spd: 44, m: [["Le convergenze parallele", 48, 95], ["La pazienza democristiana", 0, 100, "heal"], ["La mediazione", 0, 100, "atk-"], ["Strategia dell'attenzione", 42, 100]] },
+  { id: "moro", n: "Aldo Moro", t: "C", hp: 106, atk: 54, def: 58, spd: 44, m: [["Le convergenze parallele", 48, 95], ["La pazienza democristiana", 0, 100, "heal"], ["La mediazione", 0, 100, "atk-"], ["Strategia dell'attenzione", 42, 100]] },
   { id: "berlinguer", n: "Enrico Berlinguer", t: "C", hp: 104, atk: 56, def: 54, spd: 48, m: [["La questione morale", 54, 90], ["L'austerità", 0, 100, "def+"], ["Eurocomunismo", 44, 100], ["Il compromesso storico", 0, 100, "heal"]] },
   { id: "pertini", n: "Sandro Pertini", t: "C", hp: 108, atk: 58, def: 50, spd: 50, m: [["Non ci prendono più!", 48, 95], ["La pipa", 0, 100, "heal"], ["Il partigiano", 54, 90], ["Il Presidente più amato", 0, 100, "atk+"]] },
-  { id: "garibaldi", n: "Giuseppe Garibaldi", t: "P", hp: 110, atk: 62, def: 48, spd: 56, m: [["Qui si fa l'Italia o si muore", 56, 90], ["Obbedisco", 0, 100, "heal"], ["La camicia rossa", 0, 100, "atk+"], ["Teano", 44, 100]] },
+  { id: "garibaldi", n: "Giuseppe Garibaldi", t: "R", hp: 110, atk: 62, def: 48, spd: 56, m: [["Qui si fa l'Italia o si muore", 56, 90], ["Obbedisco", 0, 100, "heal"], ["La camicia rossa", 0, 100, "atk+"], ["Teano", 44, 100]] },
   { id: "cavour", n: "Camillo Benso di Cavour", t: "T", hp: 102, atk: 56, def: 54, spd: 50, m: [["Libera Chiesa in libero Stato", 48, 95], ["La diplomazia", 0, 100, "atk-"], ["Il Connubio", 0, 100, "def+"], ["La Crimea", 50, 90]] },
   // ── Il mondo e la storia ──
-  { id: "stalin", n: "Iosif Stalin", t: "P", hp: 114, atk: 62, def: 54, spd: 42, m: [["Piano quinquennale", 0, 100, "atk+"], ["I baffi d'acciaio", 50, 95], ["La cortina di ferro", 0, 100, "def+"], ["Collettivizzazione", 58, 85]] },
-  { id: "che", n: "Che Guevara", t: "C", hp: 100, atk: 62, def: 44, spd: 62, m: [["Hasta la victoria siempre", 54, 90], ["Guerriglia", 20, 95, "multi"], ["La motocicletta", 0, 100, "heal"], ["Il basco", 0, 100, "def+"]] },
-  { id: "castro", n: "Fidel Castro", t: "P", hp: 110, atk: 56, def: 54, spd: 44, m: [["Il discorso di sette ore", 26, 100, "stun"], ["La Rivoluzione", 52, 90], ["Il sigaro", 0, 100, "heal"], ["La barba", 0, 100, "def+"]] },
+  { id: "stalin", n: "Iosif Stalin", t: "R", hp: 114, atk: 62, def: 54, spd: 42, m: [["Piano quinquennale", 0, 100, "atk+"], ["I baffi d'acciaio", 50, 95], ["La cortina di ferro", 0, 100, "def+"], ["Collettivizzazione", 58, 85]] },
+  { id: "che", n: "Che Guevara", t: "R", hp: 100, atk: 62, def: 44, spd: 62, m: [["Hasta la victoria siempre", 54, 90], ["Guerriglia", 20, 95, "multi"], ["La motocicletta", 0, 100, "heal"], ["Il basco", 0, 100, "def+"]] },
+  { id: "castro", n: "Fidel Castro", t: "R", hp: 110, atk: 56, def: 54, spd: 44, m: [["Il discorso di sette ore", 26, 100, "stun"], ["La Rivoluzione", 52, 90], ["Il sigaro", 0, 100, "heal"], ["La barba", 0, 100, "def+"]] },
   { id: "napoleone", n: "Napoleone Bonaparte", t: "C", hp: 104, atk: 64, def: 48, spd: 56, m: [["Austerlitz", 58, 85], ["Il Codice civile", 44, 100], ["Il bicorno", 0, 100, "def+"], ["I cento giorni", 0, 100, "heal"]] },
   { id: "cesare", n: "Giulio Cesare", w: "Gaio Giulio Cesare", t: "C", hp: 106, atk: 62, def: 50, spd: 54, m: [["Veni, vidi, vici", 52, 95], ["Alea iacta est", 0, 100, "atk+"], ["Il Rubicone", 46, 100], ["Le legioni", 0, 100, "def+"]] },
-  { id: "churchill", n: "Winston Churchill", t: "T", hp: 112, atk: 58, def: 56, spd: 40, m: [["Sangue, fatica, lacrime e sudore", 56, 90], ["Whisky alle undici", 0, 100, "heal"], ["Mai arrendersi", 0, 100, "def+"], ["La V di vittoria", 44, 100]] },
-  { id: "lenin", n: "Vladimir Lenin", t: "T", hp: 102, atk: 58, def: 50, spd: 52, m: [["Le tesi di aprile", 48, 95], ["Che fare?", 0, 100, "atk-"], ["Il treno piombato", 44, 100], ["Il mausoleo", 0, 100, "heal"]] },
+  { id: "churchill", n: "Winston Churchill", t: "C", hp: 112, atk: 58, def: 56, spd: 40, m: [["Sangue, fatica, lacrime e sudore", 56, 90], ["Whisky alle undici", 0, 100, "heal"], ["Mai arrendersi", 0, 100, "def+"], ["La V di vittoria", 44, 100]] },
+  { id: "lenin", n: "Vladimir Lenin", t: "R", hp: 102, atk: 58, def: 50, spd: 52, m: [["Le tesi di aprile", 48, 95], ["Che fare?", 0, 100, "atk-"], ["Il treno piombato", 44, 100], ["Il mausoleo", 0, 100, "heal"]] },
   { id: "kennedy", n: "John Fitzgerald Kennedy", t: "C", hp: 100, atk: 58, def: 48, spd: 60, m: [["Non chiederti cosa può fare il tuo paese", 54, 90], ["Ich bin ein Berliner", 46, 100], ["Il sorriso", 0, 100, "heal"], ["La Nuova Frontiera", 0, 100, "atk+"]] },
   { id: "obama", n: "Barack Obama", t: "C", hp: 102, atk: 56, def: 52, spd: 58, m: [["Yes we can", 46, 100], ["Il microfono che cade", 56, 85], ["Obamacare", 0, 100, "heal"], ["Il discorso", 0, 100, "atk+"]] },
   { id: "trump", n: "Donald Trump", t: "P", hp: 108, atk: 62, def: 46, spd: 50, m: [["You're fired!", 56, 85], ["Fake news!", 28, 95, "stun"], ["Il muro", 0, 100, "def+"], ["Covfefe", 0, 100, "atk-"]] },
-  { id: "thatcher", n: "Margaret Thatcher", t: "T", hp: 106, atk: 58, def: 58, spd: 44, m: [["La Lady di ferro", 54, 90], ["No, no, no!", 28, 95, "stun"], ["Privatizzazioni", 46, 100], ["The lady's not for turning", 0, 100, "def+"]] },
+  { id: "thatcher", n: "Margaret Thatcher", t: "C", hp: 106, atk: 58, def: 58, spd: 44, m: [["La Lady di ferro", 54, 90], ["No, no, no!", 28, 95, "stun"], ["Privatizzazioni", 46, 100], ["The lady's not for turning", 0, 100, "def+"]] },
   { id: "merkel", n: "Angela Merkel", t: "T", hp: 110, atk: 54, def: 60, spd: 42, m: [["Il rigore dei conti", 50, 95], ["Wir schaffen das", 0, 100, "heal"], ["Le mani a rombo", 0, 100, "def+"], ["Lo sguardo di sbieco", 28, 95, "stun"]] },
   { id: "degaulle", n: "Charles de Gaulle", t: "C", hp: 106, atk: 58, def: 52, spd: 46, m: [["L'appello del 18 giugno", 54, 90], ["Vive le Québec libre!", 46, 100], ["La grandeur", 0, 100, "atk+"], ["Je vous ai compris", 0, 100, "heal"]] },
-  { id: "gandhi", n: "Mahatma Gandhi", t: "S", hp: 104, atk: 50, def: 60, spd: 50, m: [["La marcia del sale", 50, 95], ["Resistenza passiva", 0, 100, "def+"], ["Il digiuno", 0, 100, "heal"], ["Sii il cambiamento", 44, 100]] },
-  { id: "lincoln", n: "Abraham Lincoln", t: "T", hp: 108, atk: 58, def: 54, spd: 46, m: [["Governo del popolo, dal popolo, per il popolo", 54, 90], ["Gettysburg", 46, 100], ["Il cilindro", 0, 100, "def+"], ["La barba", 0, 100, "heal"]] },
+  { id: "gandhi", n: "Mahatma Gandhi", t: "R", hp: 104, atk: 50, def: 60, spd: 50, m: [["La marcia del sale", 50, 95], ["Resistenza passiva", 0, 100, "def+"], ["Il digiuno", 0, 100, "heal"], ["Sii il cambiamento", 44, 100]] },
+  { id: "lincoln", n: "Abraham Lincoln", t: "C", hp: 108, atk: 58, def: 54, spd: 46, m: [["Governo del popolo, dal popolo, per il popolo", 54, 90], ["Gettysburg", 46, 100], ["Il cilindro", 0, 100, "def+"], ["La barba", 0, 100, "heal"]] },
   // ── TV trash ──
   { id: "malgioglio", n: "Cristiano Malgioglio", t: "S", hp: 100, atk: 56, def: 48, spd: 58, m: [["Che ansiaaa!", 28, 95, "stun"], ["Il giudizio di Malgy", 48, 95], ["Il ciuffo bianco", 0, 100, "def+"], ["Tormentone estivo", 44, 100]] },
-  { id: "durso", n: "Barbara D'Urso", t: "C", hp: 106, atk: 56, def: 52, spd: 52, m: [["Col cuore", 0, 100, "heal"], ["Lo scoop in esclusiva", 50, 95], ["L'ospite in collegamento", 28, 95, "stun"], ["Pomeriggio Cinque", 44, 100]] },
-  { id: "corona", n: "Fabrizio Corona", t: "P", hp: 102, atk: 62, def: 44, spd: 58, m: [["Lo scandalo", 54, 90], ["Il paparazzo", 46, 100], ["Diretta Instagram", 28, 95, "stun"], ["Il tatuaggio", 0, 100, "def+"]] },
-  { id: "marini", n: "Valeria Marini", t: "C", hp: 100, atk: 54, def: 48, spd: 56, m: [["Stellare!", 48, 95], ["Lo sguardo da diva", 28, 95, "stun"], ["La linea di costumi", 0, 100, "atk+"], ["Il bacio", 0, 100, "heal"]] },
+  { id: "durso", n: "Barbara D'Urso", t: "S", hp: 106, atk: 56, def: 52, spd: 52, m: [["Col cuore", 0, 100, "heal"], ["Lo scoop in esclusiva", 50, 95], ["L'ospite in collegamento", 28, 95, "stun"], ["Pomeriggio Cinque", 44, 100]] },
+  { id: "corona", n: "Fabrizio Corona", t: "S", hp: 102, atk: 62, def: 44, spd: 58, m: [["Lo scandalo", 54, 90], ["Il paparazzo", 46, 100], ["Diretta Instagram", 28, 95, "stun"], ["Il tatuaggio", 0, 100, "def+"]] },
+  { id: "marini", n: "Valeria Marini", t: "S", hp: 100, atk: 54, def: 48, spd: 56, m: [["Stellare!", 48, 95], ["Lo sguardo da diva", 28, 95, "stun"], ["La linea di costumi", 0, 100, "atk+"], ["Il bacio", 0, 100, "heal"]] },
   { id: "lamborghini", n: "Elettra Lamborghini", t: "S", hp: 98, atk: 58, def: 44, spd: 62, m: [["Il twerking", 20, 95, "multi"], ["Pem pem", 46, 100], ["La parrucca rosa", 0, 100, "def+"], ["Il patrimonio di famiglia", 0, 100, "heal"]] },
-  { id: "vacchi", n: "Gianluca Vacchi", t: "C", hp: 102, atk: 56, def: 50, spd: 56, m: [["Enjoy", 46, 100], ["Balletto sullo yacht", 20, 95, "multi"], ["I tatuaggi", 0, 100, "def+"], ["La barba bianca", 0, 100, "atk+"]] },
+  { id: "vacchi", n: "Gianluca Vacchi", t: "S", hp: 102, atk: 56, def: 50, spd: 56, m: [["Enjoy", 46, 100], ["Balletto sullo yacht", 20, 95, "multi"], ["I tatuaggi", 0, 100, "def+"], ["La barba bianca", 0, 100, "atk+"]] },
   { id: "casella", n: "Giucas Casella", t: "S", hp: 100, atk: 54, def: 50, spd: 50, m: [["L'ipnosi", 30, 95, "stun"], ["Quando lo dico io!", 50, 95], ["Le mani incollate", 0, 100, "atk-"], ["Il trucco", 44, 100]] },
-  { id: "tina", n: "Tina Cipollari", t: "P", hp: 104, atk: 60, def: 48, spd: 50, m: [["Il commento al vetriolo", 52, 90], ["Lo sguardo di Tina", 28, 95, "stun"], ["Il cartello", 46, 100], ["La poltrona in studio", 0, 100, "def+"]] },
-  { id: "gemma", n: "Gemma Galgani", t: "C", hp: 108, atk: 50, def: 54, spd: 46, m: [["La sfilata", 0, 100, "atk+"], ["Il ballo col cavaliere", 44, 100], ["L'ennesimo cuore spezzato", 50, 90], ["Il trono over", 0, 100, "heal"]] },
-  { id: "signorini", n: "Alfonso Signorini", t: "T", hp: 102, atk: 56, def: 52, spd: 50, m: [["La busta", 28, 95, "stun"], ["Il gossip", 44, 100], ["Il Grande Fratello", 50, 95], ["La copertina", 0, 100, "atk+"]] },
+  { id: "tina", n: "Tina Cipollari", t: "S", hp: 104, atk: 60, def: 48, spd: 50, m: [["Il commento al vetriolo", 52, 90], ["Lo sguardo di Tina", 28, 95, "stun"], ["Il cartello", 46, 100], ["La poltrona in studio", 0, 100, "def+"]] },
+  { id: "gemma", n: "Gemma Galgani", t: "S", hp: 108, atk: 50, def: 54, spd: 46, m: [["La sfilata", 0, 100, "atk+"], ["Il ballo col cavaliere", 44, 100], ["L'ennesimo cuore spezzato", 50, 90], ["Il trono over", 0, 100, "heal"]] },
+  { id: "signorini", n: "Alfonso Signorini", t: "S", hp: 102, atk: 56, def: 52, spd: 50, m: [["La busta", 28, 95, "stun"], ["Il gossip", 44, 100], ["Il Grande Fratello", 50, 95], ["La copertina", 0, 100, "atk+"]] },
 ];
 // Gruppi per il filtro nella scelta della squadra.
 const POL_TV = ["malgioglio", "durso", "corona", "marini", "lamborghini", "vacchi", "casella", "tina", "gemma", "signorini"];

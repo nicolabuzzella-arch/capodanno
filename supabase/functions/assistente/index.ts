@@ -490,10 +490,11 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
         // deno-lint-ignore no-explicit-any
         const sols = (d.solutions ?? []).map((x: any) => x.solution ?? x).slice(0, 10).map((s: any) => ({
           partenza: s.departureTime, arrivo: s.arrivalTime, durata: s.duration, stato: s.status,
-          prezzo: s.price ? `${s.price.amount} ${s.price.currency ?? "EUR"}` : (s.minPrice?.amount ?? null),
+          prezzo_totale: s.price && !s.price.hideAmount ? `${s.price.amount} €${s.price.indicative ? " (indicativo)" : ""}` : "non in vendita",
+          prezzo_a_testa: s.price?.amount ? `${Math.round(s.price.amount / adults * 100) / 100} €` : null,
           // deno-lint-ignore no-explicit-any
-          treni: (s.trains ?? s.nodes ?? []).map((n: any) => n.denomination || n.description || n.train?.denomination || n.acronym || n.name || n.train?.description).filter(Boolean),
-          cambi: Math.max(0, (s.trains ?? s.nodes ?? []).length - 1),
+          treni: (s.trains ?? []).map((n: any) => [n.trainCategory || n.denomination || n.acronym, n.name].filter(Boolean).join(" ")).filter(Boolean),
+          cambi: Math.max(0, (s.nodes ?? s.trains ?? []).length - 1),
         }));
         const link = `https://www.trenitalia.com/it.html`;
         return JSON.stringify({ fonte: "Trenitalia, sistema di vendita Le Frecce, letto ora", da: from.displayName || from.name, a: to.displayName || to.name, data: input.data, adulti: adults, soluzioni: sols, prenota: link,

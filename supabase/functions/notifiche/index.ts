@@ -112,10 +112,10 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
     case "poll": {
       const { data: p } = await db.from("polls").select("*").eq("id", id).single();
       if (!p) return 0;
-      return send(others, { title: "Nuovo sondaggio", body: `${name(p.created_by)} chiede: ${cut(p.question)}`, url: "?tab=vota", tag: "poll" });
+      return send(others, { title: "È bloccante: vota!", body: `${cut(p.question)} (sondaggio di ${name(p.created_by)}). Senza il tuo voto il gruppo non decide.`, url: "?tab=vota", tag: "poll" });
     }
     case "polls_batch":
-      return send(others, { title: "Si decide insieme", body: "Ci sono nuovi sondaggi su destinazione, date e budget: il tuo voto conta.", url: "?tab=vota", tag: "poll" });
+      return send(others, { title: "È bloccante: vota!", body: "Ci sono nuovi sondaggi su destinazione, date e budget: senza il tuo voto il gruppo non decide.", url: "?tab=vota", tag: "poll" });
     case "remind_poll": {
       const { data: p } = await db.from("polls").select("*").eq("id", id).single();
       if (!p || p.status !== "open") return 0;

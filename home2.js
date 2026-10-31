@@ -287,7 +287,7 @@ EXTRA_VIEWS.foto = {
 const GL = () => {
   const done = g => playedToday(g);
   const rk = g => { const r = myRank(g); return r ? `${r.pos}° su ${r.of}` : ""; };
-  const enOk = (S.scores || []).find(s => s.game === "enigma" && s.member_id === ME && s.day === today());
+  const enOk = (S.scores || []).find(s => s.game === "enigma" && s.member_id === ME && s.day === today() && s.meta?.rid === hashStr(riddleOfDay().q));
   return [
     { sec: "In primo piano", feat: true, rows: [
       { id: "onorevoli", ico: "trophy", t: "Onorevoli", s: `${POLS.length} personaggi, mosse speciali e ultim'ora in aula. Sfida un amico`, hot: true },
@@ -470,33 +470,58 @@ function activityFeedHtml() {
   return ev.length ? ev.map(e => `<div class="li act-ev">${avatar(member(e.who), "sm")}<div class="grow"><div class="small"><b>${esc(mname(e.who))}</b> ${esc(e.txt)}</div><div class="tiny faint">${agoShort(e.t)}</div></div><span class="act-ico">${ico(e.icon, 15)}</span></div>`).join("") : `<div class="small muted">Ancora niente.</div>`;
 }
 
-// ───────────────────────── Promemoria sondaggi da votare ─────────────────────────
-// All'apertura (al massimo ogni 3 ore) e quando esce un sondaggio nuovo: un avviso in alto con «Vota ora».
-const VOTE_POP_KEY = "capodanno-vota-avviso-";
-function votePop(force) {
-  if (!ME || typeof openPollsToVote !== "function") return;
-  const list = openPollsToVote(); if (!list.length) return;
-  if (UI.tab === "vota" || !$("#game").hidden || $("#sheet")?.classList.contains("open")) return;
-  const last = Number(storage.get(VOTE_POP_KEY + ME) || 0);
-  if (!force && Date.now() - last < 3 * 3600e3) return;
-  storage.set(VOTE_POP_KEY + ME, String(Date.now()));
-  document.querySelector(".vote-pop")?.remove();
-  const el = document.createElement("div");
-  el.className = "vote-pop";
-  el.innerHTML = `<div class="vp-ico">${ico("vote", 20)}</div><div class="grow"><b>${list.length === 1 ? "Hai un sondaggio da votare" : `Hai ${list.length} sondaggi da votare`}</b><span class="ellipsis">${esc(list[0].question)}</span></div>
-    <button class="btn sm pearl" data-vp="go">Vota ora</button><button class="vp-x" data-vp="x" aria-label="Chiudi">${ico("close", 16)}</button>`;
-  el.addEventListener("click", e => { const b = e.target.closest("[data-vp]"); if (!b) return; el.classList.remove("show"); setTimeout(() => el.remove(), 350); if (b.dataset.vp === "go") { UI.tab = "vota"; render(); scrollTo(0, 0); } });
+// ───────────────────────── Prima le cose importanti ─────────────────────────
+// All'apertura (e quando arriva qualcosa di nuovo) un pannello mette in fila quello che blocca il gruppo:
+// sondaggi da votare (bloccanti), quote da pagare, messaggi nuovi di Zampone. «Più tardi» lo rimanda di un'ora.
+const PRIO_KEY = "capodanno-priorita-";
+function priorityItems() {
+  const out = [];
+  const polls = typeof openPollsToVote === "function" ? openPollsToVote() : [];
+  for (const p of polls.slice(0, 4)) out.push({ k: "poll", block: true, ico: "vote", t: p.question, s: "È bloccante: vota!", act: `data-prio="vota"` });
+  const req = typeof myOpenRequests === "function" ? myOpenRequests() : [];
+  for (const r of req.slice(0, 2)) out.push({ k: "pay", ico: "card", t: `${r.title}: ${eur(r.amount)}`, s: `Da versare a ${mname(r.pay_to)}`, act: `data-prio="spese"` });
+  const seenAi = storage.get(SEEN_KEY + "-ai-" + ME) || "";
+  const ai = msgs("assistente").filter(m => m.role === "assistant" && m.created_at > seenAi);
+  if (ai.length) out.push({ k: "ai", ico: "spark", t: `${AI()} ha scritto ${ai.length === 1 ? "un messaggio nuovo" : `${ai.length} messaggi nuovi`}`, s: String(ai.at(-1).content).replace(/[*_#>`\[\]]/g, "").slice(0, 90), act: `data-prio="ai"` });
+  return out;
+}
+function priorityPop(force) {
+  if (!ME || !S.members?.length) return;
+  const items = priorityItems(); if (!items.length) return;
+  if (!$("#game").hidden || $("#sheet")?.classList.contains("open") || document.querySelector(".prio")) return;
+  const sig = items.map(i => i.k + i.t).join("|");
+  const last = JSON.parse(storage.get(PRIO_KEY + ME) || "{}");
+  if (!force && last.sig === sig && Date.now() - (last.at || 0) < 3600e3) return; // stesse cose, già viste da meno di un'ora
+  if (!force && Date.now() - (last.snooze || 0) < 3600e3 && last.sig === sig) return;
+  storage.set(PRIO_KEY + ME, JSON.stringify({ sig, at: Date.now(), snooze: last.snooze || 0 }));
+  const block = items.filter(i => i.block).length;
+  const el = document.createElement("div"); el.className = "prio";
+  el.innerHTML = `<div class="prio-card">
+    <div class="prio-h">${block ? `<span class="prio-badge">${block === 1 ? "1 cosa bloccante" : `${block} cose bloccanti`}</span>` : ""}<div class="serif" style="font-size:30px;line-height:1.05">Prima le cose importanti</div>
+      <div class="small muted">${block ? "Il gruppo aspetta il tuo voto per andare avanti." : "Due minuti e sei in pari."}</div></div>
+    <div class="prio-list">${items.map(i => `<button class="prio-row ${i.block ? "block" : ""}" ${i.act}><span class="prio-ico">${ico(i.ico, 18)}</span><span class="grow"><b>${esc(i.t)}</b><small>${esc(i.s)}</small></span>${i.block ? `<em>Vota!</em>` : ico("chev", 16)}</button>`).join("")}</div>
+    <button class="btn ${block ? "pearl" : "primary"} block" data-prio="${block ? "vota" : items[0].act.match(/"(\w+)"/)[1]}">${block ? "Vota adesso" : "Vai"}</button>
+    <button class="link" data-prio="later" style="align-self:center">Più tardi</button></div>`;
+  el.addEventListener("click", e => {
+    const b = e.target.closest("[data-prio]"); if (!b) return;
+    const go_ = b.dataset.prio;
+    el.classList.remove("show"); setTimeout(() => el.remove(), 300);
+    if (go_ === "later") { const l = JSON.parse(storage.get(PRIO_KEY + ME) || "{}"); l.snooze = Date.now(); storage.set(PRIO_KEY + ME, JSON.stringify(l)); return; }
+    if (go_ === "vota") { UI.tab = "vota"; render(); scrollTo(0, 0); }
+    else if (go_ === "spese") { UI.tab = "spese"; render(); scrollTo(0, 0); }
+    else if (go_ === "ai") { UI.chatSeg = "ai"; go("chat"); }
+  });
   document.body.appendChild(el);
   requestAnimationFrame(() => el.classList.add("show"));
-  setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 9000);
-  navigator.vibrate?.(15);
+  navigator.vibrate?.(block ? [30, 50, 30] : 15);
 }
-window.votePop = votePop;
-(function waitVotePop() {
-  if (typeof ME !== "undefined" && ME && S.polls && (!CLOUD || api.sb)) { setTimeout(() => votePop(false), 2500); return; }
-  setTimeout(waitVotePop, 800);
+window.votePop = force => priorityPop(force);
+window.priorityPop = priorityPop;
+(function waitPrio() {
+  if (typeof ME !== "undefined" && ME && S.polls && (!CLOUD || api.sb)) { setTimeout(() => priorityPop(false), 2500); return; }
+  setTimeout(waitPrio, 800);
 })();
-document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(() => votePop(false), 1500); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(() => priorityPop(false), 1500); });
 
 // ───────────────────────── Video in chat ─────────────────────────
 // Si caricano così come sono (fino a 50 MB) nella cartella «video»; l'anteprima è un fotogramma salvato tra le foto.
