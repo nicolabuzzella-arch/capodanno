@@ -728,3 +728,6 @@ body.gaming #root,body.gaming .dock,body.gaming .fab,body.gaming .composer,body.
 .sc-report td{padding:6px 4px;border-top:1px solid var(--line);text-align:center}
 .sc-report td:first-child{text-align:left;color:var(--t2)}
 .sc-report tr.tot td{font-weight:700;font-size:16px}
+/* Barra in alto: giochi, indietro e profilo stessa misura e stessa altezza */
+.topbar>.btn.icon,.topbar>.tap{align-self:center;width:46px;height:46px;min-width:46px;padding:0;margin:0;display:grid;place-items:center;border-radius:50%;flex:none}
+.topbar>.tap .av{width:46px;height:46px;font-size:15px}
