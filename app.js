@@ -443,6 +443,7 @@ function scheduleReload(payload) {
   if (payload?.table === "duels") { window.onDuelChange?.(payload); return; }
   if (payload?.table === "polls" && payload.eventType === "INSERT" && payload.new?.created_by !== ME) setTimeout(() => window.votePop?.(true), 1500);
   const nm = payload?.table === "messages" && payload.eventType === "INSERT" ? payload.new : null;
+  if (nm?.meta?.nudge) window.onNudge?.(nm);
   if (nm && nm.channel === "gruppo" && nm.member_id !== ME && mentionsMe(nm.content) && !(UI.tab === "chat" && UI.chatSeg === "gruppo")) { toast(`${mname(nm.member_id)} ti ha menzionato`, "chat"); navigator.vibrate?.([20, 40, 20]); }
   clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 250);
 }
@@ -1685,10 +1686,11 @@ function viewChat() {
       const cont = !sep && who === lastWho;
       lastDay = day; lastWho = who;
       const time = fmtTime(m.created_at);
+      if (m.meta?.nudge && window.nudgeLine) { lastWho = null; return `${sep}${nudgeLine(m)}`; }
       if (m.role === "assistant") return `${sep}<div class="msg ai" data-mid="${m.id}">${avatar(null, "sm")}<div class="bubble"><div class="who">${seg === "ascolto" ? "Psicologo" : AI()} · ${time}</div>${md(m.content)}${proposalCards(m)}</div></div>`;
       const mine = m.member_id === ME; const w = member(m.member_id);
       const fx = effectsOf(m.member_id);
-      const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? mentions(linkify(m.content)) : esc(m.content).replace(/\n/g, "<br>");
+      const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.video && window.videoBubble ? videoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? mentions(linkify(m.content)) : esc(m.content).replace(/\n/g, "<br>");
       const tap = seg === "gruppo" && m.id !== "tmp" ? `data-act="msg-menu" data-id="${m.id}"` : "";
       return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(fx.nick || w?.name || "—")}${fx.nick ? ` <span class="fx-nick">alias di ${esc(w?.name || "")}</span>` : ""}${fx.title ? ` <span class="fx-title">${esc(fx.title)}</span>` : ""}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
     }).join("")}

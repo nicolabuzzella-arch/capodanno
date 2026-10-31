@@ -1,0 +1,18 @@
+name: Prova API treni
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/prova-treni.yml"]
+jobs:
+  prova:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stazioni e soluzioni Trenitalia (Le Frecce)
+        run: |
+          B="https://www.lefrecce.it/Channels.Website.BFF.WEB/website"
+          curl -sS -m 30 -A "Mozilla/5.0" "$B/locations/search?name=Chiavenna&limit=3" | head -c 800; echo
+          curl -sS -m 30 -A "Mozilla/5.0" "$B/locations/search?name=Milano&limit=3" | head -c 800; echo
+          D=$(date -u -d "+20 days" +%Y-%m-%d)
+          curl -sS -m 30 -A "Mozilla/5.0" -H "Content-Type: application/json" -X POST "$B/ticket/solutions" \
+            -d "{\"departureLocationId\":830001700,\"arrivalLocationId\":830008409,\"departureTime\":\"${D}T08:00:00.000\",\"adults\":2,\"children\":0,\"criteria\":{\"frecceOnly\":false,\"regionalOnly\":false,\"noChanges\":false,\"order\":\"DEPARTURE_DATE\",\"limit\":3,\"offset\":0},\"advancedSearchRequest\":{\"bestFare\":false}}" | head -c 3000; echo

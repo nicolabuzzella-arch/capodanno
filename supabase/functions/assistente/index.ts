@@ -222,6 +222,22 @@ const tools = [
   { type: "web_search_20260209", name: "web_search", max_uses: 16, user_location: { type: "approximate", country: "IT", timezone: "Europe/Rome" } },
   { type: "web_fetch_20260209", name: "web_fetch", max_uses: 12 },
   {
+    name: "treni",
+    description: "Orari e PREZZI REALI di Trenitalia (Frecce, Intercity, regionali e i treni internazionali venduti da Trenitalia) per un giorno e un'ora precisi, letti in tempo reale dal sistema di vendita. Usalo sempre per i treni prima di cercare sul web. Restituisce le soluzioni con partenza, arrivo, durata, cambi, treni e prezzo per il numero di adulti indicato.",
+    input_schema: {
+      type: "object",
+      properties: {
+        da: { type: "string", description: "Stazione o città di partenza, es. «Chiavenna», «Milano Centrale»" },
+        a: { type: "string", description: "Stazione o città di arrivo" },
+        data: { type: "string", description: "AAAA-MM-GG" },
+        ora: { type: "string", description: "HH:MM, da quando cercare (default 06:00)" },
+        adulti: { type: "integer" },
+        solo_frecce: { type: "boolean" },
+      },
+      required: ["da", "a", "data"],
+    },
+  },
+  {
     name: "link_alloggi",
     description: "Prepara i link di ricerca GIÀ COMPILATI con città, date e numero di persone per Booking (hotel e appartamenti), Airbnb e Google Hotels. Usalo sempre quando si cercano alloggi: i link vanno nella risposta insieme alle strutture concrete che trovi.",
     input_schema: {
@@ -447,6 +463,45 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
   };
 
   switch (name) {
+    case "treni": {
+      const B = "https://www.lefrecce.it/Channels.Website.BFF.WEB/website";
+      const H = { "User-Agent": "Mozilla/5.0 (CapodannoApp)", "Accept": "application/json", "Content-Type": "application/json", "Accept-Language": "it-IT" };
+      const station = async (q: string) => {
+        const r = await fetch(`${B}/locations/search?name=${encodeURIComponent(q)}&limit=5`, { headers: H, signal: AbortSignal.timeout(15000) });
+        if (!r.ok) throw new Error(`ricerca stazione ${r.status}`);
+        const list = await r.json() as { id: number; name?: string; displayName?: string }[];
+        if (!list?.length) throw new Error(`stazione non trovata: ${q}`);
+        return list[0];
+      };
+      try {
+        const [from, to] = await Promise.all([station(String(input.da)), station(String(input.a))]);
+        const adults = Math.max(1, Number(input.adulti ?? 1));
+        const body = {
+          departureLocationId: from.id, arrivalLocationId: to.id,
+          departureTime: `${String(input.data)}T${String(input.ora ?? "06:00").slice(0, 5)}:00.000`,
+          adults, children: 0,
+          criteria: { frecceOnly: !!input.solo_frecce, regionalOnly: false, noChanges: false, order: "DEPARTURE_DATE", limit: 10, offset: 0 },
+          advancedSearchRequest: { bestFare: false },
+        };
+        const r = await fetch(`${B}/ticket/solutions`, { method: "POST", headers: H, body: JSON.stringify(body), signal: AbortSignal.timeout(25000) });
+        if (!r.ok) throw new Error(`soluzioni ${r.status}`);
+        // deno-lint-ignore no-explicit-any
+        const d = await r.json() as any;
+        // deno-lint-ignore no-explicit-any
+        const sols = (d.solutions ?? []).map((x: any) => x.solution ?? x).slice(0, 10).map((s: any) => ({
+          partenza: s.departureTime, arrivo: s.arrivalTime, durata: s.duration, stato: s.status,
+          prezzo: s.price ? `${s.price.amount} ${s.price.currency ?? "EUR"}` : (s.minPrice?.amount ?? null),
+          // deno-lint-ignore no-explicit-any
+          treni: (s.trains ?? s.nodes ?? []).map((n: any) => n.denomination || n.description || n.train?.denomination || n.acronym || n.name || n.train?.description).filter(Boolean),
+          cambi: Math.max(0, (s.trains ?? s.nodes ?? []).length - 1),
+        }));
+        const link = `https://www.trenitalia.com/it.html`;
+        return JSON.stringify({ fonte: "Trenitalia, sistema di vendita Le Frecce, letto ora", da: from.displayName || from.name, a: to.displayName || to.name, data: input.data, adulti: adults, soluzioni: sols, prenota: link,
+          nota: sols.length ? "Prezzi per tutti gli adulti indicati, tariffa più bassa disponibile in questo momento." : "Nessuna soluzione: prova un'altra ora, una stazione vicina o cerca sul web (Italo, ÖBB, SBB)." });
+      } catch (e) {
+        return JSON.stringify({ errore: String((e as Error).message ?? e), consiglio: "Il sistema Trenitalia non ha risposto: cerca con web_search/web_fetch sui siti ufficiali (trenitalia.com, italotreno.com, oebb.at, sbb.ch, thetrainline.com) per la data esatta." });
+      }
+    }
     case "link_alloggi": {
       const { data: tr } = await db.from("trip").select("start_date,end_date").eq("id", 1).single();
       const city = String(input.citta ?? "").trim();
@@ -625,6 +680,8 @@ Cosa sai fare:
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
 
+Treni e trasporti: per i treni italiani e quelli venduti da Trenitalia usa SEMPRE lo strumento treni, che legge orari e prezzi reali del giorno esatto; dai partenza, arrivo, durata, cambi e prezzo a testa e totale, con l'ora in cui l'hai letto. Per Italo, ÖBB, SBB, Flixbus e voli cerca sul web la data esatta (siti ufficiali, thetrainline.com, google.com/travel/flights) e apri le pagine. Dai sempre il link per comprare.
+
 Ricerche di alloggi (Booking, Airbnb, hotel, appartamenti): è il tuo lavoro principale e lo fai fino in fondo.
 - Chiama subito link_alloggi per avere le ricerche già compilate con città, date del viaggio e numero di persone.
 - Poi trova strutture CONCRETE: fai più ricerche mirate (es. «site:booking.com/hotel <città> appartamento <N> persone», «site:airbnb.it/rooms <città> <zona>», «<città> appartamento <N> posti letto centro capodanno») e apri con web_fetch le pagine delle singole strutture per leggere posti letto, camere, bagni, prezzo per le date, cancellazione, voto e zona.
@@ -734,7 +791,7 @@ async function runAssistant(ctx: Ctx, question: string, opts: { readOnly?: boole
   if (messages.at(-1)?.role === "user") messages[messages.length - 1].content += `\n\n${turn}`;
   else messages.push({ role: "user", content: turn });
   const system = [{ type: "text", text: systemPrompt(ctx), cache_control: { type: "ephemeral" } }];
-  const deep = opts.readOnly || question.length > 180 || /cerca|trova|prezz|cost|volo|voli|treno|hotel|alberg|apparta|ristor|locale|event|discotec|biglietti|propon|organizz|pianifi|confront|programma|itinerar|quanto|dove|meteo|verifica|link|booking|airbnb|allogg|camer|casa|dormi|notte|b&b|ostello|struttur/i.test(question);
+  const deep = opts.readOnly || question.length > 180 || /cerca|trova|prezz|cost|volo|voli|treno|hotel|alberg|apparta|ristor|locale|event|discotec|biglietti|propon|organizz|pianifi|confront|programma|itinerar|quanto|dove|meteo|verifica|link|booking|airbnb|frecc|italo|trenital|bus|flixbus|allogg|camer|casa|dormi|notte|b&b|ostello|struttur/i.test(question);
   const effort = deep ? "high" : "low";
   const started = Date.now();
   // In sola lettura (resoconto automatico) restano ricerca e proposte, niente scritture nel database.

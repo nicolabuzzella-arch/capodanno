@@ -8,7 +8,7 @@ Object.assign(ICONS, {
   pause: '<rect x="7" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/><rect x="13.5" y="5.5" width="3.5" height="13" rx="1" fill="currentColor"/>',
 });
 
-const VOICE_MAX = 180;   // secondi
+const VOICE_MAX = 170;   // secondi (in WAV 12 kHz restano sotto i 5 MB)
 const VOICE_BARS = 36;   // barre dell'onda salvate con il messaggio
 const V = { mode: null, rec: null, stream: null, chunks: [], start: 0, tick: 0, levels: [], actx: null, analyser: null, buf: null, recog: null, finalText: "", interim: "", sending: false };
 
@@ -23,6 +23,7 @@ function syncComposerButtons() {
   $("#composer-send").hidden = empty;
   $("#composer-mic").hidden = !empty;
   $("#composer-mic").disabled = !!UI.waiting;
+  const nb = $("#composer-nudge"); if (nb) { nb.hidden = !empty || UI.chatSeg !== "gruppo"; if (!nb.querySelector("path")) nb.innerHTML = ico("bell", 20); }
   const cam = $("#composer-cam"); if (cam) { cam.hidden = !empty || UI.chatSeg !== "gruppo"; if (!cam.querySelector("path")) cam.innerHTML = ico("camera", 20); }
 }
 
@@ -42,27 +43,43 @@ async function startVoice() {
 
 // ───────────────────────── Registrazione (chat di gruppo) ─────────────────────────
 
+// Il vocale si registra in WAV (PCM mono 12 kHz): lo leggono tutti i telefoni, iPhone e Android, senza problemi di formato.
+// L'AudioContext nasce dentro il tocco (prima di chiedere il microfono), altrimenti iPhone lo lascia sospeso e registra silenzio.
+const VOICE_RATE = 12000;
 async function startRecording() {
   if (mutedNotice()) return;
-  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast("Questo telefono non permette di registrare dall'app", "alert");
+  if (!navigator.mediaDevices?.getUserMedia) return toast("Questo telefono non permette di registrare dall'app", "alert");
+  let actx = null;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); } catch { actx = null; }
   try {
     V.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   } catch {
+    actx?.close?.().catch(() => {});
     return toast("Serve il permesso del microfono: consentilo nelle impostazioni del telefono", "alert");
   }
-  const mime = voiceMime();
-  V.mode = "rec"; V.chunks = []; V.levels = []; V.start = Date.now();
-  V.rec = new MediaRecorder(V.stream, mime ? { mimeType: mime, audioBitsPerSecond: 48000 } : undefined);
-  V.rec.ondataavailable = e => { if (e.data?.size) V.chunks.push(e.data); };
-  V.rec.start(250);
-  // Livello del microfono per l'onda: dal vivo nella barra, poi salvato con il messaggio.
-  try {
-    V.actx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = V.actx.createMediaStreamSource(V.stream);
-    V.analyser = V.actx.createAnalyser(); V.analyser.fftSize = 512;
-    V.buf = new Float32Array(V.analyser.fftSize);
-    src.connect(V.analyser);
-  } catch { V.analyser = null; }
+  V.mode = "rec"; V.chunks = []; V.pcm = []; V.levels = []; V.start = Date.now(); V.actx = actx; V.rate = actx?.sampleRate || 48000;
+  let pcmOk = false;
+  if (actx && actx.createScriptProcessor) {
+    try {
+      await actx.resume?.();
+      const src = actx.createMediaStreamSource(V.stream);
+      V.analyser = actx.createAnalyser(); V.analyser.fftSize = 512; V.buf = new Float32Array(V.analyser.fftSize);
+      src.connect(V.analyser);
+      const proc = actx.createScriptProcessor(4096, 1, 1);
+      const mute = actx.createGain(); mute.gain.value = 0;
+      proc.onaudioprocess = ev => { if (V.mode === "rec") V.pcm.push(new Float32Array(ev.inputBuffer.getChannelData(0))); };
+      src.connect(proc); proc.connect(mute); mute.connect(actx.destination);
+      V.proc = proc; pcmOk = true;
+    } catch { pcmOk = false; }
+  }
+  if (!pcmOk) {
+    // Riserva: registratore del telefono (formato suo).
+    if (!window.MediaRecorder) { stopVoice(false); return toast("Questo telefono non permette di registrare dall'app", "alert"); }
+    const mime = voiceMime();
+    V.rec = new MediaRecorder(V.stream, mime ? { mimeType: mime, audioBitsPerSecond: 48000 } : undefined);
+    V.rec.ondataavailable = ev => { if (ev.data?.size) V.chunks.push(ev.data); };
+    V.rec.start(250);
+  }
   navigator.vibrate?.(15);
   recBar(`<button type="button" class="btn icon sm" data-act="voice-cancel" aria-label="Annulla">${ico("trash", 18)}</button>
     <span class="rec-dot"></span><span class="num rec-time" id="rec-time">0:00</span>
@@ -84,6 +101,25 @@ async function startRecording() {
     if (s >= VOICE_MAX) stopVoice(true);
   }, 90);
 }
+// Da campioni Float32 alla frequenza del telefono a un file WAV 16 bit mono a 12 kHz.
+function encodeWav(chunks, inRate) {
+  const total = chunks.reduce((t, c) => t + c.length, 0);
+  const ratio = inRate / VOICE_RATE, n = Math.floor(total / ratio);
+  const data = new Int16Array(n);
+  let ci = 0, off = 0, acc = 0, cnt = 0, out = 0, next = ratio;
+  for (let i = 0; i < total && out < n; i++) {
+    while (off >= chunks[ci].length) { ci++; off = 0; }
+    acc += chunks[ci][off++]; cnt++;
+    if (i + 1 >= next) { const v = Math.max(-1, Math.min(1, acc / cnt)); data[out++] = v < 0 ? v * 0x8000 : v * 0x7fff; acc = 0; cnt = 0; next += ratio; }
+  }
+  const buf = new ArrayBuffer(44 + data.length * 2), dv = new DataView(buf);
+  const w = (o, s) => { for (let k = 0; k < s.length; k++) dv.setUint8(o + k, s.charCodeAt(k)); };
+  w(0, "RIFF"); dv.setUint32(4, 36 + data.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, VOICE_RATE, true);
+  dv.setUint32(28, VOICE_RATE * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, "data"); dv.setUint32(40, data.length * 2, true);
+  new Int16Array(buf, 44).set(data);
+  return new Blob([buf], { type: "audio/wav" });
+}
 
 function waveOf(levels) {
   if (!levels.length) return Array(VOICE_BARS).fill(20);
@@ -102,20 +138,26 @@ async function stopVoice(send) {
   V.sending = true;
   clearInterval(V.tick);
   const dur = (Date.now() - V.start) / 1000;
-  const mime = V.rec.mimeType || voiceMime() || "audio/mp4";
-  await new Promise(r => { V.rec.onstop = r; try { V.rec.stop(); } catch { r(); } });
-  V.stream.getTracks().forEach(t => t.stop());
+  let blob;
+  if (V.proc) {
+    try { V.proc.disconnect(); } catch { /* già staccato */ }
+    blob = encodeWav(V.pcm, V.rate);
+  } else {
+    const mime = V.rec?.mimeType || voiceMime() || "audio/mp4";
+    await new Promise(r => { if (!V.rec) return r(); V.rec.onstop = r; try { V.rec.stop(); } catch { r(); } });
+    blob = new Blob(V.chunks, { type: mime.split(";")[0] });
+  }
+  V.stream?.getTracks().forEach(t => t.stop());
   V.actx?.close().catch(() => {});
-  const blob = new Blob(V.chunks, { type: mime.split(";")[0] });
   const wave = waveOf(V.levels);
-  Object.assign(V, { mode: null, rec: null, stream: null, actx: null, analyser: null, chunks: [], sending: false });
+  Object.assign(V, { mode: null, rec: null, proc: null, pcm: [], stream: null, actx: null, analyser: null, chunks: [], sending: false });
   recBar(null); syncComposerButtons();
   if (!send) return;
   if (dur < 0.7 || blob.size < 800) return toast("Tieni premuto un po' di più: il vocale è troppo corto");
   const reply = UI.replyTo;
   UI.replyTo = null; renderReplyBar();
   try {
-    const path = await api.uploadVoice(blob, mime.includes("webm") ? "webm" : "m4a");
+    const path = await api.uploadVoice(blob, blob.type.includes("wav") ? "wav" : blob.type.includes("webm") ? "webm" : "m4a");
     const row = await api.insert("messages", {
       member_id: ME, role: "user", channel: "gruppo", content: `Messaggio vocale (${fmtDur(dur)})`, reply_to: reply || null,
       meta: { voice: { path, dur: Math.round(dur * 10) / 10, wave, mime: blob.type } },

@@ -1101,3 +1101,16 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .on-filter::-webkit-scrollbar{display:none}
 .on-filter button{flex:none;padding:8px 14px;border-radius:99px;font-size:13px;font-weight:600;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--line);color:var(--t2)}
 .on-filter button.on{background:var(--pearl);color:#0a0a0c;box-shadow:none}
+/* Video in chat */
+.chat-video{position:relative;width:min(240px,62vw);max-height:420px;border-radius:16px;overflow:hidden;background:#000;margin:2px 0}
+.chat-video video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+.cv-dur{position:absolute;right:8px;top:8px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.6);color:#fff;pointer-events:none}
+/* Trilli */
+.send.nudge{background:rgba(255,255,255,.1);color:var(--t1);box-shadow:inset 0 0 0 1px var(--line-2)}
+.nudge-line{align-self:center;display:flex;align-items:center;gap:7px;margin:8px auto;padding:6px 14px;border-radius:99px;font-size:12.5px;color:var(--t2);background:rgba(255,210,122,.08);box-shadow:inset 0 0 0 1px rgba(255,210,122,.25)}
+.nudge-line span{display:grid;color:#ffd27a;animation:nudgebell 1.2s ease-in-out 2}
+.nudge-line b{color:var(--t1)}
+@keyframes nudgebell{10%,30%{transform:rotate(-18deg)}20%,40%{transform:rotate(18deg)}50%{transform:none}}
+.nudge-shake{animation:nudgeshake .8s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes nudgeshake{10%,90%{transform:translate3d(-2px,1px,0)}20%,80%{transform:translate3d(5px,-2px,0)}30%,50%,70%{transform:translate3d(-9px,3px,0)}40%,60%{transform:translate3d(9px,-3px,0)}}
+.nudge-row{width:100%;border-radius:14px;padding:8px 12px;background:var(--fill)}

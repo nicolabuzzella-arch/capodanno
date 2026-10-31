@@ -353,7 +353,7 @@ Object.assign(ACTIONS, {
   "foto-open": el => { const list = (S.photos || []).slice().sort((a, b) => (b.created_at > a.created_at ? 1 : -1)); lightbox(list, Number(el.dataset.i)); },
   "photo-pick": () => $("#composer-photo-input")?.click(),
 });
-$("#composer-photo-input")?.addEventListener("change", e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) sendChatPhoto(f); });
+$("#composer-photo-input")?.addEventListener("change", e => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (f.type.startsWith("video/")) sendChatVideo(f); else sendChatPhoto(f); });
 
 // ───────────────────────── Chi è online ─────────────────────────
 // Presenza in tempo reale (Supabase Realtime): quando qualcuno apre l'app compare un piccolo avviso in alto.
@@ -424,7 +424,7 @@ const GNAME = { sudoku9: "Sudoku", killer: "Sudoku Killer", fune: "Tiro alla fun
 function activityFeed() {
   const ev = [];
   const add = (at, who, icon, txt) => at && ev.push({ t: new Date(at).getTime(), who, icon, txt });
-  for (const m of S.messages.filter(m => m.channel === "gruppo" && m.role !== "assistant").slice(-60)) add(m.created_at, m.member_id, "chat", m.meta?.photo ? "ha mandato una foto" : m.meta?.voice ? "ha mandato un vocale" : `ha scritto: «${String(m.content).slice(0, 70)}${m.content.length > 70 ? "…" : ""}»`);
+  for (const m of S.messages.filter(m => m.channel === "gruppo" && m.role !== "assistant").slice(-60)) add(m.created_at, m.member_id, "chat", m.meta?.photo ? "ha mandato una foto" : m.meta?.video ? "ha mandato un video" : m.meta?.nudge ? "ha mandato un trillo" : m.meta?.voice ? "ha mandato un vocale" : `ha scritto: «${String(m.content).slice(0, 70)}${m.content.length > 70 ? "…" : ""}»`);
   for (const v of S.votes) { const o = S.poll_options.find(x => x.id === v.option_id), p = S.polls.find(x => x.id === v.poll_id); add(v.created_at, v.member_id, "vote", `ha votato «${o?.label || "?"}»${p ? ` in «${p.question}»` : ""}`); }
   for (const p of S.polls) add(p.created_at, p.created_by, "vote", `ha creato il sondaggio «${p.question}»`);
   for (const s of S.scores || []) add(s.created_at, s.member_id, "trophy", `ha giocato a ${GNAME[s.game] || s.game}${s.score ? ` · ${s.score} punti` : ""}`);
@@ -493,3 +493,109 @@ window.votePop = votePop;
   setTimeout(waitVotePop, 800);
 })();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(() => votePop(false), 1500); });
+
+// ───────────────────────── Video in chat ─────────────────────────
+// Si caricano così come sono (fino a 50 MB) nella cartella «video»; l'anteprima è un fotogramma salvato tra le foto.
+const VIDEO_MAX = 50 * 1024 * 1024;
+const videoUrl = path => (path.startsWith("blob:") ? path : api.sb ? api.sb.storage.from("video").getPublicUrl(path).data.publicUrl : path);
+async function videoInfo(file) {
+  const url = URL.createObjectURL(file);
+  const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+  await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(res, 6000); });
+  try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); await new Promise(r => { v.onseeked = r; setTimeout(r, 2500); }); } catch { /* primo fotogramma */ }
+  const w = v.videoWidth || 720, h = v.videoHeight || 1280, k = Math.min(1, 720 / Math.max(w, h));
+  let poster = null;
+  try { const c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(v, 0, 0, c.width, c.height); poster = await new Promise(r => c.toBlob(r, "image/jpeg", 0.8)); } catch { poster = null; }
+  const info = { w, h, dur: isFinite(v.duration) ? Math.round(v.duration * 10) / 10 : 0, poster };
+  URL.revokeObjectURL(url);
+  return info;
+}
+async function sendChatVideo(file) {
+  if (typeof mutedNotice === "function" && mutedNotice()) return;
+  if (file.size > VIDEO_MAX) return toast(`Video troppo pesante (${Math.round(file.size / 1048576)} MB): il massimo è 50 MB, prova a tagliarlo`, "alert");
+  const caption = $("#composer-input").value.trim();
+  toast("Carico il video…", "image");
+  try {
+    const info = await videoInfo(file);
+    const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "mp4";
+    let path, poster = null;
+    if (CLOUD) {
+      path = `${uuid()}.${ext}`;
+      api.ok(await api.sb.storage.from("video").upload(path, file, { contentType: file.type || "video/mp4" }));
+      if (info.poster) { poster = `${uuid()}.jpg`; try { api.ok(await api.sb.storage.from("foto").upload(poster, info.poster, { contentType: "image/jpeg" })); } catch { poster = null; } }
+    } else { path = URL.createObjectURL(file); poster = info.poster ? URL.createObjectURL(info.poster) : null; }
+    const reply = UI.replyTo; UI.replyTo = null; renderReplyBar();
+    const row = await api.insert("messages", { member_id: ME, role: "user", channel: "gruppo", content: caption || "Video", reply_to: reply || null, meta: { video: { path, poster, w: info.w, h: info.h, dur: info.dur, mime: file.type } } });
+    $("#composer-input").value = ""; syncComposerButtons?.();
+    api.notify("chat", row.id);
+    await reload();
+  } catch (e) { toast("Video non inviato: " + (/bucket|not found|video/i.test(e.message) ? "serve aggiornamento-6.sql su Supabase" : e.message), "alert"); }
+}
+window.videoBubble = m => {
+  const v = m.meta.video, cap = m.content && m.content !== "Video" ? `<div class="photo-cap">${linkify(m.content)}</div>` : "";
+  const ratio = v.w && v.h ? `${v.w}/${v.h}` : "9/16";
+  return `<div class="chat-video" style="aspect-ratio:${ratio}" data-stop><video src="${esc(videoUrl(v.path))}#t=0.1" ${v.poster ? `poster="${esc(photoUrl(v.poster))}"` : ""} controls playsinline preload="metadata"></video>${v.dur ? `<span class="cv-dur">${fmtDur(v.dur)}</span>` : ""}</div>${cap}`;
+};
+
+// ───────────────────────── Trilli (come su MSN) ─────────────────────────
+// Un trillo fa tremare l'app di chi lo riceve, con suono e vibrazione. Uno ogni 20 secondi, a una persona o a tutti.
+let nudgeAC = null, lastNudge = 0;
+const unlockNudge = () => { try { nudgeAC ||= new (window.AudioContext || window.webkitAudioContext)(); nudgeAC.resume?.(); } catch { /* niente audio */ } };
+document.addEventListener("pointerdown", unlockNudge, { passive: true });
+function nudgeSound() {
+  try {
+    unlockNudge(); const ac = nudgeAC; if (!ac) return;
+    const t0 = ac.currentTime + 0.02, out = ac.createGain(); out.gain.value = 0.55; out.connect(ac.destination);
+    // Il «brrr» che scuote: due onde vicine che battono, a scatti veloci.
+    for (const f of [196, 203]) {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = "square"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t0);
+      for (let k = 0; k < 14; k++) { const t = t0 + k * 0.034; g.gain.setValueAtTime(k % 2 ? 0.02 : 0.16, t); }
+      g.gain.setValueAtTime(0, t0 + 0.5);
+      o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.52);
+    }
+    // Poi il «dlin» a due note.
+    [[1318.5, 0.52], [987.8, 0.68]].forEach(([f, d]) => {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.35, t0 + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.32);
+      o.connect(g); g.connect(out); o.start(t0 + d); o.stop(t0 + d + 0.34);
+    });
+  } catch { /* niente audio */ }
+}
+function nudgeShake() {
+  const el = $("#game:not([hidden])") || $("#app") || document.body;
+  el.classList.remove("nudge-shake"); void el.offsetWidth; el.classList.add("nudge-shake");
+  setTimeout(() => el.classList.remove("nudge-shake"), 900);
+  navigator.vibrate?.([90, 40, 90, 40, 160]);
+  nudgeSound();
+}
+window.onNudge = m => {
+  const n = m.meta?.nudge; if (!n || m.member_id === ME) return;
+  if (n.to && n.to !== ME) return;
+  if (Date.now() - new Date(m.created_at).getTime() > 90000) return;
+  nudgeShake();
+  toast(`${mname(m.member_id)} ti ha mandato un trillo!`, "bell");
+};
+window.nudgeLine = m => {
+  const to = m.meta.nudge.to, who = m.member_id === ME ? "Hai" : `${esc(mname(m.member_id))} ha`;
+  return `<div class="nudge-line" data-mid="${m.id}"><span>${ico("bell", 14)}</span>${who} mandato un trillo ${to ? `a <b>${esc(to === ME ? "te" : mname(to))}</b>` : "a <b>tutti</b>"} · ${fmtTime(m.created_at)}</div>`;
+};
+async function sendNudge(to) {
+  closeSheet();
+  if (typeof mutedNotice === "function" && mutedNotice()) return;
+  if (Date.now() - lastNudge < 20000) return toast("Un trillo ogni 20 secondi, non esagerare");
+  lastNudge = Date.now();
+  nudgeShake();
+  try {
+    const name = to ? firstName(member(to)) : "";
+    const row = await api.insert("messages", { member_id: ME, role: "user", channel: "gruppo", content: to ? `Trillo per @${name}!` : "Trillo per tutti!", meta: { nudge: { to: to || null } } });
+    api.notify("chat", row.id);
+    await reload();
+  } catch (e) { toast("Trillo non inviato: " + e.message, "alert"); }
+}
+Object.assign(ACTIONS, {
+  "nudge-pick": () => openSheet(`<h2>Manda un trillo</h2><p class="small muted" style="margin:-6px 0 14px">Fa tremare l'app di chi lo riceve, con suono e vibrazione. Come su MSN.</p>
+    <button class="btn pearl block" data-act="nudge-send" data-id="">${ico("users", 17)}A tutti</button>
+    <div class="stack" style="gap:6px;margin-top:12px">${S.members.filter(m => m.id !== ME).map(m => `<button class="li tap nudge-row" data-act="nudge-send" data-id="${m.id}">${avatar(m, "sm")}<span class="grow t" style="text-align:left">${esc(m.name)}</span>${ico("bell", 16)}</button>`).join("")}</div>`),
+  "nudge-send": el => sendNudge(el.dataset.id || null),
+});
