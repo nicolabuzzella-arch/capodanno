@@ -696,6 +696,8 @@ function viewHome() {
     ${target ? `<div class="count" id="countdown">${["giorni", "ore", "min", "sec"].map(l => `<div><b data-u="${l}">–</b><span>${l}</span></div>`).join("")}</div>` : ""}
   </section>
 
+  ${window.statoCard ? statoCard() : ""}
+
   <div class="h3-bento">
     <button class="h3-tile wide" data-act="chat-go" data-v="gruppo">
       <span class="h3-k">${ico("chat", 16)}Chat${unread ? `<i class="h3-badge">${unread}</i>` : ""}</span>

@@ -136,6 +136,55 @@ function readinessCard() {
   </section>`;
 }
 
+// ───────────────────────── Stato: ultima cosa fatta e prossima da fare ─────────────────────────
+// Di base si calcola da sondaggi, prenotazioni e cose da fare; l'organizzatore può scriverlo a mano.
+const NEXT_STEP = { Meta: "Scegliere la meta", Date: "Fissare le date", Dormire: "Prenotare dove dormire", Viaggio: "Organizzare il viaggio", Cenone: "Prenotare il cenone", Serata: "Scegliere la serata di Capodanno", Profili: "Completare i profili", Quote: "Pagare le quote" };
+function statoAuto() {
+  const done = [
+    ...S.polls.filter(p => p.status === "closed").map(p => { const d = pollData(p); const w = d.max ? d.opts.find(o => o.voters.length === d.max) : null; return { at: p.created_at, t: w ? `Deciso: ${p.question} → ${w.label || ""}`.replace(/ → $/, "") : `Chiuso il sondaggio «${p.question}»`, go: "vota" }; }),
+    ...S.bookings.filter(b => ["prenotato", "pagato"].includes(b.status)).map(b => ({ at: b.created_at, t: `${b.status === "pagato" ? "Pagato" : "Prenotato"}: ${b.title}`, go: "piano" })),
+    ...S.checklist.filter(c => c.done).map(c => ({ at: c.created_at, t: `Fatto: ${c.text}`, go: "piano" })),
+  ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const vote = openPollsToVote()[0];
+  const miss = readiness().find(x => !x.ok);
+  const task = S.checklist.find(c => !c.done);
+  const next = vote ? { t: `Votare: ${vote.question}`, go: "vota" } : miss ? { t: NEXT_STEP[miss.k] || miss.k, go: miss.go } : task ? { t: task.text, go: "piano" } : { t: "Niente: si parte e si festeggia", go: "home" };
+  return { last: done[0] || null, next };
+}
+window.statoCard = function () {
+  const man = S.trip?.[0]?.flags?.stato;
+  const auto = statoAuto();
+  const last = man?.last ? { t: man.last } : auto.last;
+  const next = man?.next ? { t: man.next } : auto.next;
+  const by = man?.at ? `Aggiornato da ${esc(mname(man.by) || "l'organizzatore")} · ${esc(fmtDate(man.at, { day: "numeric", month: "short" }))}` : "Aggiornato in automatico";
+  const row = (cls, icon, k, x) => `<button class="st-row ${cls}" ${x?.go ? `data-act="tab" data-tab="${x.go}"` : "data-act=\"noop\""}><span class="st-dot">${ico(icon, 16)}</span><span class="grow"><span class="st-k">${k}</span><b>${x ? esc(x.t) : "Ancora niente: si comincia adesso"}</b></span></button>`;
+  return `<section class="card stato">
+    <div class="row between"><div class="eyebrow">Stato</div>${isAdmin() ? `<button class="link tiny" data-act="stato-edit">${ico("edit", 13)}Modifica</button>` : ""}</div>
+    <div class="st-line">${row("done", "check", "Ultima cosa fatta", last)}${row("next", "arrow", "Prossima da fare", next)}</div>
+    <div class="tiny faint" style="margin-top:8px">${by}</div></section>`;
+};
+Object.assign(ACTIONS, {
+  noop: () => {},
+  "stato-edit"() {
+    if (!isAdmin()) return;
+    const man = S.trip?.[0]?.flags?.stato || {}, auto = statoAuto();
+    openSheet(`<h2>Stato</h2><p class="small muted">Lascia vuoto un campo per farlo calcolare all'app.</p>
+      <form id="stato-f"><div class="field"><label>Ultima cosa fatta</label><input name="last" value="${esc(man.last || "")}" placeholder="${esc(auto.last?.t || "Es. Prenotato l'appartamento")}"></div>
+      <div class="field"><label>Prossima da fare</label><input name="next" value="${esc(man.next || "")}" placeholder="${esc(auto.next.t)}"></div>
+      <div class="actions"><button type="button" class="btn" data-act="stato-auto">Torna automatico</button><button class="btn primary">Salva</button></div></form>`);
+    $("#stato-f").addEventListener("submit", e => { e.preventDefault(); const fd = new FormData(e.target); statoSave({ last: fd.get("last").trim(), next: fd.get("next").trim() }); });
+  },
+  "stato-auto": () => statoSave(null),
+});
+async function statoSave(v) {
+  const flags = { ...(S.trip?.[0]?.flags || {}) };
+  if (v && (v.last || v.next)) flags.stato = { ...v, at: new Date().toISOString(), by: ME }; else delete flags.stato;
+  try { await api.update("trip", { id: 1 }, { flags }); }
+  catch (e) { return toast("Serve l'aggiornamento 9 del database", "alert"); }
+  if (S.trip?.[0]) S.trip[0].flags = flags;
+  closeSheet(); toast("Stato aggiornato", "check"); render();
+}
+
 // ───────────────────────── Notizie ─────────────────────────
 
 function newsCard() {
