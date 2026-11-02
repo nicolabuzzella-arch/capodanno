@@ -421,10 +421,20 @@ function pokerSetup() {
     <button class="btn pearl block" data-act="pk-solo" style="margin-top:8px">${ico("card", 16)}Siediti al tavolo</button>
     <div class="label" style="margin-top:18px">Con gli amici</div>
     <div class="small muted" style="margin:-4px 0 8px">Scegli fino a 5 amici: i posti vuoti li puoi riempire con i bot.</div>
-    <div class="stack" style="gap:6px">${others.map(m => `<label class="li pk-friend"><input type="checkbox" value="${m.id}">${avatar(m, "sm")}<span class="grow t">${esc(m.name)}</span></label>`).join("")}</div>
+    <div class="stack" style="gap:6px" id="pk-friends">${others.map(m => `<button type="button" class="pk-friend" data-pkf="${m.id}">${avatar(m, "sm")}<span class="grow t">${esc(m.name)}</span><span class="pk-tick">${ico("check", 16)}</span></button>`).join("")}</div>
+    <div class="tiny faint" id="pk-fcount" style="margin-top:6px">Nessuno scelto</div>
     <div class="pk-opts" data-noswipe style="margin-top:10px"><span>Bot in più</span>${[0, 1, 2, 3].map(n => `<button class="${n === 0 ? "on" : ""}" data-pkx="${n}">${n}</button>`).join("")}</div>
     <button class="btn primary block" data-act="pk-table" style="margin-top:8px">${ico("users", 16)}Apri il tavolo</button>`);
   $("#sheet").addEventListener("click", e => {
+    const f = e.target.closest("[data-pkf]");
+    if (f) {
+      const n = document.querySelectorAll("#sheet .pk-friend.on").length;
+      if (!f.classList.contains("on") && n >= 5) return toast("Al massimo 5 amici al tavolo");
+      f.classList.toggle("on"); navigator.vibrate?.(8);
+      const k = document.querySelectorAll("#sheet .pk-friend.on").length;
+      $("#pk-fcount").textContent = k ? `${k} ${k === 1 ? "amico scelto" : "amici scelti"}` : "Nessuno scelto";
+      return;
+    }
     const b = e.target.closest("[data-pkb],[data-pkl],[data-pkx]"); if (!b) return;
     const key = Object.keys(b.dataset)[0];
     b.parentElement.querySelectorAll(`[data-${key}]`).forEach(x => x.classList.toggle("on", x === b));
@@ -435,7 +445,7 @@ Object.assign(ACTIONS, {
   "pk-setup": () => pokerSetup(),
   "pk-solo": () => { const bots = pkOpt("pkb", 3), level = pkOpt("pkl", 2); closeSheet(); closeGame(); playPoker({ bots, level }); },
   "pk-table": () => {
-    const ids = [...document.querySelectorAll("#sheet .pk-friend input:checked")].map(x => x.value).slice(0, 5);
+    const ids = [...document.querySelectorAll("#sheet .pk-friend.on")].map(x => x.dataset.pkf).slice(0, 5);
     if (!ids.length) return toast("Scegli almeno un amico");
     const extra = Math.min(pkOpt("pkx", 0), 6 - 1 - ids.length);
     const seats = [{ id: ME, name: firstName(me()) }, ...ids.map(id => ({ id, name: firstName(member(id)) })), ...Array.from({ length: extra }, (_, k) => ({ bot: true, name: ["Lino", "Gina", "Franco"][k] }))];
