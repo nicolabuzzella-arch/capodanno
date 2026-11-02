@@ -483,6 +483,10 @@ function priorityItems() {
   }
   const req = typeof myOpenRequests === "function" ? myOpenRequests() : [];
   for (const r of req.slice(0, 2)) out.push({ k: "pay", ico: "card", t: `${r.title}: ${eur(r.amount)}`, s: `Da versare a ${mname(r.pay_to)}`, act: `data-prio="spese"` });
+  const newMail = (S.emails || []).filter(e => e.direction === "in" && !(e.read_by || []).includes(ME));
+  if (newMail.length) out.push({ k: "mail", ico: "mail", t: newMail.length === 1 ? `Email da ${newMail[0].from_name || newMail[0].from_addr}` : `${newMail.length} email nuove nella casella del gruppo`, s: newMail[0].subject || "", act: `data-prio="mail"` });
+  const drafts = (S.emails || []).filter(e => e.direction === "draft");
+  if (drafts.length) out.push({ k: "draft", ico: "mail", t: drafts.length === 1 ? `${AI()} ha preparato un'email da inviare` : `${drafts.length} bozze di ${AI()} da inviare`, s: drafts[0].subject || "", act: `data-prio="mail"` });
   const seenAi = storage.get(SEEN_KEY + "-ai-" + ME) || "";
   const ai = msgs("assistente").filter(m => m.role === "assistant" && m.created_at > seenAi);
   if (ai.length) out.push({ k: "ai", ico: "spark", t: `${AI()} ha scritto ${ai.length === 1 ? "un messaggio nuovo" : `${ai.length} messaggi nuovi`}`, s: String(ai.at(-1).content).replace(/[*_#>`\[\]]/g, "").slice(0, 90), act: `data-prio="ai"` });
@@ -525,6 +529,7 @@ function priorityPop(force) {
     if (go_ === "vota") { UI.tab = "vota"; render(); scrollTo(0, 0); }
     else if (go_ === "spese") { UI.tab = "spese"; render(); scrollTo(0, 0); }
     else if (go_ === "ai") { UI.chatSeg = "ai"; go("chat"); }
+    else if (go_ === "mail") { UI.tab = "mail"; render(); scrollTo(0, 0); }
   });
   document.body.appendChild(el);
   requestAnimationFrame(() => el.classList.add("show"));

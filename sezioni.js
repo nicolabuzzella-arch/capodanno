@@ -458,6 +458,7 @@ window.homeExtras = function () {
     <button data-act="tab" data-tab="mappa">${ico("globe", 18)}Mappa</button>
     <button data-act="tab" data-tab="meteo">${ico("sun", 18)}Meteo</button>
     <button data-act="tab" data-tab="passaggi">${ico("car", 18)}Passaggi</button>
+    <button data-act="tab" data-tab="mail">${ico("mail", 18)}Mail${window.mailUnreadCount?.() ? `<i class="rail-badge">${mailUnreadCount()}</i>` : ""}</button>
     <button data-act="tab" data-tab="foto">${ico("image", 18)}Foto</button>
     <button data-act="chat-go" data-v="ai">${ico("spark", 18)}${AI()}</button>
     <button data-act="chat-go" data-v="ascolto">${ico("user", 18)}Psicologo</button>

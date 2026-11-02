@@ -173,6 +173,11 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
       return send((g.players as string[]).filter((p) => p !== actor), { title: `${name(actor)} ti chiama a scopa d'assi`, body: `Si gioca in quattro, a ${g.settings?.target ?? 21} punti: apri l'app e rispondi.`, url: "?tab=giochi", tag: "scopa-" + g.id, cat: "giochi" });
     }
+    case "email": {
+      const { data: e } = await db.from("emails").select("from_name,from_addr,subject").eq("id", id).maybeSingle();
+      if (!e) return 0;
+      return send(all.map((m) => m.id), { title: `Nuova email da ${e.from_name || e.from_addr}`, body: cut(e.subject ?? ""), url: "?tab=mail", tag: "email-" + id });
+    }
     case "sfida": {
       // Duelli generici (Miniera, GeoScatto): id = la sfida appena creata.
       const { data: g } = await db.from("duels").select("*").eq("id", id).maybeSingle();

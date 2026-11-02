@@ -151,7 +151,7 @@ interface Ctx {
 }
 
 async function loadContext(memberId: string): Promise<Ctx> {
-  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat, vibes, daily, photos, news, effects] = await Promise.all([
+  const [trip, members, priv, polls, options, votes, bookings, expenses, requests, itinerary, checklist, msgs, scores, groupChat, vibes, daily, photos, news, effects, mails] = await Promise.all([
     db.from("trip").select("name,destination,start_date,end_date,notes,group_notes,ai_name").eq("id", 1).single(),
     db.from("members").select("id,name,rsvp,phone,diet,allergies,preferences,notes,car_seats,departure_city,ride_with,paypal,iban,satispay,is_admin").order("created_at"),
     db.from("member_private").select("*"),
@@ -171,6 +171,7 @@ async function loadContext(memberId: string): Promise<Ctx> {
     db.from("photos").select("member_id,caption,created_at").order("created_at", { ascending: false }).limit(40),
     db.from("news").select("items,updated_at").eq("id", 1).maybeSingle(),
     db.from("effects").select("kind,target,value,until").gt("until", new Date().toISOString()),
+    db.from("emails").select("id,direction,from_name,from_addr,to_addr,subject,body,received_at").order("received_at", { ascending: false }).limit(15),
   ]);
 
   const m: Row[] = members.data ?? [];
@@ -214,6 +215,7 @@ async function loadContext(memberId: string): Promise<Ctx> {
     `SALDI (positivo = deve ricevere):\n${[...balances].map(([id, v]) => `- ${name(id)}: ${v.toFixed(2)}€`).join("\n")}`,
     `GIOCHI (ultimi punteggi; sudoku = secondi, meno è meglio; fuochi = punti):\n${(scores.data ?? []).slice(0, 40).map((x) => `- ${x.day} ${name(x.member_id)} ${x.game}: ${x.score}`).join("\n") || "(nessuno)"}`,
     `CHAT DI GRUPPO (ultimi 120 messaggi: leggili tutti, ci sono decisioni, preferenze, cose dette e da salvare):\n${(groupChat.data ?? []).slice().reverse().map((x) => `- ${name(x.member_id)}: ${String(x.content).slice(0, 300)}`).join("\n") || "(vuota)"}`,
+    `CASELLA EMAIL DEL GRUPPO (${Deno.env.get("GMAIL_ADDRESS") ?? "non collegata"}), ultime email (in = ricevuta, out = inviata, draft = tua bozza da approvare):\n${(mails.data ?? []).map((e) => `- [${e.direction}] ${String(e.received_at).slice(0, 16)} ${e.direction === "in" ? `da ${e.from_name ?? ""} <${e.from_addr}>` : `a ${e.to_addr}`} · «${e.subject}» (id ${e.id})\n  ${String(e.body ?? "").replace(/\s+/g, " ").slice(0, 700)}`).join("\n") || "(nessuna)"}`,
     `RISPOSTE ALLE DOMANDE DEL GIORNO (preferenze dichiarate da ognuno: usale per proporre e decidere):\n${(daily.data ?? []).map((d) => `- ${name(d.member_id)} · ${d.question} → ${d.answer}`).join("\n") || "(nessuna)"}`,
     `FOTO CARICATE: ${(photos.data ?? []).length}${(photos.data ?? []).filter((x) => x.caption).slice(0, 10).map((x) => ` · ${name(x.member_id)}: «${x.caption}»`).join("")}`,
     `EFFETTI DELLA RUOTA ATTIVI: ${(effects.data ?? []).map((e) => `${name(e.target)} ${e.kind === "mute" ? "silenziato" : e.kind === "nick" ? `si chiama «${e.value}»` : e.kind === "title" ? `ha il titolo «${e.value}»` : "ha lo scudo"} fino alle ${new Date(e.until).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" })}`).join("; ") || "nessuno"}`,
@@ -257,6 +259,20 @@ const tools = [
         solo_frecce: { type: "boolean" },
       },
       required: ["da", "a", "data"],
+    },
+  },
+  {
+    name: "scrivi_email",
+    description: "Prepara una email da mandare dalla casella del gruppo (hotel, ristoranti, locali, agenzie): la crea come BOZZA nella sezione Mail dell'app, dove una persona la legge e la invia con un tocco. Usala quando bisogna chiedere disponibilità, prezzi, conferme o rispondere a un'email ricevuta (in quel caso passa rispondi_a con l'id). Scrivi nella lingua del destinatario, in modo cortese e completo (date, numero di persone, richieste, nome del gruppo).",
+    input_schema: {
+      type: "object",
+      properties: {
+        a: { type: "string", description: "Indirizzo del destinatario" },
+        oggetto: { type: "string" },
+        testo: { type: "string", description: "Testo completo dell'email, con saluti e firma «Il gruppo di Capodanno»" },
+        rispondi_a: { type: "string", description: "id dell'email ricevuta a cui si risponde (facoltativo)" },
+      },
+      required: ["a", "oggetto", "testo"],
     },
   },
   {
@@ -557,6 +573,14 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
         return JSON.stringify({ errore: String((e as Error).message ?? e), consiglio: "Il sistema Trenitalia non ha risposto: cerca con web_search/web_fetch sui siti ufficiali (trenitalia.com, italotreno.com, oebb.at, sbb.ch, thetrainline.com) per la data esatta." });
       }
     }
+    case "scrivi_email": {
+      const to = String(input.a ?? "").trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return "Indirizzo non valido: serve un'email completa.";
+      const { data: d, error } = await db.from("emails").insert({ direction: "draft", to_addr: to, from_addr: Deno.env.get("GMAIL_ADDRESS") ?? null, from_name: ctx.aiName, subject: String(input.oggetto ?? "").slice(0, 200), body: String(input.testo ?? "").slice(0, 20000), snippet: String(input.testo ?? "").slice(0, 200), reply_to: input.rispondi_a || null }).select().single();
+      if (error) return `Non riesco a salvare la bozza: ${error.message}`;
+      ctx.proposals.push({ type: "email_draft", id: d.id, to, subject: d.subject });
+      return `Bozza salvata nella sezione Mail (id ${d.id}): una persona la controlla e la invia con un tocco. Dillo in una riga.`;
+    }
     case "mostra_alloggi": {
       const ok = (u: unknown) => typeof u === "string" && /^https:\/\//.test(u) ? u : null;
       // deno-lint-ignore no-explicit-any
@@ -752,6 +776,8 @@ Cosa sai fare:
 - Tenere in ordine prenotazioni, programma, spese (anche con più pagatori e divisioni per importi, percentuali o quote), quote da versare e checklist. Quando qualcuno dice di aver pagato o prenotato qualcosa, registralo.
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
+
+Email: il gruppo ha una casella email condivisa (vedi CASELLA EMAIL nello stato). Quando serve scrivere a un hotel, un ristorante, un locale o rispondere a un'email arrivata, prepara tu la bozza con scrivi_email (la invia una persona con un tocco). Quando ti chiedono delle email, leggi quelle nello stato e riassumi cosa dicono e cosa conviene rispondere.
 
 Treni e trasporti: per i treni italiani e quelli venduti da Trenitalia usa SEMPRE lo strumento treni, che legge orari e prezzi reali del giorno esatto; dai partenza, arrivo, durata, cambi e prezzo a testa e totale, con l'ora in cui l'hai letto. Per Italo, ÖBB, SBB, Flixbus e voli cerca sul web la data esatta (siti ufficiali, thetrainline.com, google.com/travel/flights) e apri le pagine. Dai sempre il link per comprare.
 

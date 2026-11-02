@@ -76,6 +76,8 @@ supabase/aggiornamento-3.sql      notifiche a scelta, vibe del gruppo, ruota e p
 supabase/aggiornamento-4.sql      foto, duelli 1 contro 1, posizione, domanda del giorno, notizie, promemoria 14:30
 supabase/aggiornamento-5.sql      Onorevoli come sfida 1 contro 1
 supabase/aggiornamento-6.sql      video in chat
+supabase/aggiornamento-7.sql      casella email del gruppo (Gmail) e controllo ogni 3 minuti
+supabase/functions/posta/         legge e manda le email della casella del gruppo
 supabase/functions/notizie        rassegna dai grandi giornali, ogni tre ore
 home2.js, mappa3d.js, duelli.js   Home, tab Giochi, foto; mappa 3D; Miniera e GeoScatto
 sezioni.js                        profilo, vibe, passaggi, meteo, mappa

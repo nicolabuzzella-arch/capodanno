@@ -7,9 +7,9 @@
 
 const CFG = window.CAPODANNO_CONFIG || {};
 const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase);
-const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news"];
+const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails"];
 // Tabelle degli aggiornamenti più recenti: se il database non le ha ancora, l'app funziona lo stesso.
-const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news"]);
+const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails"]);
 const CACHE_KEY = "capodanno-cache-v3";
 const CODE_KEY = "capodanno-code";
 const SEEN_KEY = "capodanno-chat-seen";
@@ -133,6 +133,8 @@ const ICONS = {
 // Icone usate anche dai moduli aggiuntivi: definite qui così ci sono già al primo disegno.
 Object.assign(ICONS, {
   camera: '<path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10.5H4Z"/><circle cx="12" cy="13.5" r="3.6"/>',
+  mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4.5 7 7.5 6 7.5-6"/>',
+  reply: '<path d="M10 7 5 12l5 5"/><path d="M5.5 12H14a5 5 0 0 1 5 5v1"/>',
   image: '<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 17 5-4.5 3.5 3 3-2.5 4.5 4"/>',
   news: '<rect x="3.5" y="4.5" width="14" height="15" rx="2.5"/><path d="M17.5 8.5h3v8.5a2.5 2.5 0 0 1-2.5 2.5M7 8.5h7M7 12h7M7 15.5h4"/>',
   pin: '<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/>',
@@ -1652,6 +1654,11 @@ function proposalCards(m) {
           : `<button class="btn sm primary" data-act="create-proposal" data-id="${m.id}" data-i="${i}">${ico("plus", 15)}Aggiungi</button>`}</div>`;
     }
     if (a.type === "stays") return staysCards(m, a, i);
+    if (a.type === "email_draft") {
+      const d = (S.emails || []).find(e => e.id === a.id);
+      return `<div class="proposal"><div class="eyebrow">Bozza di email</div><div class="t" style="margin:6px 0">${esc(a.subject)}</div><div class="small muted">a ${esc(a.to)}</div>
+        ${d ? `<button class="btn sm primary" style="margin-top:8px" data-act="mail-open" data-id="${a.id}">${ico("mail", 15)}Leggi e invia</button>` : `<div class="small pos row" style="gap:6px;margin-top:6px">${ico("check", 14)}Inviata o scartata</div>`}</div>`;
+    }
     return "";
   }).join("");
 }
