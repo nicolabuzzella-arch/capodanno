@@ -1659,7 +1659,7 @@ function proposalCards(m) {
     if (a.type === "email_draft") {
       const d = (S.emails || []).find(e => e.id === a.id);
       return `<div class="proposal"><div class="eyebrow">Bozza di email</div><div class="t" style="margin:6px 0">${esc(a.subject)}</div><div class="small muted">a ${esc(a.to)}</div>
-        ${d ? `<button class="btn sm primary" style="margin-top:8px" data-act="mail-open" data-id="${a.id}">${ico("mail", 15)}Leggi e invia</button>` : `<div class="small pos row" style="gap:6px;margin-top:6px">${ico("check", 14)}Inviata o scartata</div>`}</div>`;
+        ${d ? `<button class="btn sm primary" style="margin-top:8px" data-act="mail-open" data-id="${a.id}">${ico("mail", 15)}${isAdmin() ? "Leggi e approva" : "Leggi"}</button>` : `<div class="small pos row" style="gap:6px;margin-top:6px">${ico("check", 14)}Inviata o scartata</div>`}</div>`;
     }
     return "";
   }).join("");

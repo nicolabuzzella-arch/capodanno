@@ -1371,3 +1371,4 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .mail-head #mail-addr{gap:6px}
 .mail-copy{flex:none}
 .mail-copy{width:32px!important;height:32px!important;min-height:0!important;padding:0!important;border-radius:10px!important;display:grid;place-items:center;background:rgba(255,255,255,.08)}
+.mail-wait{display:flex;align-items:center;gap:6px;font-size:13px;color:#ffe08a;padding:8px 12px;border-radius:12px;background:rgba(255,224,138,.08)}

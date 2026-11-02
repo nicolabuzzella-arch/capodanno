@@ -35,7 +35,7 @@ EXTRA_VIEWS.mail = {
       <div class="small muted" style="margin-top:8px">Date questo indirizzo a hotel, ristoranti e locali: le risposte arrivano qui per tutti e ${AI()} vi avvisa.</div>
       <button class="btn block mail-ai" data-act="mail-zampone">${ico("spark", 16)}Fai scrivere a ${esc(AI())}</button>
       <div class="grid2" style="margin-top:12px;gap:8px"><button class="btn pearl block" data-act="mail-new">${ico("edit", 16)}${isAdmin() ? "Scrivi" : "Proponi un'email"}</button><button class="btn block" data-act="mail-sync">${ico("undo", 16)}Aggiorna</button></div></section>
-      <div class="seg mail-seg">${[["in", `Arrivate${unread ? ` · ${unread}` : ""}`], ["out", "Inviate"], ["draft", `${isAdmin() ? "Da approvare" : "Bozze"}${drafts.length ? ` · ${drafts.length}` : ""}`]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" data-act="mail-seg" data-v="${k}">${l}</button>`).join("")}</div>
+      <div class="seg mail-seg">${[["in", `Arrivate${unread ? ` · ${unread}` : ""}`], ["out", "Inviate"], ["draft", `Da approvare${drafts.length ? ` · ${drafts.length}` : ""}`]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" data-act="mail-seg" data-v="${k}">${l}</button>`).join("")}</div>
       ${unread && seg === "in" ? `<button class="link" data-act="mail-allread" style="margin:-4px 4px 8px">${ico("check", 14)}Segna tutte come lette</button>` : ""}
       <section class="card mail-list">${shown.length ? shown.map(e => {
         const un = e.direction === "in" && !(e.read_by || []).includes(ME);
@@ -43,7 +43,7 @@ EXTRA_VIEWS.mail = {
           <span class="mail-av">${esc((mailWho(e).replace(/^a /, "") || "?").trim()[0] || "?").toUpperCase()}</span>
           <span class="grow"><span class="mail-top"><b class="ellipsis">${esc(e.direction === "draft" ? `${e.sent_by ? mname(e.sent_by) : AI()} → ${e.to_addr}` : mailWho(e))}</b><em>${esc(mailWhen(e.received_at))}</em></span>
           <span class="mail-sub ellipsis">${esc(e.subject || "(senza oggetto)")}</span><span class="mail-snip ellipsis">${esc(e.snippet || "")}</span></span>${un ? `<i class="mail-dot"></i>` : ""}</button>`;
-      }).join("") : `<div class="small muted" style="padding:6px 2px">${seg === "in" ? "Ancora nessuna email arrivata." : seg === "out" ? "Ancora nessuna email inviata." : `Nessuna bozza: chiedi a ${AI()} di scrivere a un hotel o a un ristorante.`}</div>`}</section>`;
+      }).join("") : `<div class="small muted" style="padding:6px 2px">${seg === "in" ? "Ancora nessuna email arrivata." : seg === "out" ? "Ancora nessuna email inviata." : `Nessuna email in attesa di approvazione. Chiedi a ${AI()} di scrivere a un hotel o a un ristorante.`}</div>`}</section>`;
   },
   mount() { mailInfo(); },
 };
@@ -62,7 +62,7 @@ function mailOpen(id) {
     ${(e.attachments || []).length ? `<div class="mail-att">${ico("file", 15)}${e.attachments.map(f => esc(f.name)).join(", ")} <span class="faint">(apri dalla casella Gmail)</span></div>` : ""}
     <div class="actions" style="flex-wrap:wrap">${draft
       ? isAdmin() ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Rifiuta</button><button class="btn" data-act="mail-edit" data-id="${e.id}">${ico("edit", 15)}Modifica</button><button class="btn primary" data-act="mail-send-draft" data-id="${e.id}">${ico("send", 15)}Approva e invia</button>`
-        : `${e.sent_by === ME ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Ritira</button>` : ""}<div class="small muted" style="align-self:center">Solo l'organizzatore può inviare: gli è arrivata la richiesta.</div>`
+        : `${e.sent_by === ME ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Ritira</button>` : ""}<div class="mail-wait">${ico("clock", 15)}In attesa dell'approvazione di ${esc(firstName(S.members.find(x => x.is_admin)) || "organizzatore")}</div>`
       : `${isAdmin() ? `<button class="btn mail-del" data-act="mail-delete" data-id="${e.id}">${ico("trash", 15)}Elimina</button>` : ""}${e.direction === "in" ? `<button class="btn" data-act="mail-ask" data-id="${e.id}">${ico("spark", 15)}Risposta da ${esc(AI())}</button><button class="btn primary" data-act="mail-reply" data-id="${e.id}">${ico("reply", 15)}Rispondi</button>` : ""}`}</div></div>`);
   if (UI.tab === "mail") setTimeout(() => { if (UI.tab === "mail" && !$("#sheet")?.classList.contains("open")) render(); }, 0);
 }
