@@ -21,6 +21,10 @@ const SPECIAL = {
   kennedy: ["Sulla Luna entro il decennio", 86], obama: ["Change", 86], trump: ["Make America Great Again", 88], thatcher: ["There is no alternative", 88],
   malgioglio: ["La giacca di paillettes", 86], durso: ["Ciao Carmelita!", 86], corona: ["Il ritorno di Corona", 88], marini: ["Seduzioneee", 84],
   lamborghini: ["Mala", 86], ventura: ["L'Isola dei famosi", 86], casella: ["Ora apri gli occhi", 88], tina: ["Ma vattene!", 88], gemma: ["Gemma forever", 84], signorini: ["Il televoto", 86],
+  deluca: ["Chiudo tutto!", 88], castelli: ["Questo lo dice lei!", 86], sibilia: ["Il Bilderberg", 86], scilipoti: ["Il soccorso al governo", 86],
+  casalino: ["Il messaggio vocale", 86], gasparri: ["Il tweet definitivo", 86], larussa: ["Seduta sospesa!", 86], feltri: ["La prima pagina", 88],
+  cruciani: ["In diretta su Radio 24", 86], taverna: ["Er popolo", 86], wanna: ["Il mago Do Nascimento", 88], sciarelli: ["Lo abbiamo trovato!", 86],
+  bruzzone: ["Il caso è chiuso", 88], giletti: ["Non è l'Arena", 86], giordano: ["Vergogna!", 86],
   merkel: ["Sedici anni di cancelleria", 86], degaulle: ["La Quinta Repubblica", 86], gandhi: ["L'indipendenza", 86], lincoln: ["Il Proclama di emancipazione", 88],
 };
 const EFF_TXT = { heal: "Recupera consenso", "atk+": "Aumenta la forza", "def+": "Aumenta la difesa", "def-": "Abbassa la difesa avversaria", "atk-": "Abbassa la forza avversaria" };
@@ -28,7 +32,31 @@ const LOSES = Object.fromEntries(Object.keys(BEATS).map(t => [t, Object.keys(BEA
 const typeMult = (a, d) => (BEATS[a].includes(d) ? 1.5 : BEATS[d].includes(a) ? 0.67 : 1);
 const onoF = (p, lv = 1) => ({ id: p.id, n: p.n, t: p.t, atk: p.atk, def: p.def, spd: p.spd, m: p.m, max: Math.round(p.hp * lv), cur: Math.round(p.hp * lv), atkB: 0, defB: 0, stun: false, lv, meter: 0, dealt: 0, kos: 0 });
 const ONO_SPEED_KEY = "capodanno-ono-veloce";
-const ONO_TURN = 45; // secondi per mossa nelle sfide online, poi sceglie il telefono
+const ONO_TURN = 45;
+// ───────── Suoni (sintetizzati, niente file) ─────────
+const ONO_MUTE_KEY = "capodanno-ono-muto";
+let onoAC = null;
+function onoSfx(kind) {
+  if (storage.get(ONO_MUTE_KEY) === "1") return;
+  try {
+    onoAC ||= new (window.AudioContext || window.webkitAudioContext)(); onoAC.resume?.();
+    const ac = onoAC, t0 = ac.currentTime + 0.01, out = ac.createGain(); out.gain.value = 0.35; out.connect(ac.destination);
+    const tone = (f, at, dur, type = "sine", vol = 0.5, slide) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0 + at); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + at + dur); g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(vol, t0 + at + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur); o.connect(g); g.connect(out); o.start(t0 + at); o.stop(t0 + at + dur + 0.05); };
+    const noise = (at, dur, vol, freq = 900) => { const b = ac.createBuffer(1, Math.floor(ac.sampleRate * dur), ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); f.type = "bandpass"; f.frequency.value = freq; g.gain.value = vol; s.buffer = b; s.connect(f); f.connect(g); g.connect(out); s.start(t0 + at); };
+    ({
+      hit: () => { noise(0, 0.12, 0.9, 700); tone(140, 0, 0.14, "triangle", 0.5, 70); },
+      crit: () => { noise(0, 0.18, 1, 1400); tone(220, 0, 0.2, "square", 0.25, 90); tone(880, 0.05, 0.25, "sine", 0.25); },
+      say: () => tone(520, 0, 0.07, "sine", 0.18, 600),
+      special: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.09, 0.35, "triangle", 0.35)),
+      ko: () => { tone(392, 0, 0.25, "triangle", 0.4); tone(311, 0.18, 0.25, "triangle", 0.4); tone(196, 0.36, 0.6, "triangle", 0.45, 150); },
+      news: () => { [784, 988, 784].forEach((f, i) => tone(f, i * 0.12, 0.18, "square", 0.12)); noise(0, 0.05, 0.3, 3000); },
+      item: () => { tone(880, 0, 0.12, "sine", 0.35, 1320); tone(1320, 0.08, 0.2, "sine", 0.25); },
+      heal: () => [440, 554, 659].forEach((f, i) => tone(f, i * 0.06, 0.3, "sine", 0.25)),
+      win: () => [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, i * 0.11, i === 5 ? 0.7 : 0.18, "triangle", 0.4)),
+      lose: () => [392, 349, 311, 262].forEach((f, i) => tone(f, i * 0.16, 0.3, "triangle", 0.35)),
+    })[kind]?.();
+  } catch { /* niente audio */ }
+} // secondi per mossa nelle sfide online, poi sceglie il telefono
 
 // ───────── Motore (deterministico) ─────────
 function onoHit(st, s, mv, rnd, ev) {
@@ -62,7 +90,11 @@ function onoApply(st, a, rnd, names) {
   const s = a.s, o = 1 - s;
   if (a.quit) { st.over = true; st.winner = o; ev.push({ log: `${names[s]} abbandona l'aula.` }); return ev; }
   const att = st.team[s][st.act[s]];
-  if (a.sw != null) {
+  if (a.item && st.items?.[s]?.[a.item] > 0) {
+    st.items[s][a.item]--;
+    if (a.item === "caffe") { const h = Math.round(att.max * 0.25), was = att.cur; att.cur = Math.min(att.max, att.cur + h); att.stun = false; ev.push({ item: "caffe", side: s, log: `${att.n} prende un caffè alla buvette: +${att.cur - was} di consenso, di nuovo lucido.` }); }
+    else { att.meter = Math.min(100, att.meter + 40); ev.push({ item: "stampa", side: s, log: `L'ufficio stampa di ${att.n} lavora sodo: +40 di Favore popolare.` }); }
+  } else if (a.sw != null) {
     const f = st.team[s][a.sw];
     if (f && f.cur > 0 && a.sw !== st.act[s]) { st.act[s] = a.sw; att.stun = false; ev.push({ enter: s, log: `${names[s]} richiama ${att.n} e manda in aula ${f.n}.` }); }
   } else if (a.sp) {
@@ -99,7 +131,7 @@ function onoNews(st, k, seed) {
   return { news: n.t, log: n.d.replace("{X}", st.team[s][st.act[s]].n) };
 }
 function onoReplay(game, names, upto = game.actions.length) {
-  const st = { team: [null, null], act: [0, 0], over: false, winner: null, ev: [], n: 0 };
+  const st = { team: [null, null], act: [0, 0], over: false, winner: null, ev: [], n: 0, items: [{ caffe: 1, stampa: 1 }, { caffe: 1, stampa: 1 }] };
   game.actions.slice(0, upto).forEach((a, k) => {
     st.ev = onoApply(st, a, seededRand(((Number(game.seed) || 1) + k * 7919) >>> 0), names); st.n = k + 1;
     if (!a.pick && !st.over && st.team[0] && st.team[1]) { const nw = onoNews(st, k, game.seed); if (nw) st.ev.push(nw); }
@@ -113,6 +145,9 @@ function onoReplay(game, names, upto = game.actions.length) {
 function onoCpu(st, s, smart) {
   const f = st.team[s][st.act[s]], foe = st.team[1 - s][st.act[1 - s]];
   if (f.meter >= 100) return { sp: 1 };
+  const it = st.items?.[s] || {};
+  if (it.caffe && (f.cur / f.max < 0.3 || f.stun) && Math.random() < 0.7) return { item: "caffe" };
+  if (it.stampa && f.meter >= 55 && f.meter < 100 && Math.random() < 0.35) return { item: "stampa" };
   if (smart && typeMult(f.t, foe.t) < 1 && f.cur / f.max > 0.25 && Math.random() < 0.55) {
     const i = st.team[s].findIndex((x, j) => j !== st.act[s] && x.cur > x.max * 0.35 && typeMult(x.t, foe.t) > 1);
     if (i >= 0) return { sw: i };
@@ -146,6 +181,7 @@ const ONO_RULES = `<div class="on-rules"><b>Come si gioca</b>
   <p><b>Categorie.</b> Ognuna ne batte due e perde con le altre due (colpi ×1,5 in vantaggio, ×0,67 in svantaggio):</p>
   <p>Lo <b>Showman</b> (TV, giornalisti, comici) batte Tecnico e Statista: li trasforma in meme.<br>Il <b>Tecnico</b> batte Tribuno e Rivoluzionario: i numeri smontano slogan e barricate.<br>Il <b>Tribuno</b> batte Statista e Showman: la piazza urla più forte.<br>Lo <b>Statista</b> batte Rivoluzionario e Tecnico: istituzionalizza e guida.<br>Il <b>Rivoluzionario</b> batte Showman e Tribuno: rovescia tutto.</p>
   <p><b>Favore popolare.</b> Sale quando colpisci e quando incassi. Al 100% sblocca la mossa speciale del personaggio: fortissima e infallibile.</p>
+  <p><b>Oggetti.</b> Ogni squadra ha un Caffè della buvette (+25% di consenso e torna lucido) e un Ufficio stampa (+40 di Favore popolare). Usarli prende il turno.</p>
   <p><b>Zittito.</b> Alcune mosse possono zittire: chi è zittito salta la prossima frase. Ogni tanto arriva un colpo critico.</p>
   <p>Vince chi resta in aula. Tocca la cronaca per far scorrere più in fretta.</p>
   <p class="tiny faint">Foto da Wikimedia Commons con licenze libere: autori e licenze nel file <a href="volti/fonti.json" target="_blank" rel="noopener">volti/fonti.json</a>.</p></div>`;
@@ -173,8 +209,8 @@ function playOno(opts) {
   const wait = ms => new Promise(r => { const t = setTimeout(r, fast() ? ms * 0.45 : ms); skip = () => { clearTimeout(t); r(); }; });
   const openSheetIn = html => { sheet.innerHTML = `<div class="on-sheet-in">${html}</div>`; sheet.hidden = false; };
   const closeSheetIn = () => { sheet.hidden = true; sheet.innerHTML = ""; };
-  $("#on-help").addEventListener("click", () => openSheetIn(`${ONO_RULES}<label class="on-fast"><input type="checkbox" id="on-fast" ${fast() ? "checked" : ""}> Cronaca veloce</label><div class="actions">${online ? `<button class="btn" data-on="quit">Abbandona la sfida</button>` : ""}<button class="btn primary" data-on="sheet-close">Ho capito</button></div>`));
-  sheet.addEventListener("change", e => { if (e.target.id === "on-fast") storage.set(ONO_SPEED_KEY, e.target.checked ? "1" : "0"); });
+  $("#on-help").addEventListener("click", () => openSheetIn(`${ONO_RULES}<label class="on-fast"><input type="checkbox" id="on-fast" ${fast() ? "checked" : ""}> Cronaca veloce</label><label class="on-fast"><input type="checkbox" id="on-mute" ${storage.get(ONO_MUTE_KEY) === "1" ? "checked" : ""}> Senza suoni</label><div class="actions">${online ? `<button class="btn" data-on="quit">Abbandona la sfida</button>` : ""}<button class="btn primary" data-on="sheet-close">Ho capito</button></div>`));
+  sheet.addEventListener("change", e => { if (e.target.id === "on-fast") storage.set(ONO_SPEED_KEY, e.target.checked ? "1" : "0"); if (e.target.id === "on-mute") storage.set(ONO_MUTE_KEY, e.target.checked ? "1" : "0"); });
   sheet.addEventListener("click", e => {
     const b = e.target.closest("[data-on]"); if (!b) { if (e.target === sheet) closeSheetIn(); return; }
     if (b.dataset.on === "sheet-close") closeSheetIn();
@@ -187,7 +223,7 @@ function playOno(opts) {
     body.innerHTML = `<div class="on-pick-head">
         <div class="on-slots">${[0, 1, 2].map(i => { const p = POLS.find(x => x.id === team[i]); return p ? `<button class="on-slot full" data-sheet="${p.id}">${polFace(p)}<span>${esc(p.n.split(" ").slice(-1)[0])}</span></button>` : `<div class="on-slot"><span>${i + 1}</span></div>`; }).join("")}</div>
         <div class="tiny faint" style="text-align:center;margin-top:8px">Tocca un onorevole per la sua scheda. Mischia le categorie: ognuna ne batte due.</div></div>
-      <div class="on-filter" data-noswipe>${[["tutti", `Tutti · ${POLS.length}`], ["oggi", "Italia di oggi"], ["storia-it", "Prima Repubblica e Risorgimento"], ["mondo", "Il mondo e la storia"], ["tv", "TV trash"]].map(([k, l]) => `<button data-flt="${k}" class="${pickFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="on-filter" data-noswipe>${[["tutti", `Tutti · ${POLS.length}`], ["oggi", "Italia di oggi"], ["storia-it", "Prima Repubblica e Risorgimento"], ["mondo", "Il mondo e la storia"], ["tv", "TV, meme e cronaca"]].map(([k, l]) => `<button data-flt="${k}" class="${pickFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="pol-grid" id="ono-pick">${POLS.filter(p => pickFilter === "tutti" || POL_GROUP(p.id) === pickFilter).map(p => `<button data-sheet="${p.id}" class="${team.includes(p.id) ? "on" : ""}">${polCard(p)}</button>`).join("")}</div>
       <div class="on-pick-bar"><button class="btn" id="on-rand">${ico("swap", 16)}A caso</button><button class="btn pearl grow" id="ono-go" ${team.length === 3 && !pending ? "" : "disabled"}>${team.length === 3 ? "In aula!" : `Scegli tre onorevoli (${team.length}/3)`}</button></div>`;
     body.querySelectorAll("[data-flt]").forEach(b => b.addEventListener("click", () => { pickFilter = b.dataset.flt; paintPick(); }));
@@ -263,6 +299,7 @@ function playOno(opts) {
       act.innerHTML = `<div class="ar-moves">${me1.m.map((mv, i) => `<button data-mv="${i}" ${myTurn ? "" : "disabled"} style="--c:${TYPES[me1.t].c}"><b>«${esc(mv[0])}»</b>
           <span>${mv[1] ? `${mv[3] === "multi" ? "3 colpi · " : ""}potenza ${mv[1]}${mv[3] === "stun" ? " · può zittire" : ""}` : EFF_TXT[mv[3]]} · ${mv[2]}%</span>${mv[1] && m !== 1 ? `<em class="${m > 1 ? "good" : "bad"}">${m > 1 ? "superefficace" : "poco efficace"}</em>` : ""}</button>`).join("")}</div>
         <button class="on-sp ${ready ? "ready" : ""}" data-sp="1" ${ready && myTurn ? "" : "disabled"}><span>Mossa speciale</span><b>«${esc(SPECIAL[me1.id][0])}»</b><i>${ready ? "Pronta!" : `Favore popolare ${me1.meter}%`}</i></button>
+        <div class="on-items">${[["caffe", "Caffè della buvette", "+25% consenso, toglie il «zittito»"], ["stampa", "Ufficio stampa", "+40 Favore popolare"]].map(([k, n, d]) => `<button data-item="${k}" ${myTurn && st.items[mySeat][k] > 0 ? "" : "disabled"}><b>${n}</b><span>${st.items[mySeat][k] > 0 ? d : "usato"}</span></button>`).join("")}</div>
         <button class="on-switch" data-on-act="bench" ${myTurn ? "" : "disabled"}>${ico("swap", 18)}<span><b>Cambia onorevole</b><small>${st.team[mySeat].filter((f, i) => i !== st.act[mySeat] && f.cur > 0).length} in panchina · usa il turno</small></span></button>`;
     }
   };
@@ -271,7 +308,8 @@ function playOno(opts) {
     if (e.target.closest("[data-on-act=bench]")) { benchOpen = true; return paintArena(st); }
     if (e.target.closest("[data-on-act=back]")) { benchOpen = false; return paintArena(st); }
     if (!st.ready || st.over || st.turn !== mySeat || pending || playing) return;
-    const mv = e.target.closest("[data-mv]"), sw = e.target.closest("[data-sw]"), sp = e.target.closest("[data-sp]");
+    const mv = e.target.closest("[data-mv]"), sw = e.target.closest("[data-sw]"), sp = e.target.closest("[data-sp]"), it = e.target.closest("[data-item]");
+    if (it) return commit({ item: it.dataset.item });
     if (mv) commit({ mv: Number(mv.dataset.mv) });
     else if (sp) commit({ sp: 1 });
     else if (sw) { benchOpen = false; commit({ sw: Number(sw.dataset.sw) }); }
@@ -290,21 +328,23 @@ function playOno(opts) {
         await wait(2600); b.classList.remove("show"); setTimeout(() => b.remove(), 400);
         continue;
       }
+      if (e.item) { onoSfx(e.item === "caffe" ? "heal" : "item"); pushLog(e.log); await wait(1500); continue; }
       if (e.say && e.special) {
         const p = POLS.find(x => x.id === e.id);
         if (p) { const c = document.createElement("div"); c.className = "on-cutin"; c.innerHTML = `${polFace(p, "xl")}<div><span>MOSSA SPECIALE</span><b>«${esc(e.say)}»</b><em>${esc(e.by)}</em></div>`; $("#game").appendChild(c); requestAnimationFrame(() => c.classList.add("show")); setTimeout(() => { c.classList.remove("show"); setTimeout(() => c.remove(), 400); }, 1700); }
       }
       if (e.say) {
         pushLog(`<span class="who">${esc(e.by)}</span>${e.special ? `<span class="spk">MOSSA SPECIALE</span>` : ""}«${esc(e.say)}»`, e.special ? "special" : "");
-        if (e.special) flash(e.side, "charge");
+        if (e.special) { flash(e.side, "charge"); onoSfx("special"); } else onoSfx("say");
         await wait(e.special ? 1900 : 1500);
       } else if (e.dmg) {
         const el = $(e.side === mySeat ? "#on-me" : "#on-foe");
         if (el) { flash(e.side, "hit"); const fl = document.createElement("div"); fl.className = `dmg ${e.crit ? "crit" : ""}`; fl.textContent = `−${e.dmg}${e.crit ? " critico" : ""}`; el.appendChild(fl); setTimeout(() => fl.remove(), 1200); }
         // la barra scende subito, così si vede il colpo
         const f = stBefore.team[e.side][stBefore.act[e.side]]; f.cur = Math.max(0, f.cur - e.dmg); paintSideOnly(stBefore);
-        navigator.vibrate?.(e.crit ? 30 : 12); await wait(750);
-      } else if (e.ko != null) { flash(e.ko, "ko"); pushLog(e.log, "ko"); await wait(1800); }
+        onoSfx(e.crit ? "crit" : "hit"); navigator.vibrate?.(e.crit ? 30 : 12); await wait(750);
+      } else if (e.ko != null) { flash(e.ko, "ko"); onoSfx("ko"); pushLog(e.log, "ko"); await wait(1800); }
+      else if (e.heal) { onoSfx("heal"); pushLog(e.log); await wait(1500); }
       else if (e.log) { pushLog(e.log); await wait(e.enter != null ? 1700 : 1700); }
     }
   };
@@ -375,6 +415,7 @@ function playOno(opts) {
         : won ? `<button class="btn" id="on-stop">Mi ritiro</button><button class="btn primary" id="on-next">Legislatura ${round + 1}</button>` : `<button class="btn primary" data-act="play-onorevoli">Rigioca</button>`}</div></div>`;
     $("#on-end").scrollIntoView({ behavior: "smooth", block: "center" });
     if (won) confettiBurst();
+    onoSfx(won ? "win" : "lose");
     if (online && game.status === "active") duRpc("duel_finish", { p_id: game.id, p_result: { winner: st.winner } }).then(duUpsert).catch(() => {});
     const save = async () => { if (pts > 0) { await saveScore("onorevoli", pts, { rounds: won ? round : round - 1 }); const r = myRank("onorevoli"); const el = $("#on-rank"); if (el && r) el.innerHTML = `Record: <b>${r.s.score}</b> · ${r.pos}° su ${r.of}`; } };
     if (!online) {
