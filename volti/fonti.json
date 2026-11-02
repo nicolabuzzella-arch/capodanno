@@ -411,5 +411,110 @@
   "autore": "",
   "licenza": "",
   "tentato": true
+ },
+ "deluca": {
+  "nome": "Vincenzo De Luca",
+  "file": "https://commons.wikimedia.org/wiki/File:Vincenzo_De_Luca_al_Presidio_Cavallino_del_Santobono_%28Cropped%29.jpg",
+  "autore": "ElTristoMietitor",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "castelli": {
+  "nome": "Laura Castelli",
+  "file": "https://commons.wikimedia.org/wiki/File:Laura_Castelli_daticamera_2018.jpg",
+  "autore": "Camera dei Deputati",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "sibilia": {
+  "nome": "Carlo Sibilia",
+  "file": "https://commons.wikimedia.org/wiki/File:Carlo_Sibilia_daticamera_2018.jpg",
+  "autore": "Chamber of Deputies",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "scilipoti": {
+  "nome": "Domenico Scilipoti",
+  "file": "https://commons.wikimedia.org/wiki/File:Domenico_Scilipoti_datisenato_2013.jpg",
+  "autore": "Senato della Repubblica Italiana",
+  "licenza": "CC BY 3.0 it",
+  "tentato": true
+ },
+ "casalino": {
+  "nome": "Rocco Casalino",
+  "file": "https://commons.wikimedia.org/wiki/File:Grande_Fratello_-_Casalino.png",
+  "autore": "Fosco Gasperi",
+  "licenza": "Public domain",
+  "tentato": true
+ },
+ "gasparri": {
+  "nome": "Maurizio Gasparri",
+  "file": "https://commons.wikimedia.org/wiki/File:Murizio_Gasparri_datisenato_2018.jpg",
+  "autore": "Senato Italiano",
+  "licenza": "CC BY 3.0 it",
+  "tentato": true
+ },
+ "larussa": {
+  "nome": "Ignazio La Russa",
+  "file": "https://commons.wikimedia.org/wiki/File:Ignazio_La_Russa_at_Salone_Nautico_Venezia_2025_%283x4_cropped%29.jpg",
+  "autore": "LucaFazPhoto",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "feltri": {
+  "nome": "Vittorio Feltri",
+  "file": "https://commons.wikimedia.org/wiki/File:Vittorio_Feltri.jpg",
+  "autore": "Radio Radicale",
+  "licenza": "CC BY-SA 2.5",
+  "tentato": true
+ },
+ "cruciani": {
+  "nome": "Giuseppe Cruciani",
+  "file": "https://commons.wikimedia.org/wiki/File:Giuseppe_Cruciani_-_International_Journalism_Festival_2015.JPG",
+  "autore": "Niccolò Caranti",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "taverna": {
+  "nome": "Paola Taverna",
+  "file": "https://commons.wikimedia.org/wiki/File:Ms._Paola_Taverna%2C_OSCE_PA_Autumn_Meeting%2C_Marrakech%2C_5_Oct._2019.jpg",
+  "autore": "OSCE Parliamentary Assembly",
+  "licenza": "CC BY-SA 2.0",
+  "tentato": true
+ },
+ "wanna": {
+  "nome": "Wanna Marchi",
+  "file": "https://commons.wikimedia.org/wiki/File:Dio_c%27%C3%A8_-_Marchi.png",
+  "autore": "Alfredo Arciero",
+  "licenza": "Public domain",
+  "tentato": true
+ },
+ "sciarelli": {
+  "nome": "Federica Sciarelli",
+  "file": "https://commons.wikimedia.org/wiki/File:Federica_Sciarelli_%28cropped%29.jpg",
+  "autore": "Original: Simone Ramella from Rome, Italy / Derivative work: Danyele",
+  "licenza": "CC BY 2.0",
+  "tentato": true
+ },
+ "bruzzone": {
+  "nome": "Roberta Bruzzone",
+  "file": "https://commons.wikimedia.org/wiki/File:Roberta_Bruzzone_2014.JPG",
+  "autore": "Niccolò Caranti",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "giletti": {
+  "nome": "Massimo Giletti",
+  "file": "https://commons.wikimedia.org/wiki/File:Massimogiletti.jpg",
+  "autore": "Ciclone27",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
+ },
+ "giordano": {
+  "nome": "Mario Giordano",
+  "file": "https://commons.wikimedia.org/wiki/File:Mario_Giordano_2018.jpg",
+  "autore": "Photo2021",
+  "licenza": "CC BY-SA 4.0",
+  "tentato": true
  }
 }
