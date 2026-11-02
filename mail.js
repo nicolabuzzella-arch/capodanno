@@ -21,7 +21,7 @@ async function mailInfo() {
   try { MAIL.info = await posta({ action: "info" }); const el = $("#mail-addr"); if (el) el.innerHTML = mailAddrHtml(); } catch (e) { MAIL.info = { error: e.message }; const el = $("#mail-addr"); if (el) el.innerHTML = mailAddrHtml(); }
 }
 const mailAddrHtml = () => MAIL.info?.address
-  ? `<div class="mail-addr-t">${esc(MAIL.info.address)}</div><button class="btn icon sm mail-copy" data-act="mail-copy" aria-label="Copia indirizzo">${ico("copy", 16)}</button>`
+  ? `<div class="mail-addr-t">${esc(MAIL.info.address)}</div><button class="btn icon sm mail-copy" data-act="mail-copy" aria-label="Copia indirizzo">${ico("copy", 14)}</button>`
   : MAIL.info?.error ? `<div class="small muted">Casella non ancora collegata: ${esc(MAIL.info.error)}</div>` : `<div class="small faint">Carico l'indirizzo…</div>`;
 
 EXTRA_VIEWS.mail = {
