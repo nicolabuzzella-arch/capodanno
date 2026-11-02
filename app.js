@@ -7,9 +7,9 @@
 
 const CFG = window.CAPODANNO_CONFIG || {};
 const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase);
-const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails"];
+const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails", "songs", "song_votes", "rooms", "bed_picks"];
 // Tabelle degli aggiornamenti più recenti: se il database non le ha ancora, l'app funziona lo stesso.
-const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails"]);
+const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails", "songs", "song_votes", "rooms", "bed_picks"]);
 const CACHE_KEY = "capodanno-cache-v3";
 const CODE_KEY = "capodanno-code";
 const SEEN_KEY = "capodanno-chat-seen";
@@ -466,6 +466,7 @@ async function reload() {
   }
   // Sulla mappa non si ricostruisce la pagina (si interromperebbe lo zoom): si aggiornano solo marker e voti.
   if (UI.tab === "mappa" && window.m3Refresh?.()) return;
+  if (UI.tab === "live" && window.liveRefresh?.()) return;
   render();
 }
 
@@ -681,6 +682,7 @@ function viewHome() {
 
   return `
   <div class="h3-hello"><span>${hello}, <b>${esc(m?.name || "")}</b></span><span class="h3-online" id="h3-online">${window.onlineStrip ? onlineStrip() : ""}</span></div>
+  ${window.quiCard ? quiCard() : ""}
   <section class="card hero hero3">
     <canvas id="fireworks"></canvas>
     <div class="h3-pass">
@@ -1263,6 +1265,7 @@ function viewSpese() {
     <div class="small muted">${myBal > 0.009 || myBal < -0.009 ? "in totale, già semplificato" : "Sei in pari con tutti"} · gruppo ${eur(groupSpent())}</div>
     <div class="row" style="gap:8px;margin-top:18px">
       <button class="btn primary grow" data-act="edit-expense">${ico("plus", 18)}Spesa</button>
+      <button class="btn grow" data-act="scontrino">${ico("camera", 18)}Scontrino</button>
       <button class="btn grow" data-act="settle-up">${ico("swap", 18)}Salda</button>
       <button class="btn icon" data-act="new-request" aria-label="Chiedi una quota">${ico("card", 19)}</button>
     </div>
@@ -1472,8 +1475,8 @@ async function sheetExpense(id) {
 // Modulo spesa: chi ha pagato (uno o più) e come si divide (uguale, importi, percentuali, quote).
 function sheetEditExpense(id, prefill = {}) {
   const e = S.expenses.find(x => x.id === id) || {
-    amount: prefill.amount ?? "", title: prefill.title || "", category: prefill.category || "altro", spent_on: today(), booking_id: prefill.booking_id || null,
-    payers: { [prefill.payer || ME]: prefill.amount || 0 }, split_mode: "equal", split_input: Object.fromEntries(going().map(m => [m.id, 1])), note: "",
+    amount: prefill.amount ?? "", title: prefill.title || "", category: prefill.category || "altro", spent_on: prefill.spent_on || today(), booking_id: prefill.booking_id || null,
+    payers: { [prefill.payer || ME]: prefill.amount || 0 }, split_mode: "equal", split_input: Object.fromEntries(going().map(m => [m.id, 1])), note: prefill.note || "",
   };
   const payerIds = Object.keys(e.payers || {});
   const multiPay = payerIds.length > 1;
@@ -1658,6 +1661,7 @@ function proposalCards(m) {
           : `<button class="btn sm primary" data-act="create-proposal" data-id="${m.id}" data-i="${i}">${ico("plus", 15)}Aggiungi</button>`}</div>`;
     }
     if (a.type === "stays") return staysCards(m, a, i);
+    if (a.type === "food" && window.foodCards) return foodCards(m, a, i);
     if (a.type === "image") { const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(a.svg); return `<button class="ai-img" data-act="ai-image" data-id="${m.id}" data-i="${i}"><img src="${src}" alt="${esc(a.title)}"></button>`; }
     if (a.type === "map") return `<div class="ai-map"><button class="ai-map-open" data-act="ai-map" data-id="${m.id}" data-i="${i}">
         <span class="ai-map-ico">${ico("pin", 20)}</span><span class="grow"><b>${esc(a.title)}</b><small>${a.points.length} ${a.points.length === 1 ? "punto" : "punti"} sulla mappa</small></span><span class="ai-map-go">Apri la mappa</span></button>
@@ -2847,7 +2851,7 @@ const FORMS = {
       kind: "expense", payers: r.payers, owed: r.owed, split_mode: r.mode, split_input: r.splitInput,
     };
     if (f.dataset.id) await api.update("expenses", { id: f.dataset.id }, row);
-    else await api.insert("expenses", { ...row, booking_id: f.dataset.booking || null, created_by: ME });
+    else { const ins = await api.insert("expenses", { ...row, booking_id: f.dataset.booking || null, created_by: ME }); window.onExpenseSaved?.(ins, f); }
     toast("Spesa salvata", "check");
   },
   async settle(fd) {

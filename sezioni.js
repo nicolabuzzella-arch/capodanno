@@ -511,7 +511,13 @@ window.homeExtras = function () {
   const vibeLeft = isAdmin() && nextVibe();
   return `
   <div class="h3-rail" data-noswipe>
+    <button data-act="tab" data-tab="live">${ico("pin", 18)}Dove siamo</button>
     <button data-act="tab" data-tab="mappa">${ico("globe", 18)}Mappa</button>
+    <button data-act="tab" data-tab="playlist">${ico("music", 18)}Playlist</button>
+    <button data-act="tab" data-tab="ristoranti">${ico("fork", 18)}Ristoranti</button>
+    <button data-act="tab" data-tab="documenti">${ico("file", 18)}Documenti</button>
+    <button data-act="tab" data-tab="stanze">${ico("door", 18)}Stanze</button>
+    <button data-act="tab" data-tab="ricordi">${ico("sparkle", 18)}Ricordi</button>
     <button data-act="tab" data-tab="meteo">${ico("sun", 18)}Meteo</button>
     <button data-act="tab" data-tab="passaggi">${ico("car", 18)}Passaggi</button>
     <button data-act="tab" data-tab="foto">${ico("image", 18)}Foto</button>

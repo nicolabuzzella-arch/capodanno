@@ -52,9 +52,46 @@ Deno.serve(async (req) => {
     const { data: device } = await db.from("devices").select("member_id").eq("user_id", auth.user.id).maybeSingle();
     if (!device) return json({ error: "Non fai parte del gruppo" }, 403);
 
-    const { message, mode, message_id } = await req.json();
+    const body = await req.json();
+    const { message, mode, message_id } = body;
     // «Osserva»: Zampone legge un messaggio della chat di gruppo e, se c'è qualcosa da registrare o da fare,
     // lo fa da solo e lo dice in una riga nella sua chat, proponendo il passo successivo.
+    // Scontrino: legge la foto e restituisce i dati per precompilare la spesa.
+    if (mode === "scontrino") {
+      const { image, media_type } = body;
+      if (typeof image !== "string" || image.length > 7_000_000) return json({ error: "Foto mancante o troppo grande" }, 400);
+      const mt = ["image/jpeg", "image/png", "image/webp"].includes(media_type) ? media_type : "image/jpeg";
+      const r = await anthropic.messages.create({
+        model: MODEL, max_tokens: 800,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mt, data: image } },
+          { type: "text", text: `Leggi questo scontrino o ricevuta. Rispondi SOLO con un oggetto JSON, senza altro testo:
+{"negozio": string|null, "totale": number|null, "valuta": "EUR"|altro, "data": "AAAA-MM-GG"|null, "categoria": una tra "cibo","alloggio","viaggio","attivita","serata","auto","spesa","altro", "titolo": breve descrizione in italiano (max 40 caratteri, es. «Cena da Figlmüller»), "righe": [{"voce": string, "importo": number}] (al massimo 12), "leggibile": true|false}
+Il totale è l'importo finale pagato (dopo sconti, con mance se indicate). Se non è uno scontrino, metti leggibile false.` },
+        ] }],
+      });
+      // deno-lint-ignore no-explicit-any
+      const txt = (r.content as any[]).filter(b => b.type === "text").map(b => b.text).join("");
+      const m = txt.match(/\{[\s\S]*\}/);
+      try { return json(JSON.parse(m ? m[0] : txt)); } catch { return json({ leggibile: false }); }
+    }
+    // Ricordi: le frasi memorabili della chat di gruppo per il riassunto finale.
+    if (mode === "ricordi") {
+      const { data: rows } = await db.from("messages").select("member_id,content,created_at").eq("channel", "gruppo").order("created_at", { ascending: false }).limit(2500);
+      const { data: mem } = await db.from("members").select("id,name");
+      const nm = new Map((mem ?? []).map((m: Row) => [m.id, m.name]));
+      const lines = (rows ?? []).reverse().filter((x: Row) => x.content && x.member_id).map((x: Row) => `${nm.get(x.member_id) ?? "?"}: ${String(x.content).slice(0, 300)}`).join("\n").slice(-150_000);
+      if (!lines) return json({ frasi: [] });
+      const r = await anthropic.messages.create({
+        model: MODEL, max_tokens: 1500,
+        messages: [{ role: "user", content: `Questa è la chat di gruppo di un gruppo di amici che organizza il viaggio di Capodanno.\n\n${lines}\n\nScegli le frasi più memorabili e divertenti (citazioni testuali, non inventare) e scrivi un racconto breve del viaggio. Niente cattiverie, niente cose private o imbarazzanti sul serio. Rispondi SOLO con JSON:
+{"titolo": titolo del viaggio in 3-6 parole, "racconto": 2-3 frasi su come è andata, "frasi": [{"chi": nome, "testo": citazione esatta}] (5-8), "premi": [{"premio": nome del premio scherzoso, "chi": nome, "perche": una riga}] (3-5)}` }],
+      });
+      // deno-lint-ignore no-explicit-any
+      const txt = (r.content as any[]).filter(b => b.type === "text").map(b => b.text).join("");
+      const m = txt.match(/\{[\s\S]*\}/);
+      try { return json(JSON.parse(m ? m[0] : txt)); } catch { return json({ frasi: [] }); }
+    }
     if (mode === "osserva") {
       const { data: gm } = await db.from("messages").select("id,member_id,channel,content,created_at,meta").eq("id", message_id).maybeSingle();
       if (!gm || gm.channel !== "gruppo" || gm.member_id !== device.member_id) return json({ skipped: true });
@@ -359,6 +396,38 @@ const tools = [
         },
       },
       required: ["strutture"],
+    },
+  },
+  {
+    name: "mostra_ristoranti",
+    description: "Mostra nella chat i ristoranti, locali o bar trovati come SCHEDE con foto, voto e numero di recensioni, fascia di prezzo, cucina, zona, link (Google Maps, TheFork, TripAdvisor o sito) e un pulsante per metterli ai voti. Usalo SEMPRE quando proponi posti dove mangiare o bere: 4-8 locali reali, con voti e recensioni letti con web_search/web_fetch. Per ognuno riporta in una riga cosa dicono le recensioni (pro e contro).",
+    input_schema: {
+      type: "object",
+      properties: {
+        locali: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              nome: { type: "string" },
+              cucina: { type: "string", description: "es. «Tirolese», «Pizzeria», «Cocktail bar»" },
+              url: { type: "string", description: "Link diretto alla scheda del locale (Google Maps, TheFork, TripAdvisor o sito ufficiale)" },
+              prenota: { type: "string", description: "Link per prenotare, se c'è (TheFork, sito, telefono)" },
+              foto: { type: "string", description: "URL https di una foto del locale o dei piatti" },
+              voto: { type: "number", description: "Voto medio, es. 4.6" },
+              scala: { type: "number", description: "Su quanto è il voto: 5 o 10" },
+              recensioni: { type: "integer", description: "Numero di recensioni" },
+              fonte_voto: { type: "string", description: "Google, TripAdvisor, TheFork…" },
+              prezzo: { type: "string", description: "Fascia, es. «€€» o «35-45 € a testa»" },
+              zona: { type: "string", description: "Quartiere e distanza dall'alloggio o dal centro" },
+              recensioni_dicono: { type: "string", description: "Una riga: cosa lodano e cosa criticano" },
+              per_gruppi: { type: "string", description: "Se accetta gruppi di 10-12 persone, tavolo unico, menù di Capodanno…" },
+            },
+            required: ["nome", "url"],
+          },
+        },
+      },
+      required: ["locali"],
     },
   },
   {
@@ -697,6 +766,19 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
       ctx.proposals.push({ type: "stays", items });
       return `Mostrate ${items.length} schede con foto nella chat. Nel testo della risposta fai solo un breve confronto e la tua raccomandazione, senza ripetere tutti i dettagli.`;
     }
+    case "mostra_ristoranti": {
+      const ok = (u: unknown) => typeof u === "string" && /^https:\/\//.test(u) ? u : null;
+      // deno-lint-ignore no-explicit-any
+      const items = ((input.locali as any[]) ?? []).slice(0, 10).map((s: any) => clean({
+        name: String(s.nome ?? "").slice(0, 120), cuisine: s.cucina ? String(s.cucina).slice(0, 60) : null, url: ok(s.url), book: ok(s.prenota), img: ok(s.foto),
+        rating: Number(s.voto) || null, scale: Number(s.scala) || 5, reviews: Number(s.recensioni) || null, source: s.fonte_voto ? String(s.fonte_voto).slice(0, 30) : null,
+        price: s.prezzo ? String(s.prezzo).slice(0, 40) : null, zone: s.zona ? String(s.zona).slice(0, 120) : null,
+        says: s.recensioni_dicono ? String(s.recensioni_dicono).slice(0, 240) : null, groups: s.per_gruppi ? String(s.per_gruppi).slice(0, 140) : null,
+      })).filter((s: Row) => s.name && s.url);
+      if (!items.length) return "Nessun locale valido: servono almeno nome e link https.";
+      ctx.proposals.push({ type: "food", items });
+      return `Mostrate ${items.length} schede di locali nella chat. Nel testo fai solo un confronto breve e la tua raccomandazione.`;
+    }
     case "link_alloggi": {
       const { data: tr } = await db.from("trip").select("start_date,end_date").eq("id", 1).single();
       const city = String(input.citta ?? "").trim();
@@ -884,7 +966,7 @@ Immagini: nella chat puoi mostrare tre cose, e SOLO con i rispettivi strumenti (
 - crea_immagine: immagini che crei tu in SVG (grafici dei costi, confronti, programma della giornata, itinerari, locandine, inviti, classifiche, schemi, cartine schematiche). Falle belle, ordinate e leggibili sul telefono.
 - mostra_mappa: mappe vere e interattive con i punti segnati (per «dove sono», «quanto distano», «segnami gli ostelli/locali»).
 - mostra_foto: foto vere trovate online di posti, hotel, locali, piatti.
-Quando una risposta ne guadagna davvero, usale anche senza che te lo chiedano. Nel testo di' solo che sono qui sotto. Quando ti chiedono com'è un posto, un hotel, un locale, un piatto o una cosa da vedere, o quando un'immagine aiuta a decidere, allega foto vere con mostra_foto (prese dalle pagine che apri o da Wikimedia). Per gli alloggi usa le schede di mostra_alloggi, che hanno già la foto.
+Quando una risposta ne guadagna davvero, usale anche senza che te lo chiedano. Nel testo di' solo che sono qui sotto. Quando ti chiedono com'è un posto, un hotel, un locale, un piatto o una cosa da vedere, o quando un'immagine aiuta a decidere, allega foto vere con mostra_foto (prese dalle pagine che apri o da Wikimedia). Per gli alloggi usa le schede di mostra_alloggi, che hanno già la foto. Per ristoranti, locali e bar usa le schede di mostra_ristoranti, con voto, numero di recensioni e cosa dicono.
 
 Email: il gruppo ha una casella email condivisa (vedi CASELLA EMAIL nello stato). Quando serve scrivere a un hotel, un ristorante, un locale o rispondere a un'email arrivata, prepara tu la bozza con scrivi_email (la invia una persona con un tocco). Quando ti chiedono delle email, leggi quelle nello stato e riassumi cosa dicono e cosa conviene rispondere.
 

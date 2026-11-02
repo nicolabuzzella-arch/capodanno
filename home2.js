@@ -175,7 +175,10 @@ Object.assign(ACTIONS, {
     openSheet(`<h2>Stato</h2><p class="small muted">Lascia vuoto un campo per farlo calcolare all'app.</p>
       <form id="stato-f"><div class="field"><label>Ultima cosa fatta</label><input name="last" value="${esc(man.last || "")}" placeholder="${esc(auto.last?.t || "Es. Prenotato l'appartamento")}"></div>
       <div class="field"><label>Prossima da fare</label><input name="next" value="${esc(man.next || "")}" placeholder="${esc(auto.next.t)}"></div>
-      <div class="actions"><button type="button" class="btn" data-act="stato-auto">Torna automatico</button><button class="btn primary">Salva</button></div></form>`);
+      <div class="actions"><button type="button" class="btn" data-act="stato-auto">Torna automatico</button><button class="btn primary">Salva</button></div></form>
+      <div class="label" style="margin:22px 4px 8px">Modalità «Siamo qui»</div>
+      <p class="small muted" style="margin:0 4px 10px">In cima alla Home: programma di oggi, alloggio con «Portami lì» e chi è già arrivato. Da sola si accende il giorno prima della partenza.</p>
+      <div class="seg">${[["auto", "Automatica"], ["on", "Accesa"], ["off", "Spenta"]].map(([k, l]) => `<button class="${(S.trip?.[0]?.flags?.qui || "auto") === k ? "on" : ""}" data-act="qui-mode" data-v="${k}">${l}</button>`).join("")}</div>`);
     $("#stato-f").addEventListener("submit", e => { e.preventDefault(); const fd = new FormData(e.target); statoSave({ last: fd.get("last").trim(), next: fd.get("next").trim() }); });
   },
   "stato-auto": () => statoSave(null),
