@@ -1656,6 +1656,7 @@ function proposalCards(m) {
           : `<button class="btn sm primary" data-act="create-proposal" data-id="${m.id}" data-i="${i}">${ico("plus", 15)}Aggiungi</button>`}</div>`;
     }
     if (a.type === "stays") return staysCards(m, a, i);
+    if (a.type === "photos") return `<div class="ai-photos ${a.items.length === 1 ? "one" : ""}" data-noswipe>${a.items.map((f, j) => `<button class="ai-ph" data-act="ai-photo" data-id="${m.id}" data-i="${i}" data-j="${j}"><img src="${esc(f.url)}" alt="${esc(f.caption || "")}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()">${f.caption ? `<span>${esc(f.caption)}</span>` : ""}</button>`).join("")}</div>`;
     if (a.type === "email_draft") {
       const d = (S.emails || []).find(e => e.id === a.id);
       return `<div class="proposal"><div class="eyebrow">Bozza di email</div><div class="t" style="margin:6px 0">${esc(a.subject)}</div><div class="small muted">a ${esc(a.to)}</div>
@@ -2474,6 +2475,13 @@ const ACTIONS = {
       }
       await reload();
     } catch (e) { toast(e.message, "alert"); el.disabled = false; }
+  },
+  "ai-photo"(el) {
+    const m = S.messages.find(x => x.id === el.dataset.id); const list = m?.meta?.actions?.[el.dataset.i]?.items || []; let j = Number(el.dataset.j);
+    const ov = document.createElement("div"); ov.className = "lightbox";
+    const show = () => { const f = list[j]; ov.innerHTML = `<button class="lb-x" aria-label="Chiudi">${ico("close", 20)}</button><img src="${esc(f.url)}" alt="" referrerpolicy="no-referrer"><div class="lb-cap">${esc(f.caption || "")}${f.source ? ` · <a href="${esc(safeUrl(f.source))}" target="_blank" rel="noopener">fonte</a>` : ""}${list.length > 1 ? ` · ${j + 1}/${list.length}` : ""}</div>`; };
+    ov.addEventListener("click", e => { if (e.target.closest("a")) return; if (e.target.closest(".lb-x") || list.length < 2) return ov.remove(); j = (j + (e.clientX > innerWidth / 2 ? 1 : list.length - 1)) % list.length; show(); });
+    document.body.appendChild(ov); show();
   },
   async "stay-vote"(el) {
     const m = S.messages.find(x => x.id === el.dataset.id); const s = m?.meta?.actions?.[el.dataset.i]?.items?.[el.dataset.j];

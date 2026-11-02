@@ -276,6 +276,28 @@ const tools = [
     },
   },
   {
+    name: "mostra_foto",
+    description: "Allega alla risposta delle FOTO vere (da 1 a 8), mostrate come galleria nella chat. Usalo quando te lo chiedono o quando un'immagine aiuta davvero: com'è un posto, un hotel o un appartamento, un ristorante, un piatto, un locale, una piazza, una pista, il percorso. Usa solo URL di immagini che hai trovato davvero (og:image o immagini delle pagine aperte con web_fetch, foto da Wikipedia/Wikimedia, siti ufficiali), mai inventati.",
+    input_schema: {
+      type: "object",
+      properties: {
+        foto: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              url: { type: "string", description: "URL https dell'immagine (jpg, png, webp)" },
+              didascalia: { type: "string", description: "Breve: cosa si vede" },
+              fonte: { type: "string", description: "Link alla pagina da cui viene la foto" },
+            },
+            required: ["url"],
+          },
+        },
+      },
+      required: ["foto"],
+    },
+  },
+  {
     name: "mostra_alloggi",
     description: "Mostra nella chat le strutture trovate come SCHEDE con foto (nome, piattaforma, foto, prezzo, posti letto, voto, zona, cancellazione, link diretto) e un pulsante per metterle ai voti. Usalo SEMPRE quando proponi alloggi, con 4-8 strutture reali trovate sulle varie piattaforme. La foto è l'immagine principale della pagina della struttura (og:image o prima foto della galleria), letta con web_fetch.",
     input_schema: {
@@ -582,6 +604,17 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notifiche`, { method: "POST", headers: { "Content-Type": "application/json", "x-internal": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "" }, body: JSON.stringify({ type: "event", event: "email_request", id: d.id }) }).catch(() => {});
       return `Bozza salvata nella sezione Mail (id ${d.id}): una persona la controlla e la invia con un tocco. Dillo in una riga.`;
     }
+    case "mostra_foto": {
+      // deno-lint-ignore no-explicit-any
+      const items = ((input.foto as any[]) ?? []).slice(0, 8).map((f: any) => clean({
+        url: typeof f.url === "string" && /^https:\/\//.test(f.url) ? f.url : null,
+        caption: f.didascalia ? String(f.didascalia).slice(0, 140) : null,
+        source: typeof f.fonte === "string" && /^https?:\/\//.test(f.fonte) ? f.fonte : null,
+      })).filter((f: Row) => f.url);
+      if (!items.length) return "Nessuna foto valida: servono URL https di immagini vere.";
+      ctx.proposals.push({ type: "photos", items });
+      return `Allegate ${items.length} foto alla risposta: non ripetere i link delle immagini nel testo.`;
+    }
     case "mostra_alloggi": {
       const ok = (u: unknown) => typeof u === "string" && /^https:\/\//.test(u) ? u : null;
       // deno-lint-ignore no-explicit-any
@@ -777,6 +810,8 @@ Cosa sai fare:
 - Tenere in ordine prenotazioni, programma, spese (anche con più pagatori e divisioni per importi, percentuali o quote), quote da versare e checklist. Quando qualcuno dice di aver pagato o prenotato qualcosa, registralo.
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
+
+Foto: quando ti chiedono com'è un posto, un hotel, un locale, un piatto o una cosa da vedere, o quando un'immagine aiuta a decidere, allega foto vere con mostra_foto (prese dalle pagine che apri o da Wikimedia). Per gli alloggi usa le schede di mostra_alloggi, che hanno già la foto.
 
 Email: il gruppo ha una casella email condivisa (vedi CASELLA EMAIL nello stato). Quando serve scrivere a un hotel, un ristorante, un locale o rispondere a un'email arrivata, prepara tu la bozza con scrivi_email (la invia una persona con un tocco). Quando ti chiedono delle email, leggi quelle nello stato e riassumi cosa dicono e cosa conviene rispondere.
 
