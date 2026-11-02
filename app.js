@@ -1656,6 +1656,10 @@ function proposalCards(m) {
           : `<button class="btn sm primary" data-act="create-proposal" data-id="${m.id}" data-i="${i}">${ico("plus", 15)}Aggiungi</button>`}</div>`;
     }
     if (a.type === "stays") return staysCards(m, a, i);
+    if (a.type === "image") { const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(a.svg); return `<button class="ai-img" data-act="ai-image" data-id="${m.id}" data-i="${i}"><img src="${src}" alt="${esc(a.title)}"></button>`; }
+    if (a.type === "map") return `<div class="ai-map"><button class="ai-map-open" data-act="ai-map" data-id="${m.id}" data-i="${i}">
+        <span class="ai-map-ico">${ico("pin", 20)}</span><span class="grow"><b>${esc(a.title)}</b><small>${a.points.length} ${a.points.length === 1 ? "punto" : "punti"} sulla mappa</small></span><span class="ai-map-go">Apri la mappa</span></button>
+        <div class="ai-map-list">${a.points.map((p, k) => `<a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}" target="_blank" rel="noopener" data-stop><i style="--c:${esc(p.color)}">${k + 1}</i><span><b>${esc(p.name)}</b>${p.note ? `<small>${esc(p.note)}</small>` : ""}</span></a>`).join("")}</div></div>`;
     if (a.type === "photos") return `<div class="ai-photos ${a.items.length === 1 ? "one" : ""}" data-noswipe>${a.items.map((f, j) => `<button class="ai-ph" data-act="ai-photo" data-id="${m.id}" data-i="${i}" data-j="${j}"><img src="${esc(f.url)}" alt="${esc(f.caption || "")}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()">${f.caption ? `<span>${esc(f.caption)}</span>` : ""}</button>`).join("")}</div>`;
     if (a.type === "email_draft") {
       const d = (S.emails || []).find(e => e.id === a.id);
@@ -2475,6 +2479,46 @@ const ACTIONS = {
       }
       await reload();
     } catch (e) { toast(e.message, "alert"); el.disabled = false; }
+  },
+  "ai-image"(el) {
+    const m = S.messages.find(x => x.id === el.dataset.id); const a = m?.meta?.actions?.[el.dataset.i]; if (!a) return;
+    const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(a.svg);
+    const ov = document.createElement("div"); ov.className = "lightbox ai-img-ov";
+    ov.innerHTML = `<button class="lb-x" aria-label="Chiudi">${ico("close", 20)}</button><img src="${src}" alt=""><div class="lb-cap">${esc(a.title)} · <button class="link" data-save>Salva</button></div>`;
+    ov.addEventListener("click", async e => {
+      if (e.target.closest("[data-save]")) {
+        // Converte in PNG per poterla salvare o condividere.
+        const img = new Image(); img.src = src; await img.decode().catch(() => {});
+        const w = img.naturalWidth || 1000, h = img.naturalHeight || 1000, k = 2;
+        const c = document.createElement("canvas"); c.width = w * k; c.height = h * k; c.getContext("2d").drawImage(img, 0, 0, w * k, h * k);
+        c.toBlob(async b => { const f = new File([b], `${a.title.replace(/[^\w]+/g, "-").slice(0, 40) || "immagine"}.png`, { type: "image/png" });
+          if (navigator.canShare?.({ files: [f] })) navigator.share({ files: [f] }).catch(() => {}); else { const u = URL.createObjectURL(b); const l = document.createElement("a"); l.href = u; l.download = f.name; l.click(); } }, "image/png");
+        return;
+      }
+      ov.remove();
+    });
+    document.body.appendChild(ov);
+  },
+  async "ai-map"(el) {
+    const m = S.messages.find(x => x.id === el.dataset.id); const a = m?.meta?.actions?.[el.dataset.i]; if (!a) return;
+    const ov = document.createElement("div"); ov.className = "ai-map-ov";
+    ov.innerHTML = `<div class="ai-map-top"><b>${esc(a.title)}</b><button class="lb-x" aria-label="Chiudi">${ico("close", 20)}</button></div><div id="ai-map-box"></div>
+      <div class="ai-map-leg">${a.points.map((p, k) => `<button data-k="${k}"><i style="--c:${esc(p.color)}">${k + 1}</i>${esc(p.name)}</button>`).join("")}</div>`;
+    document.body.appendChild(ov);
+    let map = null;
+    const close = () => { try { map?.remove(); } catch { /* già chiusa */ } ov.remove(); };
+    ov.querySelector(".lb-x").onclick = close;
+    try { await loadMapLibre(); } catch { ov.querySelector("#ai-map-box").innerHTML = `<div class="small muted" style="padding:20px">Serve la connessione per la mappa.</div>`; return; }
+    const ML = window.maplibregl;
+    map = new ML.Map({ container: "ai-map-box", style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json", center: [a.points[0].lon, a.points[0].lat], zoom: 13, attributionControl: { compact: true }, antialias: false, fadeDuration: 0 });
+    const b = new ML.LngLatBounds();
+    const mks = a.points.map((p, k) => {
+      b.extend([p.lon, p.lat]);
+      const d = document.createElement("div"); d.className = "ai-pin"; d.style.setProperty("--c", p.color); d.innerHTML = `<span>${k + 1}</span>`;
+      return new ML.Marker({ element: d }).setLngLat([p.lon, p.lat]).setPopup(new ML.Popup({ offset: 18, closeButton: false }).setHTML(`<b>${esc(p.name)}</b>${p.note ? `<br>${esc(p.note)}` : ""}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}" target="_blank" rel="noopener">Portami qui</a>`)).addTo(map);
+    });
+    map.on("load", () => { if (a.points.length > 1) map.fitBounds(b, { padding: 60, maxZoom: 16, duration: 0 }); });
+    ov.querySelector(".ai-map-leg").onclick = e => { const x = e.target.closest("[data-k]"); if (!x) return; const p = a.points[x.dataset.k]; map.flyTo({ center: [p.lon, p.lat], zoom: 16 }); mks[x.dataset.k].togglePopup(); };
   },
   "ai-photo"(el) {
     const m = S.messages.find(x => x.id === el.dataset.id); const list = m?.meta?.actions?.[el.dataset.i]?.items || []; let j = Number(el.dataset.j);

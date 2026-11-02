@@ -276,6 +276,38 @@ const tools = [
     },
   },
   {
+    name: "crea_immagine",
+    description: "CREA un'immagine e la mostra in chat, scrivendola in SVG (come fai quando disegni). Per grafici (costi a testa, voti, confronti), schemi, itinerari e orari della giornata, tabelle visive, locandine e inviti per la serata, cartine schematiche, classifiche, biglietti, programmi. L'SVG deve essere completo e autonomo: <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 W H\">…</svg>, senza script, senza immagini esterne, con font generici (sans-serif, serif). Stile dell'app: sfondo blu notte scuro (#0b0a24), testi chiari, accenti perla (#e6d4ff, #c9f3ee, #dfe8ff), angoli arrotondati, leggibile sul telefono (testi grandi, larghezza 1000 circa).",
+    input_schema: {
+      type: "object",
+      properties: { titolo: { type: "string" }, svg: { type: "string", description: "Il codice SVG completo" } },
+      required: ["titolo", "svg"],
+    },
+  },
+  {
+    name: "mostra_mappa",
+    description: "Mostra in chat una MAPPA VERA e interattiva con dei punti segnati (ostelli, hotel, locali, piazze, stazioni, ristoranti, ritrovi). Usalo quando ti chiedono una mappa o quando aiuta capire dove sono le cose e quanto distano. Per ogni punto dai il nome e l'indirizzo preciso (o la città): le coordinate le trovo io. Colori disponibili: rosso, arancione, giallo, verde, blu, viola, grigio.",
+    input_schema: {
+      type: "object",
+      properties: {
+        titolo: { type: "string" },
+        citta: { type: "string", description: "Città o zona, per trovare meglio i punti" },
+        punti: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              nome: { type: "string" }, indirizzo: { type: "string" }, lat: { type: "number" }, lon: { type: "number" },
+              colore: { type: "string" }, nota: { type: "string", description: "Una riga: prezzo, orario, perché è segnato" },
+            },
+            required: ["nome"],
+          },
+        },
+      },
+      required: ["titolo", "punti"],
+    },
+  },
+  {
     name: "mostra_foto",
     description: "Allega alla risposta delle FOTO vere (da 1 a 8), mostrate come galleria nella chat. Usalo quando te lo chiedono o quando un'immagine aiuta davvero: com'è un posto, un hotel o un appartamento, un ristorante, un piatto, un locale, una piazza, una pista, il percorso. Usa solo URL di immagini che hai trovato davvero (og:image o immagini delle pagine aperte con web_fetch, foto da Wikipedia/Wikimedia, siti ufficiali), mai inventati.",
     input_schema: {
@@ -604,6 +636,43 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notifiche`, { method: "POST", headers: { "Content-Type": "application/json", "x-internal": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "" }, body: JSON.stringify({ type: "event", event: "email_request", id: d.id }) }).catch(() => {});
       return `Bozza salvata nella sezione Mail (id ${d.id}): una persona la controlla e la invia con un tocco. Dillo in una riga.`;
     }
+    case "crea_immagine": {
+      let svg = String(input.svg ?? "").trim();
+      if (!/^<svg[\s>]/i.test(svg) || !/<\/svg>\s*$/i.test(svg)) return "SVG non valido: deve iniziare con <svg e finire con </svg>.";
+      if (svg.length > 90000) return "Immagine troppo pesante: semplificala (massimo 90 KB).";
+      // Pulizia: niente script, eventi o riferimenti esterni (l'app la mostra comunque come immagine, che non esegue codice).
+      svg = svg.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(href|xlink:href)\s*=\s*("|')(?!#|data:image\/)[^"']*\2/gi, "");
+      if (!/xmlns=/.test(svg)) svg = svg.replace(/^<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+      ctx.proposals.push({ type: "image", title: String(input.titolo ?? "Immagine").slice(0, 80), svg });
+      return "Immagine mostrata in chat. Nel testo di' solo che è qui sotto (niente nomi di file) e commentala in breve.";
+    }
+    case "mostra_mappa": {
+      // Le coordinate le cerca il server su OpenStreetMap (Nominatim), una richiesta al secondo come chiede il servizio.
+      const COL: Record<string, string> = { rosso: "#ff5a6a", arancione: "#ff9f43", giallo: "#ffd84d", verde: "#2ee59d", blu: "#5aa9ff", viola: "#b28dff", grigio: "#b8bcc8" };
+      const city = String(input.citta ?? "").trim();
+      const out: Row[] = [], miss: string[] = [];
+      // deno-lint-ignore no-explicit-any
+      for (const p of ((input.punti as any[]) ?? []).slice(0, 15)) {
+        let lat = Number(p.lat), lon = Number(p.lon);
+        if (!isFinite(lat) || !isFinite(lon) || (!lat && !lon)) {
+          lat = NaN; lon = NaN;
+          for (const q of [p.indirizzo ? `${p.indirizzo}${city && !String(p.indirizzo).includes(city) ? ", " + city : ""}` : "", `${p.nome}${city ? ", " + city : ""}`].filter(Boolean)) {
+            try {
+              const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": "CapodannoApp/1.0 (viaggio tra amici)", "Accept-Language": "it" }, signal: AbortSignal.timeout(8000) });
+              const d = await r.json();
+              if (d?.[0]) { lat = Number(d[0].lat); lon = Number(d[0].lon); }
+            } catch { /* riprovo con l'altra forma */ }
+            await new Promise((res) => setTimeout(res, 1100));
+            if (isFinite(lat)) break;
+          }
+        }
+        if (!isFinite(lat) || !isFinite(lon)) { miss.push(String(p.nome)); continue; }
+        out.push(clean({ name: String(p.nome).slice(0, 80), lat, lon, color: COL[String(p.colore ?? "").toLowerCase()] ?? "#e6d4ff", note: p.nota ? String(p.nota).slice(0, 140) : null }));
+      }
+      if (!out.length) return `Non ho trovato nessun punto sulla mappa${miss.length ? ` (${miss.join(", ")})` : ""}: prova con indirizzi più precisi.`;
+      ctx.proposals.push({ type: "map", title: String(input.titolo ?? "Mappa").slice(0, 80), points: out });
+      return `Mappa mostrata in chat con ${out.length} punti${miss.length ? `; non trovati: ${miss.join(", ")}` : ""}. Nel testo non parlare di file o allegati: di' solo che la mappa è qui sotto e commentala in breve.`;
+    }
     case "mostra_foto": {
       // deno-lint-ignore no-explicit-any
       const items = ((input.foto as any[]) ?? []).slice(0, 8).map((f: any) => clean({
@@ -811,7 +880,11 @@ Cosa sai fare:
 - Rispondere su saldi e debiti: chi deve quanto a chi, con il minimo di passaggi.
 - Preparare i dati per prenotazioni e registrazioni (liste ospiti, testi da incollare nei moduli, email per hotel e ristoranti, richieste per allergie o diete).
 
-Foto: NON puoi creare né generare immagini, file o PNG, e non devi mai dire di averlo fatto. Puoi solo allegare foto vere trovate online con lo strumento mostra_foto: le immagini compaiono nella chat SOLO se chiami quello strumento. Se ti chiedono di "fare" un'immagine (una mappa, un grafico, un disegno), spiega in una riga che puoi mostrare foto vere o descrivere, non disegnare. Quando ti chiedono com'è un posto, un hotel, un locale, un piatto o una cosa da vedere, o quando un'immagine aiuta a decidere, allega foto vere con mostra_foto (prese dalle pagine che apri o da Wikimedia). Per gli alloggi usa le schede di mostra_alloggi, che hanno già la foto.
+Immagini: nella chat puoi mostrare tre cose, e SOLO con i rispettivi strumenti (senza lo strumento non compare nulla, quindi non dire mai di aver allegato o generato un file):
+- crea_immagine: immagini che crei tu in SVG (grafici dei costi, confronti, programma della giornata, itinerari, locandine, inviti, classifiche, schemi, cartine schematiche). Falle belle, ordinate e leggibili sul telefono.
+- mostra_mappa: mappe vere e interattive con i punti segnati (per «dove sono», «quanto distano», «segnami gli ostelli/locali»).
+- mostra_foto: foto vere trovate online di posti, hotel, locali, piatti.
+Quando una risposta ne guadagna davvero, usale anche senza che te lo chiedano. Nel testo di' solo che sono qui sotto. Quando ti chiedono com'è un posto, un hotel, un locale, un piatto o una cosa da vedere, o quando un'immagine aiuta a decidere, allega foto vere con mostra_foto (prese dalle pagine che apri o da Wikimedia). Per gli alloggi usa le schede di mostra_alloggi, che hanno già la foto.
 
 Email: il gruppo ha una casella email condivisa (vedi CASELLA EMAIL nello stato). Quando serve scrivere a un hotel, un ristorante, un locale o rispondere a un'email arrivata, prepara tu la bozza con scrivi_email (la invia una persona con un tocco). Quando ti chiedono delle email, leggi quelle nello stato e riassumi cosa dicono e cosa conviene rispondere.
 
