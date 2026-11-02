@@ -339,7 +339,14 @@ Object.assign(ACTIONS, {
 });
 window.viewGiochi = function () {
   const off = sqOff(), adm = isAdmin();
-  return `${adm ? `<div class="gl-admin"><span class="grow"><b>Chiavenna Express</b><span class="tiny faint">${off ? "Nascosto: gli altri vedono «In arrivo»" : "Attivo per tutti"}</span></span>
+  const grp = g => g.feat ? `<div class="label gl-sec">${g.sec}</div><button class="card gl-feat" data-act="gl-open" data-id="onorevoli">
+      <div class="glf-faces">${["meloni", "berlusconi", "stalin", "che", "trump", "pertini"].map(id => POLS.find(p => p.id === id)).filter(Boolean).map(p => polFace(p)).join("")}</div>
+      <div class="glf-t">Onorevoli</div><div class="small muted">${g.rows[0].s}</div><span class="glf-go">Gioca ${ico("chev", 16)}</span></button>` : `<div class="label gl-sec">${g.sec}</div><section class="card gl-list">${g.rows.map(r => `
+    <button class="gl-row" data-act="gl-open" data-id="${r.id}"><span class="gl-ico">${ico(r.ico, 20)}</span>
+      <span class="grow"><b>${r.t}</b><span class="small muted">${r.s}</span></span>${r.hot ? `<i class="gl-dot"></i>` : ""}<span class="chev">${ico("chev", 18)}</span></button>`).join("")}</section>`;
+  const gl = GL();
+  return `${gl.filter(g => g.feat).map(grp).join("")}
+    ${adm ? `<div class="gl-admin"><span class="grow"><b>Chiavenna Express</b><span class="tiny faint">${off ? "Nascosto: gli altri vedono «In arrivo»" : "Attivo per tutti"}</span></span>
       <button class="gl-sw${off ? "" : " on"}" data-act="sq-toggle" role="switch" aria-checked="${!off}" aria-label="Attiva Chiavenna Express"><i></i></button></div>` : ""}
     <button class="card gl-new${off ? " gl-soon" : ""}" data-act="${off && !adm ? "sq-soon" : "sq-play"}">${off ? `<div class="gls-veil"><span class="gls-ico">${ico("clock", 22)}</span><b>In arrivo</b><span>${adm ? "Solo tu puoi provarlo" : "Il nuovo gioco a squadre si sblocca presto"}</span></div>` : ""}
       <div class="gln-badge">${off ? "PRESTO" : "NEW!"}</div>
@@ -356,11 +363,7 @@ window.viewGiochi = function () {
       <div class="gln-t">Notte dei Botti</div>
       <div class="gln-s">Squadre, bicchieri, mezzanotte e una sfida che dura fino all'alba. Più di questo non si può dire.</div>
       <span class="gln-go">Gioca ${ico("chev", 16)}</span></button>`}
-    ${GL().map(g => g.feat ? `<div class="label gl-sec">${g.sec}</div><button class="card gl-feat" data-act="gl-open" data-id="onorevoli">
-      <div class="glf-faces">${["meloni", "berlusconi", "stalin", "che", "trump", "pertini"].map(id => POLS.find(p => p.id === id)).filter(Boolean).map(p => polFace(p)).join("")}</div>
-      <div class="glf-t">Onorevoli</div><div class="small muted">${g.rows[0].s}</div><span class="glf-go">Gioca ${ico("chev", 16)}</span></button>` : `<div class="label gl-sec">${g.sec}</div><section class="card gl-list">${g.rows.map(r => `
-    <button class="gl-row" data-act="gl-open" data-id="${r.id}"><span class="gl-ico">${ico(r.ico, 20)}</span>
-      <span class="grow"><b>${r.t}</b><span class="small muted">${r.s}</span></span>${r.hot ? `<i class="gl-dot"></i>` : ""}<span class="chev">${ico("chev", 18)}</span></button>`).join("")}</section>`).join("")}
+    ${gl.filter(g => !g.feat).map(grp).join("")}
     <button class="btn block" style="margin:6px 0 18px" data-act="gl-ranks">${ico("trophy", 17)}Classifiche di sempre</button>`;
 };
 function glOpen(id) {
