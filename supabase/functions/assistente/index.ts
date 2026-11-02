@@ -579,6 +579,7 @@ async function runTool(ctx: Ctx, name: string, input: Row): Promise<string> {
       const { data: d, error } = await db.from("emails").insert({ direction: "draft", to_addr: to, from_addr: Deno.env.get("GMAIL_ADDRESS") ?? null, from_name: ctx.aiName, subject: String(input.oggetto ?? "").slice(0, 200), body: String(input.testo ?? "").slice(0, 20000), snippet: String(input.testo ?? "").slice(0, 200), reply_to: input.rispondi_a || null }).select().single();
       if (error) return `Non riesco a salvare la bozza: ${error.message}`;
       ctx.proposals.push({ type: "email_draft", id: d.id, to, subject: d.subject });
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notifiche`, { method: "POST", headers: { "Content-Type": "application/json", "x-internal": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "" }, body: JSON.stringify({ type: "event", event: "email_request", id: d.id }) }).catch(() => {});
       return `Bozza salvata nella sezione Mail (id ${d.id}): una persona la controlla e la invia con un tocco. Dillo in una riga.`;
     }
     case "mostra_alloggi": {

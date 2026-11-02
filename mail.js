@@ -33,8 +33,10 @@ EXTRA_VIEWS.mail = {
     const unread = mailUnread().length;
     return `<section class="card mail-head"><div class="row" style="gap:12px">${ico("mail", 22)}<div class="grow" id="mail-addr">${mailAddrHtml()}</div></div>
       <div class="small muted" style="margin-top:8px">Date questo indirizzo a hotel, ristoranti e locali: le risposte arrivano qui per tutti e ${AI()} vi avvisa.</div>
+      <button class="btn block mail-ai" data-act="mail-zampone">${ico("spark", 16)}Fai scrivere a ${esc(AI())}</button>
       <div class="grid2" style="margin-top:12px;gap:8px"><button class="btn pearl block" data-act="mail-new">${ico("edit", 16)}${isAdmin() ? "Scrivi" : "Proponi un'email"}</button><button class="btn block" data-act="mail-sync">${ico("undo", 16)}Aggiorna</button></div></section>
       <div class="seg mail-seg">${[["in", `Arrivate${unread ? ` · ${unread}` : ""}`], ["out", "Inviate"], ["draft", `${isAdmin() ? "Da approvare" : "Bozze"}${drafts.length ? ` · ${drafts.length}` : ""}`]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" data-act="mail-seg" data-v="${k}">${l}</button>`).join("")}</div>
+      ${unread && seg === "in" ? `<button class="link" data-act="mail-allread" style="margin:-4px 4px 8px">${ico("check", 14)}Segna tutte come lette</button>` : ""}
       <section class="card mail-list">${shown.length ? shown.map(e => {
         const un = e.direction === "in" && !(e.read_by || []).includes(ME);
         return `<button class="mail-row ${un ? "unread" : ""}" data-act="mail-open" data-id="${e.id}">
@@ -105,5 +107,12 @@ Object.assign(ACTIONS, {
     try { const r = await posta({ action: "sync" }); toast(r.added ? `${r.added} email nuove` : "Nessuna email nuova", "mail"); await reload(); }
     catch (e) { toast(e.message, "alert"); } finally { el.disabled = false; }
   },
+  "mail-zampone": () => {
+    openSheet(`<h2>Email scritta da ${esc(AI())}</h2><p class="small muted" style="margin:-6px 0 12px">Digli a chi scrivere e cosa chiedere: prepara la bozza completa (anche in inglese o tedesco) e ${isAdmin() ? "tu la approvi con un tocco" : "l'organizzatore la approva"}.</p>
+      <form id="mail-z" class="stack" style="gap:10px"><textarea name="t" rows="5" placeholder="Es. Scrivi all'Hotel Prater (info@prater.at) per chiedere 4 camere triple dal 30 dicembre al 2 gennaio, colazione inclusa, e il prezzo totale"></textarea>
+      <button class="btn pearl block">${ico("spark", 16)}Scrivila</button></form>`);
+    $("#mail-z").addEventListener("submit", ev => { ev.preventDefault(); const t = String(new FormData(ev.target).get("t") || "").trim(); if (!t) return; closeSheet(); UI.chatSeg = "ai"; go("chat"); ask(`Prepara un'email dalla casella del gruppo: ${t}`, "ai"); });
+  },
+  async "mail-allread"() { for (const e of mailUnread()) { e.read_by = [...(e.read_by || []), ME]; api.sb.rpc("email_read", { p_id: e.id }).then(() => {}, () => {}); } render(); },
   "mail-copy": () => { navigator.clipboard?.writeText(MAIL.info?.address || "").then(() => toast("Indirizzo copiato", "copy"), () => {}); },
 });

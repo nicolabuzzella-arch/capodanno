@@ -1364,3 +1364,5 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .sq-top{margin-bottom:0}
 .sq-track{height:112px;margin-top:22px}
 .sq-train.a{top:-4px}.sq-train.b{top:18px}
+.mail-ai{margin-top:8px;background:rgba(230,212,255,.1);box-shadow:inset 0 0 0 1px rgba(230,212,255,.3)}
+.dock button{font-size:9.5px}

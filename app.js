@@ -560,6 +560,7 @@ const TABS = [
   { id: "piano", label: "Piano", ico: "calendar" },
   { id: "spese", label: "Splitwise", ico: "wallet" },
   { id: "chat", label: "Chat", ico: "chat" },
+  { id: "mail", label: "Mail", ico: "mail" },
   { id: "giochi", label: "Giochi", ico: "game" },
 ];
 
@@ -593,7 +594,7 @@ function render() {
   root.innerHTML = `<div id="app">
     ${OFFLINE ? `<div class="offline">Sei offline: vedi l'ultima copia salvata</div>` : ""}
     <header class="topbar">
-      ${EX[UI.tab] ? `<button class="btn icon glass-btn" data-act="tab" data-tab="${EX[UI.tab].back || "home"}" aria-label="Indietro">${ico("chev", 20, 'style="transform:rotate(180deg)"')}</button>` : ""}
+      ${EX[UI.tab] && !TABS.some(x => x.id === UI.tab) ? `<button class="btn icon glass-btn" data-act="tab" data-tab="${EX[UI.tab].back || "home"}" aria-label="Indietro">${ico("chev", 20, 'style="transform:rotate(180deg)"')}</button>` : ""}
       <div class="grow"><h1>${esc(titles[UI.tab])}</h1><div class="sub">${subs[UI.tab]}</div></div>
       <button class="tap" data-act="tab" data-tab="gruppo" aria-label="Il gruppo">${avatar(me())}</button>
     </header>
@@ -628,9 +629,9 @@ function render() {
 function renderDock() {
   const bar = $("#dock");
   bar.hidden = false;
-  const badges = { vota: openPollsToVote().length, spese: myOpenRequests().length, chat: UI.tab === "chat" && UI.chatSeg === "gruppo" ? 0 : unreadChat() };
+  const badges = { vota: openPollsToVote().length, spese: myOpenRequests().length, chat: UI.tab === "chat" && UI.chatSeg === "gruppo" ? 0 : unreadChat(), mail: (window.mailUnreadCount?.() || 0) + (isAdmin() ? (S.emails || []).filter(e => e.direction === "draft").length : 0) };
   // Numerino sull'icona dell'app (iPhone con app sulla Home, Android, desktop).
-  const pending = badges.vota + badges.spese + badges.chat;
+  const pending = badges.vota + badges.spese + badges.chat + badges.mail;
   if (navigator.setAppBadge) (pending ? navigator.setAppBadge(pending) : navigator.clearAppBadge()).catch(() => {});
   bar.innerHTML = `<div class="inner">${TABS.map(t => `
     <button class="${UI.tab === t.id ? "on" : ""}" data-act="tab" data-tab="${t.id}" aria-label="${t.label}">

@@ -184,7 +184,7 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       const { data: e } = await db.from("emails").select("to_addr,subject").eq("id", id).maybeSingle();
       if (!e) return 0;
       const admins = all.filter((m) => m.is_admin && m.id !== actor).map((m) => m.id);
-      return send(admins, { title: `${name(actor)} chiede di inviare un'email`, body: `A ${e.to_addr}: ${cut(e.subject ?? "")}`, url: "?tab=mail", tag: "email-req-" + id });
+      return send(admins, { title: actor ? `${name(actor)} chiede di inviare un'email` : "Email pronta da approvare", body: `A ${e.to_addr}: ${cut(e.subject ?? "")}`, url: "?tab=mail", tag: "email-req-" + id });
     }
     case "email": {
       const { data: e } = await db.from("emails").select("from_name,from_addr,subject").eq("id", id).maybeSingle();
