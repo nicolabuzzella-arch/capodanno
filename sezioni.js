@@ -289,7 +289,7 @@ async function forecast(place) {
   const base = `https://api.open-meteo.com/v1/forecast?latitude=${place.lat}&longitude=${place.lon}&timezone=auto&forecast_days=7`;
   const [multi, best] = await Promise.all([
     fetch(`${base}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&models=${MODELS.map(m => m[0]).join(",")}`).then(r => r.json()),
-    fetch(`${base}&daily=precipitation_probability_max,sunrise,sunset&hourly=temperature_2m,precipitation_probability,weather_code&forecast_hours=36`).then(r => r.json()),
+    fetch(`${base}&daily=precipitation_probability_max,sunrise,sunset&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,is_day&current=temperature_2m`).then(r => r.json()),
   ]);
   const d = multi.daily;
   return d.time.map((date, i) => {
@@ -307,7 +307,7 @@ async function forecast(place) {
       prob: best.daily?.precipitation_probability_max?.[i], sunrise: best.daily?.sunrise?.[i], sunset: best.daily?.sunset?.[i],
       agree: spread <= 3 && (rainy === 0 || rainy === per.length) ? "d'accordo" : spread <= 6 ? "abbastanza d'accordo" : "in disaccordo", models: per,
     };
-  }).concat([{ hourly: best.hourly }]);
+  }).concat([{ hourly: best.hourly, now: best.current?.time }]);
 }
 EXTRA_VIEWS.meteo = {
   title: "Meteo", sub: "Quattro modelli a confronto, una frase onesta",
@@ -329,25 +329,81 @@ EXTRA_VIEWS.meteo = {
       const name = card.dataset.wx;
       try {
         const g = await geocode(name); if (!g) throw new Error("Località non trovata");
-        const days = await forecast(g); const hourly = days.pop().hourly;
+        const days = await forecast(g); const { hourly, now } = days.pop();
         if (!card.isConnected) continue;
+        const hours = hourly.time.map((t, i) => ({ t, temp: hourly.temperature_2m[i], feel: hourly.apparent_temperature?.[i], p: hourly.precipitation_probability?.[i] ?? 0, mm: hourly.precipitation?.[i] ?? 0, c: hourly.weather_code[i], wind: hourly.wind_speed_10m?.[i] ?? 0, day: hourly.is_day?.[i] !== 0 }));
+        WXDATA[name] = { place: g.name, days, hours, now: (now || "").slice(0, 13) };
         const [d0, d1] = days;
-        const big = (d, label) => `<div class="wx-day">
-          <div class="row" style="gap:14px"><div class="wx-ico">${ico(WICON(d.code), 34)}</div>
+        const big = (d, label) => `<button class="wx-day wxk-${wkind(d.code)}" data-act="wx-hours" data-wxp="${esc(name)}" data-wxd="${d.date}">
+          <span class="wx-sky"></span>
+          <div class="row" style="gap:12px;position:relative"><div class="wx-art">${wxArt(d.code, 76)}</div>
             <div class="grow"><div class="eyebrow">${label}</div><div class="wx-temp"><b>${Math.round(d.tmax)}°</b><span>${Math.round(d.tmin)}°</span></div>
-            <div class="small muted">${d.kind}${d.prob != null ? ` · pioggia ${d.prob}%` : ""}${d.wind >= 25 ? ` · vento ${Math.round(d.wind)} km/h` : ""}</div></div></div>
+            <div class="small">${d.kind}${d.prob != null ? ` · pioggia ${d.prob}%` : ""}${d.wind >= 25 ? ` · vento ${Math.round(d.wind)} km/h` : ""}</div></div></div>
           <p class="wx-wit">${witty(d, name)}</p>
-          <div class="tiny faint">Modelli ${d.agree}: ${d.models.map(m => `${m.name} ${Math.round(m.tmax)}°`).join(" · ")}</div></div>`;
-        // Prossime 24 ore: temperatura e pioggia ora per ora.
-        const hrs = hourly.time.map((t, i) => ({ t, temp: hourly.temperature_2m[i], p: hourly.precipitation_probability[i], c: hourly.weather_code[i] })).filter((h, i) => i % 3 === 0).slice(0, 9);
+          <div class="wx-foot"><span class="tiny">Modelli ${d.agree}: ${d.models.map(m => `${m.name} ${Math.round(m.tmax)}°`).join(" · ")}</span><span class="wx-more">Ora per ora ${ico("chev", 14)}</span></div></button>`;
+        // Prossime 24 ore, ogni 3 ore.
+        let i0 = hours.findIndex(h => h.t.slice(0, 13) >= WXDATA[name].now); if (i0 < 0) i0 = 0;
+        const hrs = hours.slice(i0, i0 + 25).filter((h, i) => i % 3 === 0);
         const lo = Math.min(...hrs.map(h => h.temp)), hi = Math.max(...hrs.map(h => h.temp));
         card.innerHTML = `<div class="label">${esc(g.name)}</div>${big(d0, "Oggi")}${big(d1, "Domani")}
-          <div class="wx-hours">${hrs.map(h => `<div><span class="tiny faint">${h.t.slice(11, 13)}</span>${ico(WICON(h.c), 18)}<i style="height:${8 + 46 * (h.temp - lo) / Math.max(1, hi - lo)}px"></i><b>${Math.round(h.temp)}°</b><span class="tiny ${h.p >= 50 ? "neg" : "faint"}">${h.p ?? 0}%</span></div>`).join("")}</div>
-          <div class="wx-week">${days.slice(2).map(d => `<div><span class="tiny faint">${fmtDate(d.date, { weekday: "short" })}</span>${ico(WICON(d.code), 18)}<b>${Math.round(d.tmax)}°</b><span class="tiny faint">${Math.round(d.tmin)}°</span></div>`).join("")}</div>`;
+          <div class="wx-hours">${hrs.map((h, i) => `<button data-act="wx-hours" data-wxp="${esc(name)}" data-wxd="${h.t.slice(0, 10)}"><span class="tiny faint">${i ? h.t.slice(11, 13) : "Ora"}</span>${wxArt(h.c, 34, h.day)}<i style="height:${8 + 40 * (h.temp - lo) / Math.max(1, hi - lo)}px;background:${tempColor(h.temp)}"></i><b>${Math.round(h.temp)}°</b><span class="tiny ${h.p >= 50 ? "wx-wet" : "faint"}">${h.p}%</span></button>`).join("")}</div>
+          <div class="label" style="margin-top:16px">Prossimi giorni</div>
+          <div class="wx-week">${days.slice(2).map(d => `<button class="wxk-${wkind(d.code)}" data-act="wx-hours" data-wxp="${esc(name)}" data-wxd="${d.date}"><span class="tiny">${fmtDate(d.date, { weekday: "short" })}</span>${wxArt(d.code, 38)}<b>${Math.round(d.tmax)}°</b><span class="tiny faint">${Math.round(d.tmin)}°</span></button>`).join("")}</div>
+          <div class="tiny faint" style="text-align:center;margin-top:10px">Tocca un giorno per vederlo ora per ora</div>`;
       } catch (e) { if (card.isConnected) card.querySelector(".wx-load").innerHTML = `<span class="small muted">Previsioni non disponibili ora (${esc(e.message)}).</span>`; }
     }
   },
 };
+
+// Icone meteo animate: sole che gira, pioggia e neve che cadono, lampi, nebbia che scorre.
+const WXDATA = {};
+const wkind = c => (c === 0 || c === 1 ? "sun" : c === 2 ? "part" : c === 3 ? "cloud" : c <= 48 ? "fog" : c >= 95 ? "storm" : (c >= 71 && c <= 77) || c === 85 || c === 86 ? "snow" : "rain");
+const tempColor = t => (t <= -5 ? "#7fb2ff" : t <= 0 ? "#8fd3ff" : t <= 5 ? "#7ee8d0" : t <= 10 ? "#b8f06a" : t <= 16 ? "#ffd23f" : t <= 24 ? "#ffa53a" : "#ff6a4a");
+function wxArt(code, size = 48, day = true) {
+  const k = wkind(code);
+  const sun = (x, y, r) => day
+    ? `<g class="wxa-sun"><circle cx="${x}" cy="${y}" r="${r + 7}" fill="#ffd23f" opacity=".22"/><g class="wxa-rays" style="transform-origin:${x}px ${y}px">${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<line x1="${x}" y1="${y - r - 4}" x2="${x}" y2="${y - r - 9}" stroke="#ffc21a" stroke-width="3.2" stroke-linecap="round" transform="rotate(${a} ${x} ${y})"/>`).join("")}</g><circle cx="${x}" cy="${y}" r="${r}" fill="#ffd23f"/><circle cx="${x - r / 3}" cy="${y - r / 3}" r="${r / 2.4}" fill="#fff3a6" opacity=".7"/></g>`
+    : `<g class="wxa-moon"><circle cx="${x}" cy="${y}" r="${r + 6}" fill="#fff1b8" opacity=".14"/><path d="M${x + r * .35} ${y - r} a${r} ${r} 0 1 0 ${r * .65} ${r * 1.55} a${r * .8} ${r * .8} 0 0 1 -${r * .65} -${r * 1.55}z" fill="#ffe9a3"/></g>`;
+  const cloud = (dx, dy, sc, fill) => `<path transform="translate(${dx} ${dy}) scale(${sc})" d="M17 44h30a11 11 0 0 0 1-22 15 15 0 0 0-28-4A12 12 0 0 0 17 44z" fill="${fill}"/>`;
+  const drops = (n, col) => Array.from({ length: n }, (_, i) => `<line class="wxa-drop" style="animation-delay:${(-i * 0.37).toFixed(2)}s" x1="${20 + i * 9}" y1="48" x2="${17 + i * 9}" y2="55" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`).join("");
+  const flakes = n => Array.from({ length: n }, (_, i) => `<circle class="wxa-flake" style="animation-delay:${(-i * 0.6).toFixed(2)}s" cx="${21 + i * 9}" cy="50" r="2.6" fill="#fff"/>`).join("");
+  const inner = {
+    sun: sun(32, 32, 12),
+    part: sun(23, 24, 10) + `<g class="wxa-drift">${cloud(6, 6, .9, "#f4f7ff")}</g>`,
+    cloud: `<g class="wxa-drift">${cloud(-4, -2, .8, "#b9c4dc")}</g>` + cloud(4, 4, .9, "#eef2fb"),
+    fog: cloud(2, -6, .9, "#d7dfee") + [44, 50, 56].map((y, i) => `<line class="wxa-fog" style="animation-delay:${-i * 0.8}s" x1="12" y1="${y}" x2="52" y2="${y}" stroke="#c9d4ea" stroke-width="3" stroke-linecap="round"/>`).join(""),
+    rain: (code <= 3 ? "" : "") + cloud(2, -6, .9, "#c9d6ee") + drops(4, "#4fb3ff"),
+    snow: cloud(2, -6, .9, "#e8eefb") + flakes(4),
+    storm: cloud(2, -6, .9, "#7f8aa6") + drops(3, "#4fb3ff") + `<path class="wxa-bolt" d="M34 34 L27 46 h6 l-4 11 l11 -15 h-6 l4 -8z" fill="#ffd23f"/>`,
+  }[k];
+  return `<svg class="wxa" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
+}
+function wxHoursSheet(name, date) {
+  const W = WXDATA[name]; if (!W) return;
+  const d = W.days.find(x => x.date === date);
+  let hrs = W.hours.filter(h => h.t.startsWith(date));
+  if (date === W.now.slice(0, 10)) hrs = hrs.filter(h => h.t.slice(0, 13) >= W.now);
+  if (!hrs.length) return toast("Ore non disponibili per questo giorno", "cloud");
+  const lo = Math.min(...hrs.map(h => h.temp)), hi = Math.max(...hrs.map(h => h.temp)), span = Math.max(1, hi - lo);
+  const w = 320, h = 90, step = hrs.length > 1 ? w / (hrs.length - 1) : w;
+  const pts = hrs.map((x, i) => [i * step, 10 + (h - 24) * (1 - (x.temp - lo) / span)]);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ");
+  const stops = hrs.map((x, i) => `<stop offset="${(i / Math.max(1, hrs.length - 1) * 100).toFixed(0)}%" stop-color="${tempColor(x.temp)}"/>`).join("");
+  const rainBars = hrs.map((x, i) => x.p >= 10 ? `<rect x="${(i * step - 3).toFixed(1)}" y="${h - x.p / 100 * 26}" width="6" height="${x.p / 100 * 26}" rx="2" fill="#4fb3ff" opacity=".55"/>` : "").join("");
+  const title = d ? `${date === W.days[0].date ? "Oggi" : date === W.days[1]?.date ? "Domani" : fmtDate(date, { weekday: "long", day: "numeric", month: "long" })}` : fmtDate(date, { weekday: "long" });
+  openSheet(`<div class="wxs ${d ? `wxk-${wkind(d.code)}` : ""}">
+    <div class="wxs-head"><div class="wx-art">${wxArt(d?.code ?? hrs[0].c, 84)}</div><div class="grow"><div class="eyebrow">${esc(W.place)}</div><h2 class="wxs-t">${esc(title)}</h2>
+      ${d ? `<div class="small">${d.kind} · max <b>${Math.round(d.tmax)}°</b> min <b>${Math.round(d.tmin)}°</b>${d.prob != null ? ` · pioggia ${d.prob}%` : ""}</div>` : ""}
+      ${d?.sunrise ? `<div class="tiny faint">Alba ${d.sunrise.slice(11, 16)} · tramonto ${d.sunset.slice(11, 16)}</div>` : ""}</div></div>
+    <svg class="wxs-chart" viewBox="-6 0 ${w + 12} ${h + 4}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="wxs-g" x1="0" x2="1">${stops}</linearGradient><linearGradient id="wxs-f" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffd23f" stop-opacity=".28"/><stop offset="1" stop-color="#ffd23f" stop-opacity="0"/></linearGradient></defs>
+      ${rainBars}<path d="${line} L${w} ${h} L0 ${h}Z" fill="url(#wxs-f)"/><path d="${line}" fill="none" stroke="url(#wxs-g)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="wxs-list">${hrs.map(x => `<div class="wxs-row${x.p >= 50 ? " wet" : ""}"><span class="wxs-h">${x.t.slice(11, 16)}</span>${wxArt(x.c, 40, x.day)}
+      <span class="grow"><b>${WMO(x.c)}</b><span class="tiny faint">${x.feel != null ? `percepita ${Math.round(x.feel)}°` : ""}${x.wind >= 15 ? ` · vento ${Math.round(x.wind)} km/h` : ""}</span></span>
+      <span class="wxs-rain">${x.p >= 10 ? `${ico("rain", 13)}${x.p}%${x.mm >= 0.1 ? `<em>${x.mm.toFixed(1).replace(".", ",")} mm</em>` : ""}` : ""}</span>
+      <b class="wxs-temp" style="color:${tempColor(x.temp)}">${Math.round(x.temp)}°</b></div>`).join("")}</div>
+    <div class="actions"><button class="btn block" data-act="close-sheet">Chiudi</button></div></div>`);
+}
+Object.assign(ACTIONS, { "wx-hours": (el) => wxHoursSheet(el.dataset.wxp, el.dataset.wxd) });
 
 // ───────────────────────── Mappa animata ─────────────────────────
 

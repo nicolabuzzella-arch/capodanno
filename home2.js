@@ -314,8 +314,19 @@ const GL = () => {
 };
 const sqOff = () => !!S.trip?.[0]?.flags?.sq_off;
 window.sqOff = sqOff;
+const tzOff = () => !!S.trip?.[0]?.flags?.tease_off;
 Object.assign(ACTIONS, {
   "sq-soon": () => toast("Chiavenna Express è in arrivo", "clock"),
+  "tz-soon": () => toast("Nuovo gioco in arrivo: ancora top secret", "lock"),
+  async "tz-toggle"() {
+    if (!isAdmin()) return;
+    const flags = { ...(S.trip?.[0]?.flags || {}), tease_off: !tzOff() };
+    try { await api.update("trip", { id: 1 }, { flags }); }
+    catch (e) { return toast("Serve l'aggiornamento 9 del database", "alert"); }
+    if (S.trip?.[0]) S.trip[0].flags = flags;
+    toast(flags.tease_off ? "Gioco misterioso nascosto" : "Gioco misterioso visibile come «In arrivo»", "check");
+    render();
+  },
   async "sq-toggle"() {
     if (!isAdmin()) return;
     const flags = { ...(S.trip?.[0]?.flags || {}), sq_off: !sqOff() };
@@ -336,6 +347,15 @@ window.viewGiochi = function () {
       <div class="gln-t">Chiavenna Express</div>
       <div class="gln-s">Il gioco a squadre per la serata: 2 contro 2 o 3 contro 3, disegni, parole, stime di valle e messaggi veri del gruppo. Un telefono solo, da passarsi.</div>
       <span class="gln-go">Gioca ${ico("chev", 16)}</span></button>
+    ${adm ? `<div class="gl-admin gl-admin-y"><span class="grow"><b>Gioco misterioso</b><span class="tiny faint">${tzOff() ? "Nascosto a tutti" : "Visibile a tutti come «In arrivo»"}</span></span>
+      <button class="gl-sw${tzOff() ? "" : " on"}" data-act="tz-toggle" role="switch" aria-checked="${!tzOff()}" aria-label="Mostra il gioco misterioso"><i></i></button></div>` : ""}
+    ${tzOff() ? "" : `<button class="card gl-new gl-tease gl-soon" data-act="tz-soon">
+      <div class="gls-veil"><span class="gls-ico">${ico("lock", 22)}</span><b>In arrivo</b><span>Un altro gioco per la notte di Capodanno. Per ora è top secret.</span></div>
+      <div class="gln-badge">PRESTO</div>
+      <div class="gln-art"><svg viewBox="0 0 220 70" aria-hidden="true">${[20, 60, 100, 140, 180].map((x, i) => `<circle cx="${x}" cy="${[40, 22, 46, 18, 36][i]}" r="${[10, 6, 12, 7, 9][i]}" fill="#3a2a00" opacity=".5"/>`).join("")}</svg></div>
+      <div class="gln-t">Notte dei Botti</div>
+      <div class="gln-s">Squadre, bicchieri, mezzanotte e una sfida che dura fino all'alba. Più di questo non si può dire.</div>
+      <span class="gln-go">Gioca ${ico("chev", 16)}</span></button>`}
     ${GL().map(g => g.feat ? `<div class="label gl-sec">${g.sec}</div><button class="card gl-feat" data-act="gl-open" data-id="onorevoli">
       <div class="glf-faces">${["meloni", "berlusconi", "stalin", "che", "trump", "pertini"].map(id => POLS.find(p => p.id === id)).filter(Boolean).map(p => polFace(p)).join("")}</div>
       <div class="glf-t">Onorevoli</div><div class="small muted">${g.rows[0].s}</div><span class="glf-go">Gioca ${ico("chev", 16)}</span></button>` : `<div class="label gl-sec">${g.sec}</div><section class="card gl-list">${g.rows.map(r => `

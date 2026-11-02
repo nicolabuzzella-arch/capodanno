@@ -566,15 +566,60 @@ body.gaming #root,body.gaming .dock,body.gaming .fab,body.gaming .composer,body.
 .chip-av{display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:99px;background:var(--fill);font-size:13px}
 /* Meteo */
 .wx-load{display:flex;align-items:center;gap:10px;color:var(--t3)}
-.wx-day{padding:14px 0;border-bottom:1px solid var(--line)}
-.wx-ico{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(150deg,rgba(201,243,238,.22),rgba(230,212,255,.1));flex:none}
+.wx-day{position:relative;overflow:hidden;display:block;width:100%;text-align:left;color:#fff;padding:16px 16px 12px;margin:10px 0 0;border-radius:24px;border:0;
+  background:var(--wxbg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),0 18px 40px -22px var(--wxglow)}
+.wx-day:active{transform:scale(.985)}
+.wx-day .eyebrow{color:rgba(255,255,255,.75)}.wx-day .small{color:rgba(255,255,255,.88)}
+.wx-sky{position:absolute;right:-40px;top:-50px;width:200px;height:200px;border-radius:50%;background:var(--wxsky);filter:blur(10px);opacity:.75;pointer-events:none}
+.wx-art{flex:none;display:grid;place-items:center;filter:drop-shadow(0 6px 14px rgba(0,0,0,.25))}
 .wx-temp{display:flex;align-items:baseline;gap:8px;margin:2px 0}
-.wx-temp b{font-family:var(--serif);font-size:44px;font-weight:400;line-height:1}
-.wx-temp span{font-size:18px;color:var(--t3)}
-.wx-wit{font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.35;margin:12px 0 8px;color:#efeaff}
-.wx-hours,.wx-week{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-top:14px;overflow-x:auto}
-.wx-hours>div,.wx-week>div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px}
-.wx-hours i{display:block;width:6px;border-radius:3px;background:linear-gradient(#e6d4ff,#9cc3ff)}
+.wx-temp b{font-family:var(--serif);font-size:48px;font-weight:400;line-height:1}
+.wx-temp span{font-size:20px;color:rgba(255,255,255,.7)}
+.wx-wit{position:relative;font-family:var(--serif);font-style:italic;font-size:18px;line-height:1.35;margin:10px 0 8px;color:#fff}
+.wx-foot{position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;color:rgba(255,255,255,.72)}
+.wx-more{flex:none;display:inline-flex;align-items:center;gap:2px;font-size:12.5px;font-weight:800;padding:6px 11px;border-radius:99px;background:rgba(255,255,255,.2);color:#fff}
+.wxk-sun{--wxbg:linear-gradient(150deg,#ff9f1c 0%,#f76b1c 45%,#c2410c 100%);--wxsky:radial-gradient(circle,#ffe066,transparent 65%);--wxglow:rgba(255,150,30,.8)}
+.wxk-part{--wxbg:linear-gradient(150deg,#3b8df0 0%,#2f6fd6 50%,#f59e2b 140%);--wxsky:radial-gradient(circle,#ffd23f,transparent 65%);--wxglow:rgba(60,140,240,.8)}
+.wxk-cloud{--wxbg:linear-gradient(150deg,#64748b,#475569 55%,#334155);--wxsky:radial-gradient(circle,#cbd5e1,transparent 65%);--wxglow:rgba(100,116,139,.7)}
+.wxk-fog{--wxbg:linear-gradient(150deg,#8794ad,#5f6b85 55%,#424c63);--wxsky:radial-gradient(circle,#e2e8f0,transparent 65%);--wxglow:rgba(130,140,170,.7)}
+.wxk-rain{--wxbg:linear-gradient(150deg,#1e6fd9,#1d4ed8 50%,#1e2f8a);--wxsky:radial-gradient(circle,#60c4ff,transparent 65%);--wxglow:rgba(40,110,240,.8)}
+.wxk-snow{--wxbg:linear-gradient(150deg,#5ab8e8,#3b8fd0 50%,#5b6fd6);--wxsky:radial-gradient(circle,#ffffff,transparent 65%);--wxglow:rgba(90,180,240,.8)}
+.wxk-storm{--wxbg:linear-gradient(150deg,#4c3a8f,#2e2a6b 55%,#1b1a40);--wxsky:radial-gradient(circle,#ffd23f,transparent 60%);--wxglow:rgba(90,70,200,.8)}
+.wx-hours,.wx-week{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:14px;overflow-x:auto}
+.wx-hours>button,.wx-week>button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;border:0;color:var(--t1);background:rgba(255,255,255,.05);border-radius:16px;padding:8px 2px;min-width:44px}
+.wx-hours i{display:block;width:6px;border-radius:3px}
+.wx-wet{color:#4fb3ff;font-weight:700}
+.wx-week>button{background:var(--wxbg);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.wx-week>button .faint{color:rgba(255,255,255,.75)}
+.wxa{overflow:visible;display:block}
+.wxa-rays{animation:wxSpin 14s linear infinite}
+.wxa-sun>circle:first-child{animation:wxGlow 3s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.wxa-drift{animation:wxDrift 5s ease-in-out infinite alternate}
+.wxa-drop{animation:wxDrop .9s linear infinite}
+.wxa-flake{animation:wxFlake 2.4s linear infinite}
+.wxa-bolt{animation:wxBolt 2.6s steps(1) infinite}
+.wxa-fog{animation:wxFog 3s ease-in-out infinite alternate}
+@keyframes wxSpin{to{transform:rotate(360deg)}}
+@keyframes wxGlow{50%{transform:scale(1.15);opacity:.35}}
+@keyframes wxDrift{to{transform:translateX(4px)}}
+@keyframes wxDrop{0%{transform:translateY(-6px);opacity:0}25%{opacity:1}100%{transform:translateY(10px);opacity:0}}
+@keyframes wxFlake{0%{transform:translate(0,-6px);opacity:0}20%{opacity:1}50%{transform:translate(3px,3px)}100%{transform:translate(-2px,12px);opacity:0}}
+@keyframes wxBolt{0%,100%{opacity:1}8%{opacity:.2}12%{opacity:1}55%{opacity:.15}}
+@keyframes wxFog{to{transform:translateX(5px);opacity:.55}}
+@media (prefers-reduced-motion:reduce){.wxa *{animation:none!important}}
+.wxs{margin:-4px -4px 0}
+.wxs-head{display:flex;align-items:center;gap:12px;padding:16px;border-radius:24px;background:var(--wxbg,rgba(255,255,255,.06));color:#fff}
+.wxs-head .eyebrow{color:rgba(255,255,255,.75)}
+.wxs-t{font-family:var(--serif);font-weight:400;font-size:32px;line-height:1.05;margin:2px 0 4px;text-transform:capitalize}
+.wxs-chart{display:block;width:100%;height:96px;margin:14px 0 6px}
+.wxs-list{display:flex;flex-direction:column;gap:6px}
+.wxs-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.05)}
+.wxs-row.wet{background:rgba(79,179,255,.13);box-shadow:inset 0 0 0 1px rgba(79,179,255,.3)}
+.wxs-row .grow b{display:block;font-size:14px;text-transform:capitalize}
+.wxs-h{width:46px;font-family:"Geist Mono",ui-monospace,monospace;font-size:14px;font-weight:700}
+.wxs-rain{display:flex;flex-direction:column;align-items:flex-end;font-size:13px;font-weight:700;color:#4fb3ff;min-width:52px}
+.wxs-rain svg{display:none}.wxs-rain em{font-style:normal;font-size:11px;font-weight:600;opacity:.85}
+.wxs-temp{width:40px;text-align:right;font-size:20px}
 .neg{color:var(--red)}
 /* Mappa */
 .map-wrap{position:relative;border-radius:24px;overflow:hidden;height:min(62vh,520px);margin-bottom:12px;box-shadow:inset 0 0 0 1px var(--line),0 30px 60px -30px rgba(120,100,255,.5)}
@@ -1424,3 +1469,14 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .gls-veil span:last-child{font-size:13.5px;color:rgba(234,255,246,.85);max-width:260px}
 .gls-ico{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:rgba(234,255,246,.14);box-shadow:inset 0 0 0 1.5px rgba(234,255,246,.4),0 0 0 8px rgba(234,255,246,.06);animation:glsPulse 2.4s ease-in-out infinite}
 @keyframes glsPulse{50%{box-shadow:inset 0 0 0 1.5px rgba(234,255,246,.4),0 0 0 14px rgba(234,255,246,0)}}
+/* Gioco misterioso (finto): giallo e sbiadito */
+.gl-tease{color:#3a2a00;background:radial-gradient(120% 90% at 100% 0%,rgba(255,250,200,.6),transparent 55%),linear-gradient(150deg,#ffd84a,#f5b800 55%,#c98a00);box-shadow:inset 0 0 0 1px rgba(255,240,170,.6),0 24px 60px -24px rgba(255,200,40,.6)}
+.gl-tease>*:not(.gls-veil){filter:blur(7px) saturate(.5);opacity:.5}
+.gl-tease .gln-badge{background:#3a2a00;color:#ffe27a}
+.gl-tease .gln-go{background:#3a2a00;color:#ffe27a}
+.gl-tease .gls-veil{color:#3a2a00;background:radial-gradient(70% 60% at 50% 50%,rgba(255,236,150,.55),rgba(255,236,150,.1))}
+.gl-tease .gls-veil span:last-child{color:rgba(58,42,0,.85)}
+.gl-tease .gls-ico{background:rgba(58,42,0,.12);box-shadow:inset 0 0 0 1.5px rgba(58,42,0,.4),0 0 0 8px rgba(58,42,0,.06);animation-name:glsPulseY}
+@keyframes glsPulseY{50%{box-shadow:inset 0 0 0 1.5px rgba(58,42,0,.4),0 0 0 14px rgba(58,42,0,0)}}
+.gl-tease{opacity:.82}
+.gl-admin-y{box-shadow:inset 0 0 0 1px rgba(255,216,74,.3)}

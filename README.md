@@ -78,7 +78,7 @@ supabase/aggiornamento-5.sql      Onorevoli come sfida 1 contro 1
 supabase/aggiornamento-6.sql      video in chat
 supabase/aggiornamento-7.sql      casella email del gruppo (Gmail) e controllo ogni 3 minuti
 supabase/aggiornamento-8.sql      tavoli per più persone (Poker con amici)
-supabase/aggiornamento-9.sql      interruttore admin per Chiavenna Express («In arrivo»)
+supabase/aggiornamento-9.sql      interruttori admin: Chiavenna Express e gioco misterioso («In arrivo»)
 supabase/functions/posta/         legge e manda le email della casella del gruppo
 supabase/functions/notizie        rassegna dai grandi giornali, ogni tre ore
 home2.js, mappa3d.js, duelli.js   Home, tab Giochi, foto; mappa 3D; Miniera e GeoScatto
