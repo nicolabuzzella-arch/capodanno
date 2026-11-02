@@ -63,7 +63,7 @@ function mailOpen(id) {
     <div class="actions" style="flex-wrap:wrap">${draft
       ? isAdmin() ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Rifiuta</button><button class="btn" data-act="mail-edit" data-id="${e.id}">${ico("edit", 15)}Modifica</button><button class="btn primary" data-act="mail-send-draft" data-id="${e.id}">${ico("send", 15)}Approva e invia</button>`
         : `${e.sent_by === ME ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Ritira</button>` : ""}<div class="small muted" style="align-self:center">Solo l'organizzatore può inviare: gli è arrivata la richiesta.</div>`
-      : `${e.direction === "in" ? `<button class="btn" data-act="mail-ask" data-id="${e.id}">${ico("spark", 15)}Risposta da ${esc(AI())}</button><button class="btn primary" data-act="mail-reply" data-id="${e.id}">${ico("reply", 15)}Rispondi</button>` : ""}`}</div></div>`);
+      : `${isAdmin() ? `<button class="btn mail-del" data-act="mail-delete" data-id="${e.id}">${ico("trash", 15)}Elimina</button>` : ""}${e.direction === "in" ? `<button class="btn" data-act="mail-ask" data-id="${e.id}">${ico("spark", 15)}Risposta da ${esc(AI())}</button><button class="btn primary" data-act="mail-reply" data-id="${e.id}">${ico("reply", 15)}Rispondi</button>` : ""}`}</div></div>`);
   if (UI.tab === "mail") setTimeout(() => { if (UI.tab === "mail" && !$("#sheet")?.classList.contains("open")) render(); }, 0);
 }
 function mailCompose(opts = {}) {
@@ -112,6 +112,12 @@ Object.assign(ACTIONS, {
       <form id="mail-z" class="stack" style="gap:10px"><textarea name="t" rows="5" placeholder="Es. Scrivi all'Hotel Prater (info@prater.at) per chiedere 4 camere triple dal 30 dicembre al 2 gennaio, colazione inclusa, e il prezzo totale"></textarea>
       <button class="btn pearl block">${ico("spark", 16)}Scrivila</button></form>`);
     $("#mail-z").addEventListener("submit", ev => { ev.preventDefault(); const t = String(new FormData(ev.target).get("t") || "").trim(); if (!t) return; closeSheet(); UI.chatSeg = "ai"; go("chat"); ask(`Prepara un'email dalla casella del gruppo: ${t}`, "ai"); });
+  },
+  async "mail-delete"(el) {
+    if (!confirm("Eliminare questa email per tutti? Finisce nel cestino di Gmail, da dove si può recuperare per 30 giorni.")) return;
+    el.disabled = true;
+    try { await posta({ action: "delete", id: el.dataset.id }); S.emails = (S.emails || []).filter(x => x.id !== el.dataset.id); closeSheet(); toast("Email eliminata", "trash"); await reload(); }
+    catch (e) { toast(e.message, "alert"); el.disabled = false; }
   },
   async "mail-allread"() { for (const e of mailUnread()) { e.read_by = [...(e.read_by || []), ME]; api.sb.rpc("email_read", { p_id: e.id }).then(() => {}, () => {}); } render(); },
   "mail-copy": () => { navigator.clipboard?.writeText(MAIL.info?.address || "").then(() => toast("Indirizzo copiato", "copy"), () => {}); },

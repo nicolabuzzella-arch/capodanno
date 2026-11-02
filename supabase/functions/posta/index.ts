@@ -153,6 +153,15 @@ Deno.serve(async (req) => {
       if (!meRow?.is_admin) return json({ error: "Solo l'organizzatore può inviare: usa «Chiedi di inviare»" }, 403);
       return json({ ok: true, email: await sendMail(device.member_id, body) });
     }
+    // Elimina: solo l'organizzatore. L'email va nel cestino di Gmail (si recupera da lì per 30 giorni) e sparisce dall'app.
+    if (body.action === "delete") {
+      if (!meRow?.is_admin) return json({ error: "Solo l'organizzatore può eliminare le email" }, 403);
+      const { data: e } = await db.from("emails").select("id,gmail_id").eq("id", body.id).maybeSingle();
+      if (!e) return json({ ok: true });
+      if (e.gmail_id) { try { await gmail(`messages/${e.gmail_id}/trash`, { method: "POST" }); } catch (err) { console.error(err); } }
+      await db.from("emails").delete().eq("id", e.id);
+      return json({ ok: true });
+    }
     // Richiesta di invio da parte di un membro: diventa una bozza che l'organizzatore approva con un tocco.
     if (body.action === "request") {
       const to = String(body.to ?? "").trim();
