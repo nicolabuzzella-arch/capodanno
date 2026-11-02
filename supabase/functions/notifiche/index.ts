@@ -142,8 +142,9 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       if (!m || m.channel !== "gruppo") return 0;
       // Chi viene menzionato con @Nome riceve sempre la notifica, anche se ha spento quelle della chat.
       const low = String(m.content ?? "").toLowerCase();
-      const tagged = all.filter((x) => x.id !== m.member_id && String(x.name ?? "").trim() &&
-        new RegExp(`@${String(x.name).trim().split(/\s+/)[0].toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\d])`, "u").test(low)).map((x) => x.id);
+      const everyone = /@(tutti|all)(?![\p{L}\d])/iu.test(low);
+      const tagged = all.filter((x) => x.id !== m.member_id && (everyone || String(x.name ?? "").trim() &&
+        new RegExp(`@${String(x.name).trim().split(/\s+/)[0].toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\d])`, "u").test(low))).map((x) => x.id);
       let sent = 0;
       if (tagged.length) sent += await send(tagged, { title: `${name(m.member_id)} ti ha menzionato`, body: cut(m.content), url: "?tab=chat", tag: "mention-" + m.id });
       return sent + await send(others.filter((x) => x !== m.member_id && !tagged.includes(x)), { title: name(m.member_id), body: cut(m.content), url: "?tab=chat", tag: "chat", cat: "chat" });
@@ -172,6 +173,18 @@ async function handleEvent(event: string, id: string | undefined, actor: string 
       const { data: g } = await db.from("card_games").select("*").eq("id", id).single();
       if (!g || g.status !== "invited" || g.created_by !== actor) return 0;
       return send((g.players as string[]).filter((p) => p !== actor), { title: `${name(actor)} ti chiama a scopa d'assi`, body: `Si gioca in quattro, a ${g.settings?.target ?? 21} punti: apri l'app e rispondi.`, url: "?tab=giochi", tag: "scopa-" + g.id, cat: "giochi" });
+    }
+    case "tavolo": {
+      const { data: g } = await db.from("tavoli").select("*").eq("id", id).maybeSingle();
+      if (!g || g.status !== "invited") return 0;
+      const nome = g.kind === "poker" ? "Texas Hold'em" : "Chiavenna Express";
+      return send(g.players.filter((p: string) => p !== actor), { title: `${name(actor)} ti invita a ${nome}`, body: "Apri l'app e siediti al tavolo.", url: "?tab=giochi", tag: "tavolo-" + g.id, cat: "giochi" });
+    }
+    case "email_request": {
+      const { data: e } = await db.from("emails").select("to_addr,subject").eq("id", id).maybeSingle();
+      if (!e) return 0;
+      const admins = all.filter((m) => m.is_admin && m.id !== actor).map((m) => m.id);
+      return send(admins, { title: `${name(actor)} chiede di inviare un'email`, body: `A ${e.to_addr}: ${cut(e.subject ?? "")}`, url: "?tab=mail", tag: "email-req-" + id });
     }
     case "email": {
       const { data: e } = await db.from("emails").select("from_name,from_addr,subject").eq("id", id).maybeSingle();

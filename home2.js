@@ -299,6 +299,7 @@ const GL = () => {
       { id: "ruota", ico: "star", t: "Ruota della fortuna", s: typeof canSpin === "function" && canSpin() ? "Il giro di oggi ti aspetta" : "Girata, torna domani", hot: typeof canSpin === "function" && canSpin() },
     ] },
     { sec: "Uno contro uno", rows: [
+      { id: "poker", ico: "card", t: "Texas Hold'em", s: "Poker vero, contro i bot o al tavolo con gli amici" },
       { id: "scacchi", ico: "chess", t: "Scacchi", s: "Dal vivo con l'orologio, Elo del gruppo" },
       { id: "miniera", ico: "pick", t: "Miniera", s: "Scava prima dell'altro: diamanti, oro, TNT" },
       { id: "geo", ico: "pin", t: "GeoScatto", s: "Una foto, un mappamondo: dov'è?" },
@@ -322,7 +323,7 @@ window.viewGiochi = function () {
 function glOpen(id) {
   const html = {
     scacchi: () => window.chessCard?.(), scopa: () => window.scopaCard?.(), ruota: () => typeof wheelCard === "function" && wheelCard(),
-    miniera: () => window.mineCard?.(), geo: () => window.geoCard?.(), onorevoli: () => window.onoCard?.(),
+    miniera: () => window.mineCard?.(), geo: () => window.geoCard?.(), onorevoli: () => window.onoCard?.(), poker: () => window.pokerCard?.(),
   }[id];
   if (html) return openSheet(html().replace('class="card', 'class="card in-sheet'));
   if (id === "indovinello") return playEnigma();
@@ -485,8 +486,8 @@ function priorityItems() {
   for (const r of req.slice(0, 2)) out.push({ k: "pay", ico: "card", t: `${r.title}: ${eur(r.amount)}`, s: `Da versare a ${mname(r.pay_to)}`, act: `data-prio="spese"` });
   const newMail = (S.emails || []).filter(e => e.direction === "in" && !(e.read_by || []).includes(ME));
   if (newMail.length) out.push({ k: "mail", ico: "mail", t: newMail.length === 1 ? `Email da ${newMail[0].from_name || newMail[0].from_addr}` : `${newMail.length} email nuove nella casella del gruppo`, s: newMail[0].subject || "", act: `data-prio="mail"` });
-  const drafts = (S.emails || []).filter(e => e.direction === "draft");
-  if (drafts.length) out.push({ k: "draft", ico: "mail", t: drafts.length === 1 ? `${AI()} ha preparato un'email da inviare` : `${drafts.length} bozze di ${AI()} da inviare`, s: drafts[0].subject || "", act: `data-prio="mail"` });
+  const drafts = isAdmin() ? (S.emails || []).filter(e => e.direction === "draft") : [];
+  if (drafts.length) out.push({ k: "draft", ico: "mail", t: drafts.length === 1 ? `Un'email aspetta la tua approvazione` : `${drafts.length} email aspettano la tua approvazione`, s: drafts[0].subject || "", act: `data-prio="mail"` });
   const seenAi = storage.get(SEEN_KEY + "-ai-" + ME) || "";
   const ai = msgs("assistente").filter(m => m.role === "assistant" && m.created_at > seenAi);
   if (ai.length) out.push({ k: "ai", ico: "spark", t: `${AI()} ha scritto ${ai.length === 1 ? "un messaggio nuovo" : `${ai.length} messaggi nuovi`}`, s: String(ai.at(-1).content).replace(/[*_#>`\[\]]/g, "").slice(0, 90), act: `data-prio="ai"` });
@@ -592,23 +593,21 @@ let nudgeAC = null, lastNudge = 0;
 const unlockNudge = () => { try { nudgeAC ||= new (window.AudioContext || window.webkitAudioContext)(); nudgeAC.resume?.(); } catch { /* niente audio */ } };
 document.addEventListener("pointerdown", unlockNudge, { passive: true });
 function nudgeSound() {
+  // Un «dlin-dlon» morbido: tre note di campanella che salgono, con un tremolio leggero, niente ronzii.
   try {
     unlockNudge(); const ac = nudgeAC; if (!ac) return;
-    const t0 = ac.currentTime + 0.02, out = ac.createGain(); out.gain.value = 0.55; out.connect(ac.destination);
-    // Il «brrr» che scuote: due onde vicine che battono, a scatti veloci.
-    for (const f of [196, 203]) {
-      const o = ac.createOscillator(), g = ac.createGain(); o.type = "square"; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t0);
-      for (let k = 0; k < 14; k++) { const t = t0 + k * 0.034; g.gain.setValueAtTime(k % 2 ? 0.02 : 0.16, t); }
-      g.gain.setValueAtTime(0, t0 + 0.5);
-      o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.52);
-    }
-    // Poi il «dlin» a due note.
-    [[1318.5, 0.52], [987.8, 0.68]].forEach(([f, d]) => {
-      const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle"; o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.35, t0 + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.32);
-      o.connect(g); g.connect(out); o.start(t0 + d); o.stop(t0 + d + 0.34);
-    });
+    const t0 = ac.currentTime + 0.03, out = ac.createGain(); out.gain.value = 0.42;
+    const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3200; lp.connect(ac.destination); out.connect(lp);
+    const note = (f, at, dur, vol) => {
+      for (const [mult, v] of [[1, 1], [2, 0.18], [3.01, 0.06]]) {
+        const o = ac.createOscillator(), g = ac.createGain(), vib = ac.createOscillator(), vg = ac.createGain();
+        o.type = "sine"; o.frequency.value = f * mult;
+        vib.frequency.value = 5.5; vg.gain.value = f * mult * 0.004; vib.connect(vg); vg.connect(o.frequency);
+        g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(vol * v, t0 + at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+        o.connect(g); g.connect(out); o.start(t0 + at); vib.start(t0 + at); o.stop(t0 + at + dur + 0.05); vib.stop(t0 + at + dur + 0.05);
+      }
+    };
+    note(659.3, 0, 0.55, 0.32); note(830.6, 0.11, 0.55, 0.3); note(987.8, 0.22, 0.9, 0.34);
   } catch { /* niente audio */ }
 }
 function nudgeShake() {

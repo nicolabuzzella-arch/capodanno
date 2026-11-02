@@ -148,7 +148,20 @@ Deno.serve(async (req) => {
     if (!device) return json({ error: "Non fai parte del gruppo" }, 403);
     if (body.action === "info") return json({ address: ADDRESS, ready: !!Deno.env.get("GMAIL_REFRESH_TOKEN") });
     if (body.action === "sync") return json({ added: await sync() });
-    if (body.action === "send") return json({ ok: true, email: await sendMail(device.member_id, body) });
+    const { data: meRow } = await db.from("members").select("is_admin,name").eq("id", device.member_id).maybeSingle();
+    if (body.action === "send") {
+      if (!meRow?.is_admin) return json({ error: "Solo l'organizzatore può inviare: usa «Chiedi di inviare»" }, 403);
+      return json({ ok: true, email: await sendMail(device.member_id, body) });
+    }
+    // Richiesta di invio da parte di un membro: diventa una bozza che l'organizzatore approva con un tocco.
+    if (body.action === "request") {
+      const to = String(body.to ?? "").trim();
+      if (!/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(to)) return json({ error: "Indirizzo email non valido" }, 400);
+      const { data: d, error } = await db.from("emails").insert({ direction: "draft", to_addr: to, from_addr: ADDRESS || null, from_name: meRow?.name ?? null, subject: String(body.subject ?? "").slice(0, 200) || "(senza oggetto)", body: String(body.body ?? "").slice(0, 20000), snippet: String(body.body ?? "").slice(0, 200), reply_to: body.reply_to || null, sent_by: device.member_id }).select().single();
+      if (error) return json({ error: error.message }, 500);
+      fetch(`${SUPA_URL}/functions/v1/notifiche`, { method: "POST", headers: { "Content-Type": "application/json", "x-internal": SERVICE_KEY }, body: JSON.stringify({ type: "event", event: "email_request", id: d.id, actor: device.member_id }) }).catch(() => {});
+      return json({ ok: true, draft: d });
+    }
     return json({ error: "Richiesta sconosciuta" }, 400);
   } catch (err) {
     console.error(err);

@@ -33,13 +33,13 @@ EXTRA_VIEWS.mail = {
     const unread = mailUnread().length;
     return `<section class="card mail-head"><div class="row" style="gap:12px">${ico("mail", 22)}<div class="grow" id="mail-addr">${mailAddrHtml()}</div></div>
       <div class="small muted" style="margin-top:8px">Date questo indirizzo a hotel, ristoranti e locali: le risposte arrivano qui per tutti e ${AI()} vi avvisa.</div>
-      <div class="grid2" style="margin-top:12px;gap:8px"><button class="btn pearl block" data-act="mail-new">${ico("edit", 16)}Scrivi</button><button class="btn block" data-act="mail-sync">${ico("undo", 16)}Aggiorna</button></div></section>
-      <div class="seg mail-seg">${[["in", `Arrivate${unread ? ` · ${unread}` : ""}`], ["out", "Inviate"], ["draft", `Bozze${drafts.length ? ` · ${drafts.length}` : ""}`]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" data-act="mail-seg" data-v="${k}">${l}</button>`).join("")}</div>
+      <div class="grid2" style="margin-top:12px;gap:8px"><button class="btn pearl block" data-act="mail-new">${ico("edit", 16)}${isAdmin() ? "Scrivi" : "Proponi un'email"}</button><button class="btn block" data-act="mail-sync">${ico("undo", 16)}Aggiorna</button></div></section>
+      <div class="seg mail-seg">${[["in", `Arrivate${unread ? ` · ${unread}` : ""}`], ["out", "Inviate"], ["draft", `${isAdmin() ? "Da approvare" : "Bozze"}${drafts.length ? ` · ${drafts.length}` : ""}`]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" data-act="mail-seg" data-v="${k}">${l}</button>`).join("")}</div>
       <section class="card mail-list">${shown.length ? shown.map(e => {
         const un = e.direction === "in" && !(e.read_by || []).includes(ME);
         return `<button class="mail-row ${un ? "unread" : ""}" data-act="mail-open" data-id="${e.id}">
           <span class="mail-av">${esc((mailWho(e).replace(/^a /, "") || "?").trim()[0] || "?").toUpperCase()}</span>
-          <span class="grow"><span class="mail-top"><b class="ellipsis">${esc(e.direction === "draft" ? `Bozza per ${e.to_addr}` : mailWho(e))}</b><em>${esc(mailWhen(e.received_at))}</em></span>
+          <span class="grow"><span class="mail-top"><b class="ellipsis">${esc(e.direction === "draft" ? `${e.sent_by ? mname(e.sent_by) : AI()} → ${e.to_addr}` : mailWho(e))}</b><em>${esc(mailWhen(e.received_at))}</em></span>
           <span class="mail-sub ellipsis">${esc(e.subject || "(senza oggetto)")}</span><span class="mail-snip ellipsis">${esc(e.snippet || "")}</span></span>${un ? `<i class="mail-dot"></i>` : ""}</button>`;
       }).join("") : `<div class="small muted" style="padding:6px 2px">${seg === "in" ? "Ancora nessuna email arrivata." : seg === "out" ? "Ancora nessuna email inviata." : `Nessuna bozza: chiedi a ${AI()} di scrivere a un hotel o a un ristorante.`}</div>`}</section>`;
   },
@@ -52,14 +52,15 @@ function mailOpen(id) {
   const draft = e.direction === "draft";
   const body = linkify(e.body || e.snippet || "");
   openSheet(`<div class="mail-view">
-    ${draft ? `<div class="eyebrow">Bozza preparata da ${esc(e.from_name || AI())}</div>` : ""}
+    ${draft ? `<div class="eyebrow">${e.sent_by ? `Richiesta di ${esc(mname(e.sent_by))}` : `Bozza preparata da ${esc(AI())}`}${isAdmin() ? " · da approvare" : " · in attesa dell'organizzatore"}</div>` : ""}
     <h2 style="margin:4px 0 10px">${esc(e.subject || "(senza oggetto)")}</h2>
     <div class="mail-meta"><div><span>Da</span><b>${esc(e.direction === "in" ? `${e.from_name ? e.from_name + " · " : ""}${e.from_addr}` : `${e.from_name || "Il gruppo"} · ${e.from_addr || MAIL.info?.address || ""}`)}</b></div>
       <div><span>A</span><b>${esc(e.to_addr || "")}</b></div><div><span>Quando</span><b>${esc(fmtDateTime(e.received_at))}</b></div></div>
     <div class="mail-body">${body}</div>
     ${(e.attachments || []).length ? `<div class="mail-att">${ico("file", 15)}${e.attachments.map(f => esc(f.name)).join(", ")} <span class="faint">(apri dalla casella Gmail)</span></div>` : ""}
     <div class="actions" style="flex-wrap:wrap">${draft
-      ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Scarta</button><button class="btn" data-act="mail-edit" data-id="${e.id}">${ico("edit", 15)}Modifica</button><button class="btn primary" data-act="mail-send-draft" data-id="${e.id}">${ico("send", 15)}Invia</button>`
+      ? isAdmin() ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Rifiuta</button><button class="btn" data-act="mail-edit" data-id="${e.id}">${ico("edit", 15)}Modifica</button><button class="btn primary" data-act="mail-send-draft" data-id="${e.id}">${ico("send", 15)}Approva e invia</button>`
+        : `${e.sent_by === ME ? `<button class="btn" data-act="mail-discard" data-id="${e.id}">${ico("trash", 15)}Ritira</button>` : ""}<div class="small muted" style="align-self:center">Solo l'organizzatore può inviare: gli è arrivata la richiesta.</div>`
       : `${e.direction === "in" ? `<button class="btn" data-act="mail-ask" data-id="${e.id}">${ico("spark", 15)}Risposta da ${esc(AI())}</button><button class="btn primary" data-act="mail-reply" data-id="${e.id}">${ico("reply", 15)}Rispondi</button>` : ""}`}</div></div>`);
   if (UI.tab === "mail") setTimeout(() => { if (UI.tab === "mail" && !$("#sheet")?.classList.contains("open")) render(); }, 0);
 }
@@ -69,15 +70,17 @@ function mailCompose(opts = {}) {
       <div class="field"><label>A</label><input name="to" type="email" inputmode="email" autocomplete="off" required value="${esc(opts.to || "")}" placeholder="info@hotel.com"></div>
       <div class="field"><label>Oggetto</label><input name="subject" value="${esc(opts.subject || "")}" placeholder="Richiesta disponibilità 30 dicembre – 2 gennaio"></div>
       <div class="field"><label>Testo</label><textarea name="body" rows="10" placeholder="Buongiorno, siamo un gruppo di…">${esc(opts.body || "")}</textarea></div>
-      <div class="tiny faint">Parte dall'indirizzo del gruppo${MAIL.info?.address ? ` (${esc(MAIL.info.address)})` : ""}. Tutti vedranno l'email e la risposta.</div>
-      <button class="btn pearl block" type="submit">${ico("send", 16)}Invia</button></form>`);
+      <div class="tiny faint">Parte dall'indirizzo del gruppo${MAIL.info?.address ? ` (${esc(MAIL.info.address)})` : ""}. Tutti vedranno l'email e la risposta.${isAdmin() ? "" : " Solo l'organizzatore può inviare: gli arriva la tua richiesta e la approva con un tocco."}</div>
+      <button class="btn pearl block" type="submit">${ico("send", 16)}${isAdmin() ? "Invia" : "Chiedi di inviare"}</button></form>`);
   $("#mail-form").addEventListener("submit", async ev => {
     ev.preventDefault();
     const f = new FormData(ev.target), btn = ev.target.querySelector("button[type=submit]");
     btn.disabled = true; btn.textContent = "Invio…";
     try {
-      await posta({ action: "send", to: String(f.get("to")).trim(), subject: String(f.get("subject")).trim(), body: String(f.get("body")), reply_to: opts.reply || null, draft_id: opts.draft || null });
-      closeSheet(); toast("Email inviata", "check"); MAIL.seg = "out"; await reload();
+      const payload = { to: String(f.get("to")).trim(), subject: String(f.get("subject")).trim(), body: String(f.get("body")), reply_to: opts.reply || null };
+      if (isAdmin()) { await posta({ action: "send", ...payload, draft_id: opts.draft || null }); closeSheet(); toast("Email inviata", "check"); MAIL.seg = "out"; }
+      else { await posta({ action: "request", ...payload }); closeSheet(); toast("Richiesta inviata all'organizzatore", "check"); MAIL.seg = "draft"; }
+      await reload();
     } catch (e) { toast("Non inviata: " + e.message, "alert"); btn.disabled = false; btn.innerHTML = `${ico("send", 16)}Invia`; }
   });
 }

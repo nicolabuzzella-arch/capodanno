@@ -443,6 +443,7 @@ function scheduleReload(payload) {
   if (payload?.table === "chess_games") { window.onChessChange?.(payload); return; }
   if (payload?.table === "card_games") { window.onScopaChange?.(payload); return; }
   if (payload?.table === "duels") { window.onDuelChange?.(payload); return; }
+  if (payload?.table === "tavoli") { window.onTavoloChange?.(payload); return; }
   if (payload?.table === "polls" && payload.eventType === "INSERT" && payload.new?.created_by !== ME) setTimeout(() => window.votePop?.(true), 1500);
   const nm = payload?.table === "messages" && payload.eventType === "INSERT" ? payload.new : null;
   if (nm?.meta?.nudge) window.onNudge?.(nm);
@@ -1726,12 +1727,12 @@ function viewChat() {
 // Menzioni: «@Nome» diventa un'etichetta evidenziata (più forte se sei tu).
 const firstName = m => String(m?.name || "").trim().split(/\s+/)[0];
 function mentions(html) {
-  const names = S.members.map(m => ({ id: m.id, n: firstName(m) })).filter(x => x.n).sort((a, b) => b.n.length - a.n.length);
+  const names = [...S.members.map(m => ({ id: m.id, n: firstName(m) })).filter(x => x.n), { id: "*", n: "tutti" }, { id: "*", n: "all" }].sort((a, b) => b.n.length - a.n.length);
   if (!names.length) return html;
   const re = new RegExp(`(^|[\\s(>])@(${names.map(x => x.n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\wàèéìòù])`, "giu");
-  return html.replace(re, (all, pre, n) => { const hit = names.find(x => x.n.toLowerCase() === n.toLowerCase()); return `${pre}<span class="mention ${hit?.id === ME ? "me" : ""}">@${n}</span>`; });
+  return html.replace(re, (all, pre, n) => { const hit = names.find(x => x.n.toLowerCase() === n.toLowerCase()); return `${pre}<span class="mention ${hit?.id === ME || hit?.id === "*" ? "me" : ""}">@${n}</span>`; });
 }
-const mentionsMe = text => { const n = firstName(me()); return !!n && new RegExp(`@${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\wàèéìòù])`, "iu").test(text || ""); };
+const mentionsMe = text => { if (/@(tutti|all)(?![\wàèéìòù])/i.test(text || "")) return true; const n = firstName(me()); return !!n && new RegExp(`@${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\wàèéìòù])`, "iu").test(text || ""); };
 
 function renderReplyBar() {
   const bar = $("#reply-bar");
@@ -2872,12 +2873,13 @@ function mentionSuggest() {
   if (!m) { bar.hidden = true; return; }
   const q = m[2].toLowerCase();
   const list = S.members.filter(x => x.id !== ME && firstName(x).toLowerCase().startsWith(q)).slice(0, 6);
-  bar.hidden = !list.length;
-  bar.innerHTML = list.map(x => `<button type="button" data-mn="${x.id}">${avatar(x, "sm")}<span>${esc(x.name)}</span></button>`).join("");
+  const all = "tutti".startsWith(q);
+  bar.hidden = !list.length && !all;
+  bar.innerHTML = (all ? `<button type="button" data-mn="*"><span class="mn-all">${ico("users", 14)}</span><span>Tutti</span></button>` : "") + list.map(x => `<button type="button" data-mn="${x.id}">${avatar(x, "sm")}<span>${esc(x.name)}</span></button>`).join("");
 }
 function pickMention(id) {
   const pos = composer.selectionStart ?? composer.value.length, before = composer.value.slice(0, pos), after = composer.value.slice(pos);
-  const start = before.lastIndexOf("@"), name = firstName(member(id));
+  const start = before.lastIndexOf("@"), name = id === "*" ? "tutti" : firstName(member(id));
   composer.value = `${before.slice(0, start)}@${name} ${after}`;
   const caret = start + name.length + 2; composer.setSelectionRange(caret, caret); composer.focus();
   $("#mention-bar").hidden = true; syncComposerButtons();
