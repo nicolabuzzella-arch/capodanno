@@ -312,9 +312,26 @@ const GL = () => {
     ] },
   ];
 };
+const sqOff = () => !!S.trip?.[0]?.flags?.sq_off;
+window.sqOff = sqOff;
+Object.assign(ACTIONS, {
+  "sq-soon": () => toast("Chiavenna Express è in arrivo", "clock"),
+  async "sq-toggle"() {
+    if (!isAdmin()) return;
+    const flags = { ...(S.trip?.[0]?.flags || {}), sq_off: !sqOff() };
+    try { await api.update("trip", { id: 1 }, { flags }); }
+    catch (e) { return toast("Serve l'aggiornamento 9 del database", "alert"); }
+    if (S.trip?.[0]) S.trip[0].flags = flags;
+    toast(flags.sq_off ? "Chiavenna Express nascosto: gli altri vedono «In arrivo»" : "Chiavenna Express attivo per tutti", "check");
+    render();
+  },
+});
 window.viewGiochi = function () {
-  return `<button class="card gl-new" data-act="sq-play">
-      <div class="gln-badge">NEW!</div>
+  const off = sqOff(), adm = isAdmin();
+  return `${adm ? `<div class="gl-admin"><span class="grow"><b>Chiavenna Express</b><span class="tiny faint">${off ? "Nascosto: gli altri vedono «In arrivo»" : "Attivo per tutti"}</span></span>
+      <button class="gl-sw${off ? "" : " on"}" data-act="sq-toggle" role="switch" aria-checked="${!off}" aria-label="Attiva Chiavenna Express"><i></i></button></div>` : ""}
+    <button class="card gl-new${off ? " gl-soon" : ""}" data-act="${off && !adm ? "sq-soon" : "sq-play"}">${off ? `<div class="gls-veil"><span class="gls-ico">${ico("clock", 22)}</span><b>In arrivo</b><span>${adm ? "Solo tu puoi provarlo" : "Il nuovo gioco a squadre si sblocca presto"}</span></div>` : ""}
+      <div class="gln-badge">${off ? "PRESTO" : "NEW!"}</div>
       <div class="gln-art"><svg viewBox="0 0 220 70" aria-hidden="true"><path d="M8 52 Q60 20 110 40 T212 26" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-dasharray="4 6"/>${[8, 60, 110, 160, 212].map((x, i) => `<circle cx="${x}" cy="${[52, 31, 40, 33, 26][i]}" r="4" fill="#eafff6"/>`).join("")}<g transform="translate(70 18)"><rect x="0" y="6" width="34" height="16" rx="5" fill="#eafff6"/><rect x="32" y="10" width="9" height="12" rx="2" fill="#eafff6"/><rect x="5" y="9" width="7" height="6" rx="1" fill="#0b4a35"/><rect x="16" y="9" width="7" height="6" rx="1" fill="#0b4a35"/><circle cx="9" cy="24" r="3.5" fill="#0b4a35"/><circle cx="26" cy="24" r="3.5" fill="#0b4a35"/></g></svg></div>
       <div class="gln-t">Chiavenna Express</div>
       <div class="gln-s">Il gioco a squadre per la serata: 2 contro 2 o 3 contro 3, disegni, parole, stime di valle e messaggi veri del gruppo. Un telefono solo, da passarsi.</div>
