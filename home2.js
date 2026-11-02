@@ -157,11 +157,17 @@ window.statoCard = function () {
   const last = man?.last ? { t: man.last } : auto.last;
   const next = man?.next ? { t: man.next } : auto.next;
   const by = man?.at ? `Aggiornato da ${esc(mname(man.by) || "l'organizzatore")} · ${esc(fmtDate(man.at, { day: "numeric", month: "short" }))}` : "Aggiornato in automatico";
-  const row = (cls, icon, k, x) => `<button class="st-row ${cls}" ${x?.go ? `data-act="tab" data-tab="${x.go}"` : "data-act=\"noop\""}><span class="st-dot">${ico(icon, 16)}</span><span class="grow"><span class="st-k">${k}</span><b>${x ? esc(x.t) : "Ancora niente: si comincia adesso"}</b></span></button>`;
+  const r = readiness(), pct = Math.round(100 * r.filter(x => x.ok).length / r.length);
+  const go = x => (x?.go ? `data-act="tab" data-tab="${x.go}"` : `data-act="noop"`);
   return `<section class="card stato">
-    <div class="row between"><div class="eyebrow">Stato</div>${isAdmin() ? `<button class="link tiny" data-act="stato-edit">${ico("edit", 13)}Modifica</button>` : ""}</div>
-    <div class="st-line">${row("done", "check", "Ultima cosa fatta", last)}${row("next", "arrow", "Prossima da fare", next)}</div>
-    <div class="tiny faint" style="margin-top:8px">${by}</div></section>`;
+    <div class="st-glow"></div>
+    <div class="st-head"><span class="st-live"><i></i>Stato</span>
+      <span class="st-pct" title="A che punto siamo"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="4"/><circle cx="18" cy="18" r="15" fill="none" stroke="url(#st-g)" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(94.2 * pct / 100).toFixed(1)} 94.2" transform="rotate(-90 18 18)"/><defs><linearGradient id="st-g"><stop offset="0" stop-color="#2ee59d"/><stop offset="1" stop-color="#c9b6ff"/></linearGradient></defs></svg><b>${pct}%</b></span>
+      ${isAdmin() ? `<button class="st-edit" data-act="stato-edit" aria-label="Modifica lo stato">${ico("edit", 15)}</button>` : ""}</div>
+    <button class="st-done" ${go(last)}><span class="st-ic">${ico("check", 15)}</span><span class="grow"><span class="st-k">Ultima cosa fatta</span><span class="st-v">${last ? esc(last.t) : "Ancora niente: si comincia adesso"}</span></span></button>
+    <button class="st-next" ${go(next)}><span class="st-k">Prossima da fare</span><b class="st-big">${esc(next.t)}</b>
+      <span class="st-go">${next.go && next.go !== "home" ? `Vai ${ico("chev", 14)}` : "Pronti"}</span></button>
+    <div class="st-by">${by}</div></section>`;
 };
 Object.assign(ACTIONS, {
   noop: () => {},
