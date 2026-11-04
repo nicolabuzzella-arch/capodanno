@@ -7,9 +7,9 @@
 
 const CFG = window.CAPODANNO_CONFIG || {};
 const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase);
-const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails", "songs", "song_votes", "rooms", "bed_picks"];
+const TABLES = ["trip", "members", "member_private", "polls", "poll_options", "votes", "bookings", "expenses", "payment_requests", "itinerary", "checklist", "messages", "files", "scores", "feedback", "vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails", "songs", "song_votes", "rooms", "bed_picks", "reazioni", "letture"];
 // Tabelle degli aggiornamenti più recenti: se il database non le ha ancora, l'app funziona lo stesso.
-const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails", "songs", "song_votes", "rooms", "bed_picks"]);
+const OPTIONAL_TABLES = new Set(["vibe_answers", "wheel_spins", "effects", "daily_answers", "photos", "news", "emails", "songs", "song_votes", "rooms", "bed_picks", "reazioni", "letture"]);
 const CACHE_KEY = "capodanno-cache-v3";
 const CODE_KEY = "capodanno-code";
 const SEEN_KEY = "capodanno-chat-seen";
@@ -444,6 +444,7 @@ function scheduleReload(payload) {
   if (payload?.table === "card_games") { window.onScopaChange?.(payload); return; }
   if (payload?.table === "duels") { window.onDuelChange?.(payload); return; }
   if (payload?.table === "tavoli") { window.onTavoloChange?.(payload); return; }
+  if ((payload?.table === "reazioni" || payload?.table === "letture") && window.onChatExtra?.(payload)) return;
   if (payload?.table === "polls" && payload.eventType === "INSERT" && payload.new?.created_by !== ME) setTimeout(() => window.votePop?.(true), 1500);
   const nm = payload?.table === "messages" && payload.eventType === "INSERT" ? payload.new : null;
   if (nm?.meta?.nudge) window.onNudge?.(nm);
@@ -1729,7 +1730,7 @@ function viewChat() {
       const fx = effectsOf(m.member_id);
       const body = m.meta?.photo && window.photoBubble ? photoBubble(m) : m.meta?.video && window.videoBubble ? videoBubble(m) : m.meta?.voice ? voiceBubble(m) : seg === "gruppo" ? mentions(linkify(m.content)) : esc(m.content).replace(/\n/g, "<br>");
       const tap = seg === "gruppo" && m.id !== "tmp" ? `data-act="msg-menu" data-id="${m.id}"` : "";
-      return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(fx.nick || w?.name || "—")}${fx.nick ? ` <span class="fx-nick">alias di ${esc(w?.name || "")}</span>` : ""}${fx.title ? ` <span class="fx-title">${esc(fx.title)}</span>` : ""}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}</span></div></div>`;
+      return `${sep}<div class="msg ${mine ? "mine" : ""} ${cont && !m.reply_to ? "cont" : ""}${seg === "gruppo" && (S.reazioni || []).some(r => r.message_id === m.id) ? " has-rx" : ""}" data-mid="${m.id}">${mine ? "" : cont ? `<span class="av-sp"></span>` : avatar(w, "sm")}<div class="bubble" ${tap}>${mine || cont || seg !== "gruppo" ? "" : `<div class="who">${esc(fx.nick || w?.name || "—")}${fx.nick ? ` <span class="fx-nick">alias di ${esc(w?.name || "")}</span>` : ""}${fx.title ? ` <span class="fx-title">${esc(fx.title)}</span>` : ""}</div>`}${m.reply_to ? quoteOf(m.reply_to) : ""}${body}<span class="stamp">${time}${seg === "gruppo" && mine && window.msgTicks ? msgTicks(m) : ""}</span>${seg === "gruppo" && window.msgRx ? msgRx(m) : ""}</div></div>`;
     }).join("")}
     ${UI.waiting && UI.waiting === seg ? `<div class="msg ai">${avatar(null, "sm")}<div class="bubble"><div class="who" id="thinking-label">${seg === "ascolto" ? "Sto leggendo" : "Sto pensando"}</div><div class="typing"><span></span><span></span><span></span></div></div></div>` : ""}
     ${seg === "ascolto" && list.length ? `<button class="link" style="align-self:center;margin-top:8px" data-act="clear-private">${ico("trash", 15)}Cancella questa conversazione</button>` : ""}
@@ -2453,7 +2454,7 @@ const ACTIONS = {
   "msg-menu": (el, e) => {
     if (Date.now() - lastSwipe < 500) return;
     const m = S.messages.find(x => x.id === el.dataset.id); if (!m) return;
-    openSheet(`<div class="bubble" style="margin-bottom:16px">${linkify(m.content)}</div><div class="stack">
+    openSheet(`<div class="bubble" style="margin-bottom:16px">${linkify(m.content)}</div>${window.msgMenuTop ? msgMenuTop(m) : ""}<div class="stack">
       <button class="btn block" data-act="msg-reply" data-id="${m.id}">${ico("arrow", 17)}Rispondi</button>
       ${m.meta?.voice ? "" : `<button class="btn block" data-act="copy" data-text="${esc(m.content)}">${ico("copy", 17)}Copia</button>`}
       ${m.member_id === ME || isAdmin() ? `<button class="btn block danger" data-act="msg-delete" data-id="${m.id}">${ico("trash", 17)}Elimina</button>` : ""}

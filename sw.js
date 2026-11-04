@@ -1,7 +1,7 @@
 /* Capodanno - cache offline.
    Prima la rete (così un aggiornamento si vede subito); la cache serve solo senza connessione.
    I dati del gruppo restano anche offline perché l'app ne tiene una copia sul telefono. */
-const V = "capodanno-v29";
+const V = "capodanno-v30";
 const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./config.js", "./voice.js", "./games.js", "./killer-lib.js", "./chess-engine.js", "./chess.js", "./sezioni.js", "./giochi2.js", "./scopa.js", "./home2.js", "./mail.js", "./duelli.js", "./onorevoli.js", "./poker.js", "./squadre.js", "./mappa3d.js", "./extra.js",
   "./carte/retro.svg", ..."DHSC".split("").flatMap(x => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `./carte/${x}${n}.svg`)),
   ...["K", "Q", "R", "B", "N", "P"].flatMap(p => [`./pezzi/w${p}.svg`, `./pezzi/b${p}.svg`]), "./icon.svg"];

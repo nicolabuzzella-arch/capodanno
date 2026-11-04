@@ -81,6 +81,7 @@ supabase/aggiornamento-8.sql      tavoli per più persone (Poker con amici)
 supabase/aggiornamento-9.sql      interruttori admin: Chiavenna Express e gioco misterioso («In arrivo»)
 supabase/aggiornamento-10.sql     playlist del gruppo, stanze e letti
 supabase/aggiornamento-11.sql     ora esatta dell'ultimo accesso (pannello Attività)
+supabase/aggiornamento-12.sql     cuori sui messaggi e «visualizzato da» nella chat di gruppo
 supabase/functions/posta/         legge e manda le email della casella del gruppo
 supabase/functions/notizie        rassegna dai grandi giornali, ogni tre ore
 home2.js, mappa3d.js, duelli.js   Home, tab Giochi, foto; mappa 3D; Miniera e GeoScatto

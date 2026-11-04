@@ -834,3 +834,123 @@ Object.assign(ACTIONS, {
     else navigator.clipboard?.writeText(text).then(() => toast("Riassunto copiato", "copy"));
   },
 });
+
+// ───────────────────────── Cuori e «visualizzato da» nella chat di gruppo ─────────────────────────
+// Doppio tocco su un messaggio = cuore. Un tocco apre il menu con il cuore grande e, sui tuoi messaggi, chi l'ha visto.
+// Le spunte: una = inviato, due grigie = visto da qualcuno, due colorate = visto da tutti.
+
+const HEART = (s = 16, cls = "") => `<svg class="hrt ${cls}" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8.2-5-8.2-11.1A4.8 4.8 0 0 1 12 6.6a4.8 4.8 0 0 1 8.2 3.3C20.2 16 12 21 12 21Z" fill="#ff3b6b"/><path d="M12 21s-8.2-5-8.2-11.1c0-1 .3-1.9.8-2.7C5 12.6 9.6 17.6 15.6 18.4 13.6 20 12 21 12 21Z" fill="#d9123f" opacity=".55"/><path d="M7.4 8.2c.9-1 2.3-1.2 3.3-.5" stroke="#fff" stroke-opacity=".75" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
+const rxOf = id => (S.reazioni || []).filter(r => r.message_id === id);
+const readAt = id => { const r = (S.letture || []).find(x => x.member_id === id); return r ? r.gruppo_at : null; };
+function seenBy(m) {
+  return S.members.filter(x => x.id !== m.member_id).map(x => ({ m: x, at: readAt(x.id) })).filter(x => x.at && x.at >= m.created_at);
+}
+window.msgTicks = m => {
+  if (!(S.letture || []).length && !CLOUD) return "";
+  const others = going().filter(x => x.id !== m.member_id), seen = seenBy(m).filter(x => others.some(o => o.id === x.m.id));
+  const all = others.length && seen.length >= others.length;
+  const cls = all ? "all" : seen.length ? "some" : "";
+  return `<span class="tk ${cls}" aria-label="${all ? "Visto da tutti" : seen.length ? `Visto da ${seen.length}` : "Inviato"}"><svg viewBox="0 0 18 12" width="16" height="11"><path d="M1 6.5 4.2 9.6 10.5 2.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${seen.length ? `<path d="M7.2 9.4 7.6 9.6 13.9 2.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` : ""}</svg></span>`;
+};
+window.msgRx = m => {
+  const rx = rxOf(m.id); if (!rx.length) return "";
+  const mine = rx.some(r => r.member_id === ME);
+  return `<button class="rx${mine ? " mine" : ""}" data-act="rx-who" data-id="${m.id}" data-stop-menu>${HEART(15)}${rx.length > 1 ? `<b>${rx.length}</b>` : ""}</button>`;
+};
+window.msgMenuTop = m => {
+  const rx = rxOf(m.id), mine = rx.some(r => r.member_id === ME);
+  const seen = m.member_id === ME ? seenBy(m).sort((a, b) => String(a.at).localeCompare(String(b.at))) : null;
+  const notYet = seen ? going().filter(x => x.id !== ME && !seen.some(s => s.m.id === x.id)) : [];
+  return `<div class="rx-menu">
+      <button class="rx-big${mine ? " on" : ""}" data-act="rx-toggle" data-id="${m.id}">${HEART(30)}<span>${mine ? "Togli il cuore" : "Metti un cuore"}</span></button>
+      ${rx.length ? `<div class="rx-list">${rx.map(r => `<span>${avatar(member(r.member_id), "sm")}${esc(r.member_id === ME ? "Tu" : mname(r.member_id))}</span>`).join("")}</div>` : ""}
+    </div>
+    ${seen ? `<div class="seen-box"><div class="seen-h">${window.msgTicks(m)}<b>${seen.length ? `Visualizzato da ${seen.length}` : "Non ancora visualizzato"}</b></div>
+      ${seen.map(s => `<div class="li">${avatar(s.m, "sm")}<span class="grow">${esc(s.m.name)}</span><span class="tiny faint">${esc(seenTime(s.at, m.created_at))}</span></div>`).join("")}
+      ${notYet.length ? `<div class="tiny faint" style="margin-top:8px">Non ancora: ${notYet.map(x => esc(x.name)).join(", ")}</div>` : ""}</div>` : ""}`;
+};
+// L'ora esatta di lettura non c'è: si sa che l'ha letto entro l'ora in cui ha aperto la chat dopo l'invio.
+const seenTime = (at, sent) => { const d = new Date(at); return `entro le ${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}${new Date(sent).toDateString() !== d.toDateString() ? ` del ${d.toLocaleDateString("it-IT", { day: "numeric", month: "short" })}` : ""}`; };
+
+async function rxToggle(id, burstEl) {
+  const mine = rxOf(id).some(r => r.member_id === ME);
+  // Subito sullo schermo, poi nel database.
+  if (mine) S.reazioni = (S.reazioni || []).filter(r => !(r.message_id === id && r.member_id === ME));
+  else { S.reazioni = [...(S.reazioni || []), { message_id: id, member_id: ME, emoji: "cuore", created_at: new Date().toISOString() }]; rxBurst(burstEl || $(`.msg[data-mid="${id}"] .bubble`)); navigator.vibrate?.(12); }
+  rxPaint(id);
+  try {
+    if (mine) await api.remove("reazioni", { message_id: id, member_id: ME });
+    else await api.insert("reazioni", { message_id: id, member_id: ME, emoji: "cuore" });
+  } catch (e) { toast(/reazioni/.test(e.message) ? "Serve l'aggiornamento 12 del database" : e.message, "alert"); await reload(); }
+}
+function rxBurst(el) {
+  if (!el) return;
+  const r = el.getBoundingClientRect(), box = document.createElement("div");
+  box.className = "rx-burst"; box.style.left = `${r.left + r.width / 2}px`; box.style.top = `${r.top + r.height / 2}px`;
+  box.innerHTML = `<i class="main">${HEART(64)}</i>${Array.from({ length: 7 }, (_, i) => `<i style="--a:${i * 51}deg;--d:${50 + (i % 3) * 14}px">${HEART(14)}</i>`).join("")}`;
+  document.body.appendChild(box); setTimeout(() => box.remove(), 900);
+}
+function rxPaint(id) {
+  const m = S.messages.find(x => x.id === id), b = $(`.msg[data-mid="${id}"] .bubble`); if (!m || !b) return;
+  b.querySelector(".rx")?.remove();
+  const html = window.msgRx(m); if (html) b.insertAdjacentHTML("beforeend", html);
+  b.closest(".msg").classList.toggle("has-rx", !!html);
+}
+function ticksPaint() {
+  for (const el of $$(".msg.mine[data-mid] .stamp")) {
+    const m = S.messages.find(x => x.id === el.closest(".msg").dataset.mid); if (!m) continue;
+    el.querySelector(".tk")?.remove(); el.insertAdjacentHTML("beforeend", window.msgTicks(m));
+  }
+}
+// Aggiornamenti dal vivo senza ricostruire la chat (niente salti dello scorrimento).
+window.onChatExtra = p => {
+  const t = p.table, n = p.new || {}, o = p.old || {};
+  if (t === "reazioni") {
+    const key = n.message_id ? n : o;
+    S.reazioni = (S.reazioni || []).filter(r => !(r.message_id === key.message_id && r.member_id === key.member_id));
+    if (p.eventType !== "DELETE") S.reazioni.push(n);
+    else if (!o.message_id) { reload(); return true; } // senza i dati del vecchio record: ricarico tutto
+    rxPaint(key.message_id);
+    return true;
+  }
+  if (t === "letture") {
+    S.letture = (S.letture || []).filter(r => r.member_id !== n.member_id); if (n.member_id) S.letture.push(n);
+    ticksPaint();
+    return true;
+  }
+  return false;
+};
+// Segno fin dove ho letto quando la chat di gruppo è davvero sullo schermo.
+let readSent = "";
+function markRead() {
+  if (!ME || document.hidden || UI.tab !== "chat" || UI.chatSeg !== "gruppo") return;
+  const last = msgs("gruppo").filter(m => m.id !== "tmp").at(-1); if (!last) return;
+  const mineAt = readAt(ME);
+  if (last.created_at <= (mineAt || "") || last.created_at === readSent) return;
+  readSent = last.created_at;
+  const row = { member_id: ME, gruppo_at: last.created_at };
+  S.letture = [...(S.letture || []).filter(r => r.member_id !== ME), row];
+  api.upsert("letture", row).catch(() => { readSent = ""; });
+}
+setInterval(markRead, 2500);
+document.addEventListener("visibilitychange", () => setTimeout(markRead, 600));
+
+// Doppio tocco = cuore; un tocco solo apre il menu (con un attimo di attesa per distinguere i due casi).
+{
+  const menu = ACTIONS["msg-menu"];
+  let tapT = 0, tapId = "";
+  ACTIONS["msg-menu"] = (el, e) => {
+    if (e?.target?.closest?.("[data-stop-menu]")) return;
+    const id = el.dataset.id;
+    if (tapT && tapId === id) { clearTimeout(tapT); tapT = 0; tapId = ""; return rxToggle(id); }
+    clearTimeout(tapT); tapId = id;
+    tapT = setTimeout(() => { tapT = 0; tapId = ""; menu(el, e); }, 260);
+  };
+}
+Object.assign(ACTIONS, {
+  "rx-toggle": async el => { closeSheet(); await rxToggle(el.dataset.id); },
+  "rx-who"(el) {
+    const m = S.messages.find(x => x.id === el.dataset.id); if (!m) return;
+    openSheet(`<h2>Cuori</h2>${window.msgMenuTop(m)}<div class="actions"><button class="btn block" data-act="close-sheet">Chiudi</button></div>`);
+  },
+});
