@@ -2981,6 +2981,9 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setInterval(checkUpdate, 5 * 60000);
 
 async function boot() {
+  // App bloccata (lock.js): non parte niente, nemmeno il login.
+  if (window.lockReady) await window.lockReady;
+  if (window.__LOCK) return;
   checkUpdate();
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});
