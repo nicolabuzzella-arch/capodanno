@@ -11,16 +11,20 @@
     var s = document.createElement("style");
     s.textContent = "html.locked,html.locked body{overflow:hidden!important;background:#000!important}" +
       "html.locked body>*:not(#lock104){display:none!important}" +
-      "#lock104{position:fixed;inset:0;z-index:2147483647;background:#000;display:flex;flex-direction:column;align-items:center;overflow:hidden;-webkit-user-select:none;user-select:none}" +
-      "#lock104 img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%}" +
-      "#lock104 .t{position:relative;margin-top:calc(env(safe-area-inset-top,0px) + 3.5vh);text-align:center;color:#fff;font-family:Anton,Impact,'Arial Black',sans-serif;line-height:.86;text-transform:uppercase;" +
+      "#lock104{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;min-height:100vh;z-index:2147483647;background:#000;display:flex;flex-direction:column;align-items:center;overflow:hidden;-webkit-user-select:none;user-select:none}" +
+      "#lock104 img{position:absolute;top:0;left:0;width:100%;height:100%;display:block;object-fit:cover;object-position:center 40%}" +
+      "#lock104 .t{position:relative;z-index:1;margin-top:calc(env(safe-area-inset-top,0px) + 3.5vh);text-align:center;color:#fff;font-family:Anton,Impact,'Arial Black',sans-serif;line-height:.86;text-transform:uppercase;" +
       "text-shadow:0 0 2px #000,0 4px 0 #000,0 8px 30px rgba(0,0,0,.9)}" +
       "#lock104 .t small{display:block;font-size:clamp(26px,8vw,56px);letter-spacing:.14em}" +
       "#lock104 .t b{display:block;font-weight:400;font-size:clamp(96px,30vw,200px);letter-spacing:-.02em}";
     document.head.appendChild(s);
     var d = document.createElement("div");
     d.id = "lock104";
-    d.innerHTML = '<img src="blocco.jpg" alt=""><div class="t"><small>Error</small><b>104</b></div>';
+    d.innerHTML = '<img alt=""><div class="t"><small>Error</small><b>104</b></div>';
+    // Se l'immagine non arriva (rete lenta, copia vecchia), riprova da sola con un indirizzo nuovo.
+    var img = d.querySelector("img"), tries = 0;
+    img.onerror = function () { if (++tries < 8) setTimeout(function () { img.src = "blocco-104.jpg?r=" + Date.now(); }, 1200 * tries); };
+    img.src = "blocco-104.jpg?v=2";
     (document.body || document.documentElement).appendChild(d);
     document.documentElement.classList.add("locked");
   }
