@@ -1635,3 +1635,4 @@ body.gaming .eyebrow,body[data-tab=giochi] .eyebrow{color:#ffb1b1}
 .rc-q cite{display:block;margin-top:6px;font-family:var(--sans,inherit);font-style:normal;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.7)}
 .rc-prize{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)}.rc-prize b{display:block}.rc-prize span{font-size:13px;color:rgba(255,255,255,.8)}
 .qui a,.fd a,.doc-addr,.lv-people a{text-decoration:none}
+.act-when{color:var(--t1);font-weight:700}

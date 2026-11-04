@@ -503,7 +503,33 @@ function presencePop(id) {
   requestAnimationFrame(() => el.classList.add("show"));
   setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 3600);
 }
+// Ultimo accesso esatto: ognuno lo scrive per sé (all'apertura, ogni minuto con l'app aperta e quando la chiude).
+// Non è in tempo reale per gli altri: lo legge solo il pannello Attività dell'organizzatore.
+let seenOpen = true, seenLast = 0;
+function seenPing(force) {
+  if (!CLOUD || !api.sb || !ME) return;
+  if (!force && Date.now() - seenLast < 55000) return;
+  seenLast = Date.now();
+  const row = { member_id: ME, last_seen: new Date().toISOString(), dove: whereNow() };
+  if (seenOpen) { row.opened_at = row.last_seen; seenOpen = false; }
+  api.sb.from("accessi").upsert(row).then(() => {}, () => {});
+}
+setInterval(() => { if (!document.hidden) seenPing(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (document.hidden) seenPing(true); else { seenOpen = true; seenPing(true); } });
+window.addEventListener("pagehide", () => seenPing(true));
+let SEEN = new Map();
+async function seenLoad() {
+  if (!CLOUD || !api.sb || !isAdmin()) return;
+  try { const { data } = await api.sb.from("accessi").select("*"); if (data) SEEN = new Map(data.map(r => [r.member_id, r])); } catch { /* tabella mancante */ }
+}
+function exactTime(t) {
+  const d = new Date(t), now = new Date(), hm = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 864e5);
+  return diff === 0 ? `oggi alle ${hm}` : diff === 1 ? `ieri alle ${hm}` : `${d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} alle ${hm}`;
+}
 function startPresence() {
+  setTimeout(() => seenPing(true), 1500);
   if (!CLOUD || presenceCh || !api.sb || !ME) return;
   try {
     presenceCh = api.channel("presenza", { config: { presence: { key: ME } } });
@@ -554,18 +580,24 @@ EXTRA_VIEWS.attivita = {
   },
   mount() {
     window.onPresence = () => { const el = $("#act-live"); if (el) el.innerHTML = activityLive(); };
-    clearInterval(window.__actT); window.__actT = setInterval(() => { if (UI.tab !== "attivita") return clearInterval(window.__actT); window.onPresence(); }, 15000);
+    seenLoad().then(() => window.onPresence());
+    clearInterval(window.__actT); window.__actT = setInterval(() => { if (UI.tab !== "attivita") return clearInterval(window.__actT); seenLoad().then(() => window.onPresence()); }, 15000);
   },
 };
 function activityLive() {
   const on = S.members.filter(m => PRESENT.has(m.id)).map(m => ({ m, i: PINFO.get(m.id) || {} })).sort((a, b) => (b.i.at || 0) - (a.i.at || 0));
-  const off = S.members.filter(m => !PRESENT.has(m.id));
+  const offT = m => { const s = SEEN.get(m.id); return Math.max(s ? new Date(s.last_seen).getTime() : 0, LASTSEEN.get(m.id) || 0); };
+  const off = S.members.filter(m => !PRESENT.has(m.id)).sort((a, b) => offT(b) - offT(a));
   const lastAct = new Map(); for (const e of activityFeed()) if (!lastAct.has(e.who)) lastAct.set(e.who, e.t);
   return `<section class="card act-live"><div class="row between" style="margin-bottom:10px"><div class="label" style="margin:0">Nell'app adesso</div><span class="pill plain num"><span class="h3-dot"></span>${on.length}</span></div>
-    ${on.length ? on.map(({ m, i }) => `<div class="li act-on">${avatar(m, "sm")}<div class="grow"><div class="t">${esc(m.id === ME ? "Tu" : m.name)}</div><div class="small muted">${esc(i.where || "Nell'app")}${i.at ? ` · da ${agoShort(i.at).replace(" fa", "")}` : ""}</div></div><span class="act-dot"></span></div>`).join("") : `<div class="small muted">Nessuno in questo momento.</div>`}
+    ${on.length ? on.map(({ m, i }) => `<div class="li act-on">${avatar(m, "sm")}<div class="grow"><div class="t">${esc(m.id === ME ? "Tu" : m.name)}</div><div class="small muted">${esc(i.where || "Nell'app")}${SEEN.get(m.id)?.opened_at ? ` · entrato ${exactTime(SEEN.get(m.id).opened_at)}` : i.at ? ` · da ${agoShort(i.at).replace(" fa", "")}` : ""}</div></div><span class="act-dot"></span></div>`).join("") : `<div class="small muted">Nessuno in questo momento.</div>`}
   </section>
   <section class="card"><div class="label">Non collegati</div>
-    ${off.map(m => { const t = Math.max(LASTSEEN.get(m.id) || 0, lastAct.get(m.id) || 0); return `<div class="li">${avatar(m, "sm")}<div class="grow t">${esc(m.name)}</div><span class="tiny faint">${t ? `visto ${agoShort(t)}` : "nessuna attività"}</span></div>`; }).join("") || `<div class="small muted">Sono tutti dentro.</div>`}
+    ${off.map(m => { const s = SEEN.get(m.id), t = offT(m), a = lastAct.get(m.id);
+      return `<div class="li">${avatar(m, "sm")}<div class="grow"><div class="t">${esc(m.name)}</div>
+        <div class="small muted">${t ? `Ultimo accesso <b class="act-when">${exactTime(t)}</b>` : a ? `Ultima azione ${exactTime(a)}` : "Mai entrato da quando c'è il registro"}</div>
+        ${s?.dove && t ? `<div class="tiny faint">Era in ${esc(s.dove)}${s.opened_at ? ` · aveva aperto ${exactTime(s.opened_at)}` : ""}</div>` : ""}</div>
+        ${t ? `<span class="tiny faint">${agoShort(t)}</span>` : ""}</div>`; }).join("") || `<div class="small muted">Sono tutti dentro.</div>`}
   </section>`;
 }
 function activityFeedHtml() {
