@@ -38,7 +38,7 @@
   function check() {
     return fetch("blocco.json?t=" + Date.now(), { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j) apply(!!j.attivo); })
+      .then(function (j) { if (j) { window.__NOTIF_OFF = j.notifiche === false; apply(!!j.attivo); } })
       .catch(function () { /* offline: vale l'ultimo stato noto */ });
   }
   // L'app aspetta questa risposta (al massimo 3 secondi) prima di partire: così non si vede nemmeno il login.

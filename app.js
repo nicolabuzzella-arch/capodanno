@@ -1882,6 +1882,8 @@ async function disablePush() {
 }
 // Se il telefono passa a un altro account, l'iscrizione segue la persona giusta.
 async function syncPush() {
+  // Notifiche spente per tutti dall'organizzatore (blocco.json): il telefono non si riscrive tra gli iscritti.
+  if (window.__NOTIF_OFF) return;
   if (pushState() !== "on") return;
   try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) await api.savePush(sub); } catch { /* riprova al prossimo avvio */ }
 }
